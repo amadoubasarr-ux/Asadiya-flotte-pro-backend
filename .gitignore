@@ -1,3 +1,11 @@
 node_modules/
 .env
 data/db.json.bak
+
+# Fichiers temporaires de développement / de test
+_tmp_*
+*.log
+
+# Ancienne version (JSON) — archivée, plus utilisée
+backup_old_json/
+

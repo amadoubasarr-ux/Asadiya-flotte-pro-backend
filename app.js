@@ -74,8 +74,148 @@
                     this.authToken = null;
                     localStorage.removeItem(this.SESSION_KEY);
                     this.mainTab = 'dashboard';
+                    this.publicView = 'landing';
                 },
                 // ===== FIN AUTHENTIFICATION & RÔLES =====
+
+                // ===== PAGE PUBLIQUE & TUNNEL D'INSCRIPTION (SaaS) =====
+                publicView: 'landing', // 'landing' | 'login' | 'signup'
+                publicPlans: [],
+                publicPlansLoading: false,
+                publicPlansError: '',
+                signupForm: { name: '', adminName: '', adminUsername: '', adminPassword: '', planCode: 'STARTER' },
+                signupError: '',
+                isSigningUp: false,
+                signupDone: null, // { organizationName, planName, adminUsername, trialEndsAt }
+
+                async loadPublicPlans() {
+                    this.publicPlansLoading = true;
+                    this.publicPlansError = '';
+                    try {
+                        const res = await fetch(this.apiUrl('/api/plans/public'));
+                        const data = await res.json();
+                        if (!res.ok) throw { message: (data && data.error) || 'Impossible de charger les offres.' };
+                        this.publicPlans = data || [];
+                    } catch (e) {
+                        this.publicPlansError = e.message || 'Impossible de charger les offres.';
+                    } finally {
+                        this.publicPlansLoading = false;
+                    }
+                },
+
+                showLogin() { this.publicView = 'login'; },
+                showLanding() { this.publicView = 'landing'; },
+
+                startSignup(planCode = 'STARTER') {
+                    this.signupForm = { name: '', adminName: '', adminUsername: '', adminPassword: '', planCode };
+                    this.signupError = '';
+                    this.signupDone = null;
+                    this.publicView = 'signup';
+                },
+
+                fmtPrice(n) {
+                    return (Number(n) || 0).toLocaleString('fr-FR');
+                },
+
+                signupPlanId() {
+                    const plan = this.publicPlans.find((p) => p.code === this.signupForm.planCode);
+                    return plan ? plan.id : null;
+                },
+
+                get comparisonFeatures() {
+                    const seen = [];
+                    for (const p of this.publicPlans) {
+                        for (const f of (p.features || [])) {
+                            if (!seen.includes(f)) seen.push(f);
+                        }
+                    }
+                    return seen;
+                },
+
+                async submitSignup() {
+                    this.signupError = '';
+                    const f = this.signupForm;
+                    if (!f.name || !f.adminName || !f.adminUsername || !f.adminPassword) {
+                        this.signupError = 'Tous les champs sont obligatoires.';
+                        return;
+                    }
+                    if (f.adminPassword.length < 6) {
+                        this.signupError = 'Le mot de passe doit contenir au moins 6 caractères.';
+                        return;
+                    }
+                    this.isSigningUp = true;
+                    try {
+                        const res = await fetch(this.apiUrl('/api/auth/signup'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ...f, planId: this.signupPlanId() })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            this.signupError = (data && data.error) || 'Impossible de créer le compte.';
+                            return;
+                        }
+                        this.signupDone = {
+                            organizationName: data.organization.name,
+                            planName: data.subscription.plan,
+                            adminUsername: f.adminUsername,
+                            trialEndsAt: data.subscription.endDate,
+                        };
+                        // Première connexion : on se connecte immédiatement avec les identifiants saisis.
+                        this.loginForm = { username: f.adminUsername, password: f.adminPassword };
+                        await this.login();
+                    } catch (e) {
+                        this.signupError = e.message || 'Impossible de créer le compte.';
+                    } finally {
+                        this.isSigningUp = false;
+                    }
+                },
+                // ===== FIN PAGE PUBLIQUE & TUNNEL D'INSCRIPTION =====
+
+                // ===== ABONNEMENT : ESPACE CLIENT =====
+                get clientSubscription() {
+                    return this.currentUser && this.currentUser.subscription ? this.currentUser.subscription : null;
+                },
+
+                get subscriptionActive() {
+                    const s = this.clientSubscription;
+                    return !!(s && s.subscription && ['TRIAL', 'ACTIVE', 'PAST_DUE'].includes(s.subscription.status));
+                },
+
+                get subscriptionInactive() {
+                    return !!this.clientSubscription && !this.subscriptionActive;
+                },
+
+                subscriptionStatusColor(status) {
+                    const colors = {
+                        TRIAL: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+                        ACTIVE: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+                        EXPIRED: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+                        CANCELLED: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+                        PAST_DUE: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+                    };
+                    return colors[status] || 'bg-slate-500/15 text-slate-300 border-slate-500/30';
+                },
+
+                usagePercent(used, limit) {
+                    if (limit == null) return 0;
+                    return Math.min(100, Math.round((Number(used) / Math.max(1, Number(limit))) * 100));
+                },
+
+                async renewMySubscription() {
+                    try {
+                        await this.apiFetch('/api/subscriptions/me/renew', {
+                            method: 'POST',
+                            body: JSON.stringify({ reason: 'Renouvellement depuis l\'espace client.' })
+                        });
+                        const data = await this.apiFetch('/api/auth/me');
+                        this.currentUser = data.user;
+                        alert('✅ Votre abonnement a été renouvelé avec succès.');
+                    } catch (e) {
+                        alert('Erreur : ' + (e.message || 'renouvellement impossible.'));
+                    }
+                },
+                // ===== FIN ABONNEMENT : ESPACE CLIENT =====
 
                 // ===== ESPACE SUPER ADMIN (gestion des organisations / clients) =====
                 organizations: [],
@@ -759,6 +899,9 @@
                         }
                     });
 
+                    // Charge les offres publiques pour la page tarifs (page landing).
+                    this.loadPublicPlans();
+
                     // Tente de restaurer une session existante (token JWT sauvegardé)
                     await this.restoreSession();
                 },
@@ -797,7 +940,7 @@
                     let data = null;
                     try { data = await res.json(); } catch (e) { /* pas de corps JSON */ }
                     if (!res.ok) {
-                        throw { message: (data && data.error) || `Erreur serveur (${res.status})`, conflict: data && data.conflict, status: res.status };
+                        throw { message: (data && data.error) || `Erreur serveur (${res.status})`, conflict: data && data.conflict, code: data && data.code, details: data && data.details, status: res.status };
                     }
                     return data;
                 },

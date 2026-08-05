@@ -8,6 +8,8 @@ const { config, assertProductionConfig } = require('./config');
 const { migrate } = require('./db/migrate');
 const { pool } = require('./db/pool');
 const { subscriptions } = require('./db/subscriptions');
+const { requireAuth } = require('./middleware/auth');
+const { subscriptionGuard } = require('./middleware/subscriptionGuard');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 assertProductionConfig();
@@ -66,15 +68,18 @@ app.use(express.json({ limit: config.jsonLimit }));
 
 // ===== ROUTES API =====
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/vehicles', require('./routes/vehicles'));
-app.use('/api/drivers', require('./routes/drivers'));
-app.use('/api/reservations', require('./routes/reservations'));
-app.use('/api/maintenances', require('./routes/maintenances'));
-app.use('/api/incidents', require('./routes/incidents'));
-app.use('/api/accidents', require('./routes/accidents'));
-app.use('/api/fuel-logs', require('./routes/fuel'));
+// Ressources client : authentification puis contrôle d'abonnement.
+// Les lectures restent autorisées ; les écritures sont bloquées si
+// l'abonnement est EXPIRED / CANCELLED (voir middleware/subscriptionGuard).
+app.use('/api/vehicles', requireAuth, subscriptionGuard, require('./routes/vehicles'));
+app.use('/api/drivers', requireAuth, subscriptionGuard, require('./routes/drivers'));
+app.use('/api/reservations', requireAuth, subscriptionGuard, require('./routes/reservations'));
+app.use('/api/maintenances', requireAuth, subscriptionGuard, require('./routes/maintenances'));
+app.use('/api/incidents', requireAuth, subscriptionGuard, require('./routes/incidents'));
+app.use('/api/accidents', requireAuth, subscriptionGuard, require('./routes/accidents'));
+app.use('/api/fuel-logs', requireAuth, subscriptionGuard, require('./routes/fuel'));
+app.use('/api/users', requireAuth, subscriptionGuard, require('./routes/users'));
 app.use('/api/organizations', require('./routes/organizations'));
-app.use('/api/users', require('./routes/users'));
 app.use('/api/plans', require('./routes/plans'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/analytics', require('./routes/analytics'));

@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { users, organizations } = require('../db/repositories');
+const { plans } = require('../db/subscriptions');
+const { validateOrganization } = require('../utils/validators');
 const subscriptionService = require('../services/subscriptions');
 const { requireAuth, JWT_SECRET } = require('../middleware/auth');
 const asyncHandler = require('../utils/asyncHandler');
@@ -40,6 +42,43 @@ router.get('/me', requireAuth, asyncHandler(async (req, res) => {
     const user = await users.findById(req.user.organizationId, req.user.id);
     if (!user) throw AppError.notFound('Utilisateur introuvable.');
     res.json({ user: await safeUser(user) });
+}));
+
+// ============================================================
+// Inscription libre (tunnel SaaS) — PAS de paiement pour l'instant.
+// Crée atomiquement : organisation + premier administrateur
+// + abonnement TRIAL (14 jours, plan STARTER par défaut).
+// ============================================================
+router.post('/signup', asyncHandler(async (req, res) => {
+    const data = validateOrganization(req.body || {});
+
+    const existing = await users.findByUsername(data.adminUsername);
+    if (existing) {
+        throw AppError.conflict('Cet identifiant est déjà utilisé par un autre compte.');
+    }
+
+    // Plan de départ (par défaut STARTER, période d'essai).
+    let planId = null;
+    if (req.body && req.body.planId !== undefined && req.body.planId !== null && req.body.planId !== '') {
+        const plan = await plans.findByCodeOrId(req.body.planId);
+        if (!plan) throw AppError.badRequest('Plan d\'abonnement introuvable.');
+        planId = plan.id;
+    }
+
+    const result = await organizations.createWithAdmin({
+        name: data.name,
+        adminName: data.adminName,
+        adminUsername: data.adminUsername,
+        adminPasswordHash: bcrypt.hashSync(data.adminPassword, 10),
+        planId,
+    });
+
+    res.status(201).json({
+        success: true,
+        organization: result.organization,
+        admin: result.admin,
+        subscription: result.subscription,
+    });
 }));
 
 module.exports = router;

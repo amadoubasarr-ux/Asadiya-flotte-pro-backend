@@ -219,12 +219,18 @@ function resolvePlanId(reference) {
 
 /** Active un abonnement (fin de la période d'essai, passage en ACTIVE). */
 async function activate(orgId, { planId, changedBy, reason }) {
-    let plan = planId != null ? await resolvePlanId(planId) : await subscriptions.getByOrg(orgId);
-    if (planId != null && !plan) throw AppError.badRequest('Plan introuvable.');
-    if (!plan) throw AppError.badRequest('Aucun plan à activer.');
-
     const sub = await subscriptions.getByOrg(orgId);
     if (!sub) throw AppError.notFound('Aucun abonnement pour cette organisation.');
+
+    let plan = null;
+    if (planId != null) {
+        plan = await resolvePlanId(planId);
+        if (!plan) throw AppError.badRequest('Plan introuvable.');
+    } else {
+        // Sans plan explicite : on conserve le plan courant de l'abonnement.
+        plan = sub.planId != null ? await resolvePlanId(sub.planId) : null;
+        if (!plan) throw AppError.badRequest('Aucun plan à activer.');
+    }
 
     const start = todayISO();
     const months = (plan.durationMonths != null && plan.durationMonths > 0) ? plan.durationMonths : 1;
@@ -249,11 +255,18 @@ async function activate(orgId, { planId, changedBy, reason }) {
  * paiement (Wave, Orange Money, Stripe) après confirmation d'un paiement.
  */
 async function renew(orgId, { planId, changedBy, reason }) {
-    let plan = planId != null ? await resolvePlanId(planId) : await subscriptions.getByOrg(orgId);
-    if (!plan) throw AppError.badRequest('Plan introuvable.');
-
     const sub = await subscriptions.getByOrg(orgId);
     if (!sub) throw AppError.notFound('Aucun abonnement pour cette organisation.');
+
+    let plan = null;
+    if (planId != null) {
+        plan = await resolvePlanId(planId);
+        if (!plan) throw AppError.badRequest('Plan introuvable.');
+    } else {
+        // Sans plan explicite : on renouvelle sur le plan courant.
+        plan = sub.planId != null ? await resolvePlanId(sub.planId) : null;
+        if (!plan) throw AppError.badRequest('Aucun plan à renouveler.');
+    }
 
     const months = (plan.durationMonths != null && plan.durationMonths > 0) ? plan.durationMonths : 1;
 

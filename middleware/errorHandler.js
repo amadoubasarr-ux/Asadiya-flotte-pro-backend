@@ -42,6 +42,7 @@ function errorHandler(err, req, res, _next) {
     // Erreur applicative explicite
     if (err instanceof AppError) {
         const body = { error: err.message };
+        if (err.code) body.code = err.code;
         if (err.conflict) body.conflict = err.conflict;
         if (err.details) body.details = err.details;
         return res.status(err.status).json(body);

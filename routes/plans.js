@@ -10,6 +10,12 @@ const router = express.Router();
 // frontend client affiche le plan courant) ; la gestion est réservée au
 // SUPERADMIN (console plateforme).
 
+// Plans publics (page tarifs / tunnel d'inscription, SANS authentification).
+// Doit être déclarée avant la route /:id.
+router.get('/public', asyncHandler(async (req, res) => {
+    res.json(await plans.findAllActive());
+}));
+
 router.get('/', requireAuth, asyncHandler(async (req, res) => {
     // Un compte client ne voit que les plans actifs ; le SUPERADMIN voit tout.
     const list = req.user.role === 'SUPERADMIN' ? await plans.findAll() : await plans.findAllActive();

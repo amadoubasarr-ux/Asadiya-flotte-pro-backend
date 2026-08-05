@@ -48,54 +48,357 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased">
 
     <!-- ========================================== -->
-    <!-- ÉCRAN DE CONNEXION                          -->
+    <!-- ESPACE PUBLIC (landing / tarifs / connexion /
+    <!--                    inscription)            -->
     <!-- ========================================== -->
     <template x-if="!currentUser">
-        <div class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
-            <div class="w-full max-w-sm space-y-6">
-                <div class="text-center space-y-2">
-                    <div class="bg-indigo-600 w-14 h-14 rounded-2xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center mx-auto">
-                        <i class="fa-solid fa-truck-fast text-2xl"></i>
+    <div class="min-h-screen flex flex-col bg-slate-950">
+
+        <!-- NAVIGATION PUBLIQUE -->
+        <header class="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/85 backdrop-blur-md">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center space-x-2.5">
+                    <div class="bg-indigo-600 w-10 h-10 rounded-xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center">
+                        <i class="fa-solid fa-truck-fast text-lg"></i>
                     </div>
-                    <h1 class="font-extrabold text-xl text-white">Asadiya Flotte <span class="text-indigo-400">PRO</span></h1>
-                    <p class="text-xs text-slate-400">Connectez-vous pour accéder à votre espace</p>
+                    <div>
+                        <h1 class="font-extrabold text-base text-white">Asadiya Flotte <span class="text-indigo-400">PRO</span></h1>
+                        <p class="text-[10px] text-slate-400 font-medium">Gestion intelligente de flotte automobile</p>
+                    </div>
                 </div>
+                <div class="flex items-center gap-2">
+                    <button @click="showLogin()" class="text-xs font-semibold text-slate-300 hover:text-white px-4 py-2 rounded-xl hover:bg-slate-800 transition">
+                        <i class="fa-solid fa-right-to-bracket mr-1"></i>Se connecter
+                    </button>
+                    <button @click="startSignup()" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl transition">
+                        Créer un compte
+                    </button>
+                </div>
+            </div>
+        </header>
 
-                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl">
-                    <div class="space-y-3 text-xs">
-                        <div>
-                            <label class="block text-slate-400 mb-1">Identifiant</label>
-                            <input type="text" x-model="loginForm.username" @keydown.enter="login()" placeholder="admin / gestionnaire / conducteur" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        </div>
-                        <div>
-                            <label class="block text-slate-400 mb-1">Mot de passe</label>
-                            <input type="password" x-model="loginForm.password" @keydown.enter="login()" placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        </div>
-                        <p x-show="loginError" x-text="loginError" class="text-rose-400 text-[11px] font-semibold"></p>
-                        <button @click="login()" :disabled="isLoggingIn" :class="isLoggingIn ? 'opacity-60 cursor-not-allowed' : 'hover:bg-indigo-500'" class="w-full bg-indigo-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-                            <i x-show="isLoggingIn" class="fa-solid fa-spinner fa-spin"></i>
-                            <span x-text="isLoggingIn ? 'Connexion en cours...' : 'Se connecter'"></span>
+        <main class="flex-grow w-full">
+
+            <!-- ===== PAGE D'ACCUEIL / TARIFS ===== -->
+            <div x-show="publicView === 'landing'" class="max-w-7xl mx-auto px-4 md:px-6 space-y-16 py-12">
+
+                <!-- HERO -->
+                <section class="text-center space-y-6 pt-4 md:pt-10">
+                    <span class="inline-flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold px-3 py-1.5 rounded-full">
+                        <i class="fa-solid fa-sparkles"></i> Nouvelle version SaaS multi-entreprises
+                    </span>
+                    <h1 class="text-3xl md:text-5xl font-extrabold text-white leading-tight max-w-3xl mx-auto">
+                        Pilotez toute votre flotte, <span class="text-indigo-400">sans effort.</span>
+                    </h1>
+                    <p class="text-sm md:text-base text-slate-400 max-w-2xl mx-auto">
+                        Tableau de bord, alertes vidanges, planning, carburant, signalements et accidents…
+                        Asadiya Flotte PRO centralise la gestion de votre parc dans une interface moderne et claire.
+                    </p>
+                    <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+                        <button @click="startSignup()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-lg shadow-indigo-500/25 transition">
+                            <i class="fa-solid fa-user-plus mr-2"></i>Créer un compte gratuit
                         </button>
+                        <a href="#tarifs" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm px-6 py-3 rounded-xl transition">
+                            Voir les tarifs
+                        </a>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Essai gratuit de 14 jours — sans carte bancaire.</p>
+                </section>
+
+                <!-- FONCTIONNALITÉS -->
+                <section class="space-y-6">
+                    <div class="text-center space-y-2">
+                        <h2 class="text-2xl font-extrabold text-white">Tout le nécessaire pour votre parc</h2>
+                        <p class="text-xs text-slate-500">Des fonctionnalités pensées pour les flottes de 5 à 500+ véhicules.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center"><i class="fa-solid fa-chart-pie"></i></div>
+                            <h3 class="text-sm font-bold text-white">Tableau de bord &amp; KPIs</h3>
+                            <p class="text-xs text-slate-400 leading-relaxed">Disponibilité, coûts, Fleet Health Score et graphiques en temps réel.</p>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center"><i class="fa-solid fa-oil-can"></i></div>
+                            <h3 class="text-sm font-bold text-white">Alertes vidanges &amp; entretien</h3>
+                            <p class="text-xs text-slate-400 leading-relaxed">Suivi préventif des vidanges et des échéances par véhicule.</p>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center"><i class="fa-solid fa-calendar-days"></i></div>
+                            <h3 class="text-sm font-bold text-white">Planning &amp; réservations</h3>
+                            <p class="text-xs text-slate-400 leading-relaxed">Missions planifiées avec détection automatique des conflits.</p>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center"><i class="fa-solid fa-gas-pump"></i></div>
+                            <h3 class="text-sm font-bold text-white">Carburant</h3>
+                            <p class="text-xs text-slate-400 leading-relaxed">Pleins, coûts et consommation moyenne (L/100 km) par véhicule.</p>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <h3 class="text-sm font-bold text-white">Signalements &amp; accidents</h3>
+                            <p class="text-xs text-slate-400 leading-relaxed">Pannes, incidents et dossiers d'assurance suivis de bout en bout.</p>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center"><i class="fa-solid fa-file-shield"></i></div>
+                            <h3 class="text-sm font-bold text-white">Documents &amp; permis</h3>
+                            <p class="text-xs text-slate-400 leading-relaxed">Alertes sur les assurances, cartes grises, contrôles techniques et permis.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TARIFS -->
+                <section id="tarifs" class="scroll-mt-24 space-y-6">
+                    <div class="text-center space-y-2">
+                        <h2 class="text-2xl font-extrabold text-white">Offres simples et évolutives</h2>
+                        <p class="text-xs text-slate-500">Commencez en Starter et changez de plan quand votre flotte grandit.</p>
                     </div>
 
-                    <div class="border-t border-slate-800 pt-4 space-y-2">
-                        <p class="text-[10px] text-slate-500 font-semibold uppercase text-center">Comptes de démonstration</p>
-                        <button @click="quickLogin('admin')" class="w-full flex justify-between items-center bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2.5 text-[11px] transition">
-                            <span class="flex items-center gap-2 text-slate-200"><i class="fa-solid fa-user-shield text-indigo-400"></i> Administrateur</span>
-                            <span class="text-slate-500 font-mono">admin / admin123</span>
+                    <div x-show="publicPlansLoading" class="text-center text-slate-400 text-sm py-10">
+                        <i class="fa-solid fa-spinner fa-spin text-xl"></i>
+                        <p class="mt-2">Chargement des offres...</p>
+                    </div>
+                    <p x-show="publicPlansError" class="text-center text-rose-400 text-xs" x-text="publicPlansError"></p>
+
+                    <div x-show="!publicPlansLoading && publicPlans.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+                        <template x-for="plan in publicPlans" :key="plan.id">
+                            <div class="relative bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col transition hover:border-indigo-500/50"
+                                 :class="plan.code === 'PRO' ? 'border-indigo-500/50 ring-1 ring-indigo-500/30 md:-mt-2 md:mb-2' : ''">
+                                <span x-show="plan.code === 'PRO'" class="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap">
+                                    <i class="fa-solid fa-crown mr-1"></i>POPULAIRE
+                                </span>
+                                <h3 class="text-sm font-bold text-white uppercase tracking-wider" x-text="plan.name"></h3>
+                                <p class="mt-1 text-[11px] text-slate-400 leading-relaxed" x-text="plan.description"></p>
+                                <div class="mt-4 flex items-baseline gap-1">
+                                    <span class="text-3xl font-extrabold text-white font-mono" x-text="fmtPrice(plan.monthlyPrice)"></span>
+                                    <span class="text-xs text-slate-500">FCFA / mois</span>
+                                </div>
+                                <p class="mt-1 text-[11px] text-slate-500">
+                                    <span x-show="plan.maxVehicles" x-text="'Jusqu\'à ' + fmtNum(plan.maxVehicles) + ' véhicules'"></span>
+                                    <span x-show="!plan.maxVehicles">Véhicules illimités</span>
+                                    <span> · </span>
+                                    <span x-show="plan.maxUsers" x-text="fmtNum(plan.maxUsers) + ' utilisateurs'"></span>
+                                    <span x-show="!plan.maxUsers">Utilisateurs illimités</span>
+                                </p>
+                                <ul class="mt-4 space-y-2 text-xs flex-grow">
+                                    <template x-for="f in plan.features" :key="f">
+                                        <li class="flex items-start gap-2 text-slate-300">
+                                            <i class="fa-solid fa-circle-check text-emerald-400 mt-0.5 text-[10px]"></i>
+                                            <span x-text="f"></span>
+                                        </li>
+                                    </template>
+                                </ul>
+                                <button @click="startSignup(plan.code)" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-xl transition">
+                                    Créer un compte
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </section>
+
+                <!-- COMPARAISON -->
+                <section class="space-y-6">
+                    <div class="text-center space-y-2">
+                        <h2 class="text-2xl font-extrabold text-white">Comparer les offres</h2>
+                        <p class="text-xs text-slate-500">Le détail des limites et fonctionnalités de chaque plan.</p>
+                    </div>
+                    <div x-show="publicPlans.length > 0" class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden overflow-x-auto">
+                        <table class="w-full text-left text-xs min-w-[640px]">
+                            <thead>
+                                <tr class="text-slate-500 border-b border-slate-800 bg-slate-950/40">
+                                    <th class="px-5 py-3 font-semibold">Fonctionnalité</th>
+                                    <template x-for="plan in publicPlans" :key="'cmp-h-' + plan.id">
+                                        <th class="px-4 py-3 font-bold text-slate-200 text-center" :class="plan.code === 'PRO' ? 'text-indigo-300' : ''" x-text="plan.name"></th>
+                                    </template>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-slate-800/60">
+                                    <td class="px-5 py-3 text-slate-300">Prix mensuel</td>
+                                    <template x-for="plan in publicPlans" :key="'cmp-p-' + plan.id">
+                                        <td class="px-4 py-3 text-center font-mono font-bold text-white" x-text="fmtPrice(plan.monthlyPrice) + ' F'"></td>
+                                    </template>
+                                </tr>
+                                <tr class="border-b border-slate-800/60">
+                                    <td class="px-5 py-3 text-slate-300">Véhicules maximum</td>
+                                    <template x-for="plan in publicPlans" :key="'cmp-v-' + plan.id">
+                                        <td class="px-4 py-3 text-center text-slate-200" x-text="plan.maxVehicles ? fmtNum(plan.maxVehicles) : 'Illimité'"></td>
+                                    </template>
+                                </tr>
+                                <tr class="border-b border-slate-800/60">
+                                    <td class="px-5 py-3 text-slate-300">Utilisateurs maximum</td>
+                                    <template x-for="plan in publicPlans" :key="'cmp-u-' + plan.id">
+                                        <td class="px-4 py-3 text-center text-slate-200" x-text="plan.maxUsers ? fmtNum(plan.maxUsers) : 'Illimité'"></td>
+                                    </template>
+                                </tr>
+                                <template x-for="feat in comparisonFeatures" :key="'cmp-r-' + feat">
+                                    <tr class="border-b border-slate-800/60">
+                                        <td class="px-5 py-3 text-slate-300" x-text="feat"></td>
+                                        <template x-for="plan in publicPlans" :key="'cmp-c-' + plan.id + '-' + feat">
+                                            <td class="px-4 py-3 text-center">
+                                                <template x-if="(plan.features || []).includes(feat)">
+                                                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                                                </template>
+                                                <template x-if="!(plan.features || []).includes(feat)">
+                                                    <span class="text-slate-600">—</span>
+                                                </template>
+                                            </td>
+                                        </template>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- APPEL À L'ACTION FINAL -->
+                <section class="bg-gradient-to-r from-indigo-900/50 via-slate-900 to-indigo-950 border border-indigo-500/20 rounded-3xl p-8 md:p-12 text-center space-y-4">
+                    <h2 class="text-2xl md:text-3xl font-extrabold text-white">Prêt à moderniser la gestion de votre flotte ?</h2>
+                    <p class="text-sm text-slate-400 max-w-xl mx-auto">
+                        Créez votre compte en 2 minutes : votre entreprise, votre administrateur, et c'est parti.
+                        Période d'essai de 14 jours offerte.
+                    </p>
+                    <button @click="startSignup()" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-8 py-3.5 rounded-xl shadow-lg shadow-indigo-500/25 transition">
+                        <i class="fa-solid fa-user-plus"></i>Créer un compte gratuit
+                    </button>
+                </section>
+            </div>
+
+            <!-- ===== ÉCRAN DE CONNEXION ===== -->
+            <div x-show="publicView === 'login'" class="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" x-cloak>
+                <div class="w-full max-w-sm space-y-6">
+                    <div class="text-center space-y-2">
+                        <button @click="showLanding()" class="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition">
+                            <i class="fa-solid fa-arrow-left"></i> Retour à l'accueil
                         </button>
-                        <button @click="quickLogin('gestionnaire')" class="w-full flex justify-between items-center bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2.5 text-[11px] transition">
-                            <span class="flex items-center gap-2 text-slate-200"><i class="fa-solid fa-user-tie text-amber-400"></i> Gestionnaire</span>
-                            <span class="text-slate-500 font-mono">gestionnaire / gest123</span>
-                        </button>
-                        <button @click="quickLogin('conducteur')" class="w-full flex justify-between items-center bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2.5 text-[11px] transition">
-                            <span class="flex items-center gap-2 text-slate-200"><i class="fa-solid fa-user text-emerald-400"></i> Conducteur</span>
-                            <span class="text-slate-500 font-mono">conducteur / cond123</span>
-                        </button>
+                        <div class="bg-indigo-600 w-14 h-14 rounded-2xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center mx-auto mt-2">
+                            <i class="fa-solid fa-truck-fast text-2xl"></i>
+                        </div>
+                        <h1 class="font-extrabold text-xl text-white">Asadiya Flotte <span class="text-indigo-400">PRO</span></h1>
+                        <p class="text-xs text-slate-400">Connectez-vous pour accéder à votre espace</p>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl">
+                        <div class="space-y-3 text-xs">
+                            <div>
+                                <label class="block text-slate-400 mb-1">Identifiant</label>
+                                <input type="text" x-model="loginForm.username" @keydown.enter="login()" placeholder="admin / gestionnaire / conducteur" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-slate-400 mb-1">Mot de passe</label>
+                                <input type="password" x-model="loginForm.password" @keydown.enter="login()" placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <p x-show="loginError" x-text="loginError" class="text-rose-400 text-[11px] font-semibold"></p>
+                            <button @click="login()" :disabled="isLoggingIn" :class="isLoggingIn ? 'opacity-60 cursor-not-allowed' : 'hover:bg-indigo-500'" class="w-full bg-indigo-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                                <i x-show="isLoggingIn" class="fa-solid fa-spinner fa-spin"></i>
+                                <span x-text="isLoggingIn ? 'Connexion en cours...' : 'Se connecter'"></span>
+                            </button>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-4 space-y-2">
+                            <p class="text-[10px] text-slate-500 font-semibold uppercase text-center">Comptes de démonstration</p>
+                            <button @click="quickLogin('admin')" class="w-full flex justify-between items-center bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2.5 text-[11px] transition">
+                                <span class="flex items-center gap-2 text-slate-200"><i class="fa-solid fa-user-shield text-indigo-400"></i> Administrateur</span>
+                                <span class="text-slate-500 font-mono">admin / admin123</span>
+                            </button>
+                            <button @click="quickLogin('gestionnaire')" class="w-full flex justify-between items-center bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2.5 text-[11px] transition">
+                                <span class="flex items-center gap-2 text-slate-200"><i class="fa-solid fa-user-tie text-amber-400"></i> Gestionnaire</span>
+                                <span class="text-slate-500 font-mono">gestionnaire / gest123</span>
+                            </button>
+                            <button @click="quickLogin('conducteur')" class="w-full flex justify-between items-center bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2.5 text-[11px] transition">
+                                <span class="flex items-center gap-2 text-slate-200"><i class="fa-solid fa-user text-emerald-400"></i> Conducteur</span>
+                                <span class="text-slate-500 font-mono">conducteur / cond123</span>
+                            </button>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3 text-center">
+                            <p class="text-[11px] text-slate-500">Pas encore de compte ?
+                                <button @click="startSignup()" class="text-indigo-400 hover:text-indigo-300 font-bold">Créer un compte</button>
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            <!-- ===== TUNNEL D'INSCRIPTION ===== -->
+            <div x-show="publicView === 'signup'" class="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" x-cloak>
+                <div class="w-full max-w-md space-y-6">
+                    <div class="text-center space-y-2">
+                        <button @click="showLanding()" class="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition">
+                            <i class="fa-solid fa-arrow-left"></i> Retour à l'accueil
+                        </button>
+                        <div class="bg-indigo-600 w-14 h-14 rounded-2xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center mx-auto mt-2">
+                            <i class="fa-solid fa-user-plus text-2xl"></i>
+                        </div>
+                        <h1 class="font-extrabold text-xl text-white">Créer votre compte</h1>
+                        <p class="text-xs text-slate-400">Essai gratuit de 14 jours — sans carte bancaire.</p>
+                    </div>
+
+                    <!-- Confirmation de création -->
+                    <div x-show="signupDone" class="bg-emerald-950/40 border border-emerald-500/30 rounded-3xl p-6 space-y-3 shadow-2xl text-center">
+                        <i class="fa-solid fa-circle-check text-emerald-400 text-3xl"></i>
+                        <h2 class="font-extrabold text-white">Compte créé avec succès !</h2>
+                        <p class="text-xs text-slate-400">
+                            L'entreprise <span class="text-white font-bold" x-text="signupDone.organizationName"></span>
+                            est inscrite au plan <span class="text-white font-bold" x-text="signupDone.planName"></span>
+                            en période d'essai jusqu'au <span class="text-white font-bold" x-text="signupDone.trialEndsAt"></span>.
+                        </p>
+                        <button @click="login()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-xl transition">
+                            Accéder à mon espace
+                        </button>
+                    </div>
+
+                    <!-- Formulaire d'inscription -->
+                    <div x-show="!signupDone" class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl">
+                        <div class="space-y-3 text-xs">
+                            <div>
+                                <label class="block text-slate-400 mb-1">Entreprise / Organisation <span class="text-rose-400">*</span></label>
+                                <input type="text" x-model="signupForm.name" placeholder="ex: Transport Ndiaye SARL" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+
+                            <div>
+                                <label class="block text-slate-400 mb-1">Votre plan</label>
+                                <select x-model="signupForm.planCode" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                    <template x-for="plan in publicPlans" :key="'signup-plan-' + plan.id">
+                                        <option :value="plan.code" x-text="plan.name + ' — ' + fmtPrice(plan.monthlyPrice) + ' FCFA/mois'"></option>
+                                    </template>
+                                </select>
+                            </div>
+
+                            <div class="pt-2 border-t border-slate-800">
+                                <p class="text-slate-400 mb-2 font-semibold">Premier compte Administrateur</p>
+                            </div>
+                            <div>
+                                <label class="block text-slate-400 mb-1">Nom complet</label>
+                                <input type="text" x-model="signupForm.adminName" placeholder="ex: Cheikh Ndiaye" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-slate-400 mb-1">Identifiant</label>
+                                    <input type="text" x-model="signupForm.adminUsername" placeholder="ex: ndiaye_admin" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-slate-400 mb-1">Mot de passe</label>
+                                    <input type="password" x-model="signupForm.adminPassword" placeholder="min. 6 caractères" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                </div>
+                            </div>
+                            <p x-show="signupError" x-text="signupError" class="text-rose-400 text-[11px] font-semibold"></p>
+                        </div>
+                        <button @click="submitSignup()" :disabled="isSigningUp" :class="isSigningUp ? 'opacity-60 cursor-not-allowed' : 'hover:bg-indigo-500'" class="w-full bg-indigo-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                            <i x-show="isSigningUp" class="fa-solid fa-spinner fa-spin"></i>
+                            <span x-text="isSigningUp ? 'Création du compte...' : 'Créer mon compte'"></span>
+                        </button>
+                        <p class="text-center text-[10px] text-slate-500">
+                            En créant un compte, vous acceptez l'utilisation de vos données conformément à notre politique de confidentialité.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="border-t border-slate-800 py-5 text-center text-[11px] text-slate-500">
+            © 2026 Asadiya Flotte PRO — Gestion intelligente de flotte automobile.
+            <span class="text-slate-600">Essai gratuit de 14 jours, puis à partir de 15 000 FCFA / mois.</span>
+        </footer>
+    </div>
     </template>
 
     <!-- ========================================== -->
@@ -538,6 +841,66 @@
         </div>
     </div>
 
+    <!-- BANDEAU ABONNEMENT (Phase 3.5) -->
+    <div x-show="clientSubscription" class="max-w-7xl w-full mx-auto px-4 pt-4">
+        <div class="rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-4 transition"
+             :class="subscriptionInactive ? 'bg-rose-950/40 border-rose-500/40' : 'bg-slate-900 border-slate-800'">
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-tags"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-bold text-white">
+                        Plan <span class="text-indigo-300" x-text="clientSubscription.plan.name"></span>
+                        <span class="ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold border"
+                              :class="subscriptionStatusColor(clientSubscription.subscription.status)">
+                            <i class="fa-solid" :class="subscriptionActive ? 'fa-circle-check' : 'fa-triangle-exclamation'"></i>
+                            <span x-text="clientSubscription.statusLabel"></span>
+                        </span>
+                    </p>
+                    <p class="text-[11px] text-slate-400">
+                        Expire le <span class="text-slate-200 font-semibold" x-text="clientSubscription.endDate"></span>
+                        <template x-if="clientSubscription.daysLeft != null">
+                            <span>— <span :class="clientSubscription.daysLeft <= 7 ? 'text-amber-400 font-bold' : 'text-slate-300'" x-text="clientSubscription.daysLeft + ' jour(s) restants'"></span></span>
+                        </template>
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Limites utilisées : véhicules X/Y -->
+                <div class="min-w-[140px]">
+                    <p class="text-[10px] text-slate-400 font-semibold uppercase">Véhicules utilisés</p>
+                    <p class="text-xs font-bold text-white font-mono" x-text="clientSubscription.usage.vehicles + ' / ' + (clientSubscription.limits.vehicles == null ? '∞' : clientSubscription.limits.vehicles)"></p>
+                    <div class="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full transition-all" :class="clientSubscription.limits.vehicles != null && clientSubscription.usage.vehicles >= clientSubscription.limits.vehicles ? 'bg-rose-500' : 'bg-indigo-500'"
+                             :style="'width:' + usagePercent(clientSubscription.usage.vehicles, clientSubscription.limits.vehicles) + '%'"></div>
+                    </div>
+                </div>
+                <!-- Limites utilisées : utilisateurs X/Y -->
+                <div class="min-w-[140px]">
+                    <p class="text-[10px] text-slate-400 font-semibold uppercase">Utilisateurs</p>
+                    <p class="text-xs font-bold text-white font-mono" x-text="clientSubscription.usage.users + ' / ' + (clientSubscription.limits.users == null ? '∞' : clientSubscription.limits.users)"></p>
+                    <div class="mt-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full transition-all" :class="clientSubscription.limits.users != null && clientSubscription.usage.users >= clientSubscription.limits.users ? 'bg-rose-500' : 'bg-emerald-500'"
+                             :style="'width:' + usagePercent(clientSubscription.usage.users, clientSubscription.limits.users) + '%'"></div>
+                    </div>
+                </div>
+
+                <button x-show="subscriptionInactive" @click="renewMySubscription()"
+                        class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2">
+                    <i class="fa-solid fa-rotate"></i> Renouveler maintenant
+                </button>
+            </div>
+        </div>
+
+        <!-- Alerte quand l'abonnement n'est pas en règle -->
+        <div x-show="subscriptionInactive" class="mt-2 bg-rose-950/40 border border-rose-500/40 rounded-xl px-4 py-2.5 flex items-start gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-rose-400 mt-0.5"></i>
+            <p class="text-[11px] text-rose-200" x-text="clientSubscription.alert.message"></p>
+        </div>
+    </div>
+
     <!-- CONTENU DE L'APPLICATION -->
     <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
 
@@ -573,11 +936,11 @@
                     <p class="text-sm text-slate-400 mt-1">Supervision globale et état en temps réel de votre parc automobile.</p>
                 </div>
                 <div class="flex gap-2">
-                    <button @click="openIncidentModal()" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2">
+                    <button @click="openIncidentModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : 'hover:bg-amber-500'" class="bg-amber-600 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2">
                         <i class="fa-solid fa-triangle-exclamation"></i>
                         <span>Nouveau Signalement</span>
                     </button>
-                    <button @click="openReservationModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2">
+                    <button @click="openReservationModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : 'hover:bg-indigo-500'" class="bg-indigo-600 text-white font-semibold text-xs px-3.5 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2">
                         <i class="fa-solid fa-plus"></i>
                         <span>Nouvelle Réservation</span>
                     </button>
@@ -860,7 +1223,7 @@
                     <h2 class="text-xl font-bold text-white">Parc Automobile Asadiya Flotte</h2>
                     <p class="text-xs text-slate-400">Consultez, filtrez, suivez le kilométrage et les échéances de vidange.</p>
                 </div>
-                <button x-show="canManageFleet" @click="openVehicleModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
+                <button x-show="canManageFleet" @click="openVehicleModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : 'hover:bg-indigo-500'" class="bg-indigo-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
                     + Ajouter un Véhicule
                 </button>
             </div>
@@ -1010,7 +1373,7 @@
                     <h2 class="text-xl font-bold text-white">Gestion des Conducteurs</h2>
                     <p class="text-xs text-slate-400">Gérez la liste des chauffeurs habilités à conduire les véhicules du parc.</p>
                 </div>
-                <button @click="openDriverModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
+                <button @click="openDriverModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : 'hover:bg-indigo-500'" class="bg-indigo-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
                     + Ajouter un Conducteur
                 </button>
             </div>
@@ -1061,7 +1424,7 @@
                     <h2 class="text-xl font-bold text-white">Utilisateurs de <span x-text="currentUser.organizationName"></span></h2>
                     <p class="text-xs text-slate-400">Chaque membre de votre équipe a son propre identifiant et mot de passe.</p>
                 </div>
-                <button @click="openUserModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
+                <button @click="openUserModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : 'hover:bg-indigo-500'" class="bg-indigo-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
                     + Ajouter un Utilisateur
                 </button>
             </div>

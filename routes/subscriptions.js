@@ -26,6 +26,21 @@ router.get('/me/history', requireAuth, requireOrg, asyncHandler(async (req, res)
     res.json(await history.findByOrg(req.user.organizationId));
 }));
 
+// Renouvellement demandé par le client lui-même (accessible même si
+// l'abonnement est EXPIRED — c'est le point de sortie du blocage).
+// Préparé pour être déclenché par les futurs paiements.
+router.post('/me/renew', requireAuth, requireOrg, asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    const planRef = body.planId !== undefined && body.planId !== null && body.planId !== ''
+        ? body.planId : undefined;
+    const sub = await subscriptionService.renew(req.user.organizationId, {
+        planId: planRef,
+        changedBy: req.user.id,
+        reason: body.reason || 'Renouvellement demandé par le client.',
+    });
+    res.json(sub);
+}));
+
 // ===== Côté plateforme (SUPERADMIN) =====
 
 // Liste des abonnements courants de toutes les organisations.
