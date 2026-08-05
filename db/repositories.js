@@ -1,6 +1,14 @@
 const { pool, query, withTransaction } = require('./pool');
 const { mapRow, mapRows } = require('./mappers');
 const AppError = require('../utils/AppError');
+const { config } = require('../config');
+const { subscriptions: subscriptionsRepo } = require('./subscriptions');
+
+function addDays(date, days) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+}
 
 // ============================================================
 // Tables "métier" cloisonnées par organisation (multi-tenant)
@@ -472,9 +480,11 @@ const organizations = {
     },
 
     /**
-     * Création atomique d'un client : l'organisation + son premier administrateur.
+     * Création atomique d'un client : l'organisation + son premier administrateur
+     * + son abonnement par défaut (plan STARTER, période d'essai configurable).
+     * Le plan peut être précisé via planId ; sinon le plan STARTER est utilisé.
      */
-    async createWithAdmin({ name, adminName, adminUsername, adminPasswordHash }) {
+    async createWithAdmin({ name, adminName, adminUsername, adminPasswordHash, planId = null }) {
         return withTransaction(async (client) => {
             const orgResult = await client.query(
                 `INSERT INTO organizations (name) VALUES ($1) RETURNING *`,
@@ -486,7 +496,42 @@ const organizations = {
                  VALUES ($1, $2, $3, 'ADMIN', 'Administrateur', $4) RETURNING id, username, name, role, title, organization_id, created_at`,
                 [adminUsername, adminPasswordHash, adminName, org.id]
             );
-            return { organization: org, admin: mapRow(userResult.rows[0]) };
+            const admin = mapRow(userResult.rows[0]);
+
+            // Plan par défaut : STARTER (ou celui demandé), toujours en période d'essai.
+            let plan = null;
+            if (planId) {
+                const planRes = await client.query('SELECT * FROM plans WHERE id = $1', [planId]);
+                plan = planRes.rows[0];
+            }
+            if (!plan) {
+                const planRes = await client.query(
+                    `SELECT * FROM plans WHERE code = 'STARTER' ORDER BY id LIMIT 1`
+                );
+                plan = planRes.rows[0];
+            }
+            if (!plan) {
+                throw AppError.internal('Aucun plan par défaut disponible.');
+            }
+
+            const start = new Date().toISOString().slice(0, 10);
+            const end = addDays(start, config.trialDays);
+            const subscription = await subscriptionsRepo.createOnClient(client, org.id, {
+                planId: plan.id,
+                status: 'TRIAL',
+                startDate: start,
+                endDate: end,
+                trialEndsAt: end,
+                autoRenew: false,
+                changeType: 'TRIAL_STARTED',
+                reason: `Période d'essai de ${config.trialDays} jours.`,
+            });
+
+            return {
+                organization: org,
+                admin,
+                subscription,
+            };
         });
     },
 

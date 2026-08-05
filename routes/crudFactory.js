@@ -15,6 +15,8 @@ const AppError = require('../utils/AppError');
  *   - validate(body, { partial }) -> valide et nettoie le corps (utils/validators)
  *   - beforeCreate(body, req) -> modifie le corps avant validation
  *   - beforeUpdate(id, body, req) -> idem, pour la modification
+ *   - limitCheck(req) -> async ; permet de bloquer la création si une limite
+ *     d'abonnement est atteinte (voir services/subscriptions)
  */
 function makeCrudRouter(repo, options = {}) {
     const router = express.Router();
@@ -45,6 +47,8 @@ function makeCrudRouter(repo, options = {}) {
     router.post('/', requireAuth, requireOrg, requireRole(...writeRoles), asyncHandler(async (req, res) => {
         let body = req.body || {};
         if (options.beforeCreate) body = options.beforeCreate(body, req) || body;
+        // Contrôle des limites d'abonnement (ex: max véhicules du plan)
+        if (options.limitCheck) await options.limitCheck(req);
         // L'organisation est toujours imposée par le serveur (jamais par le client)
         body = validate(body);
         const item = await repo.create(req.user.organizationId, body);

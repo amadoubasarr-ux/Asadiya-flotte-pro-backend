@@ -23,6 +23,35 @@ const config = {
     // HTTP
     jsonLimit: process.env.JSON_LIMIT || '15mb',
     corsOrigin: process.env.CORS_ORIGIN || '*',
+
+    // Revenu récurrent estimé (MRR) : prix mensuel par véhicule utilisé comme
+    // fallback quand un client n'a pas encore d'abonnement explicite.
+    platformPricePerVehicle: parseIntEnv('PLATFORM_PRICE_PER_VEHICLE', 5000),
+
+    // Abonnements SaaS
+    // Durée de la période d'essai accordée aux nouveaux clients (en jours).
+    trialDays: parseIntEnv('TRIAL_DAYS', 14),
+
+    // Paiement : architecture préparée pour les futurs intégrations.
+    // Aucun paiement n'est encore traité : ces champs sont des placeholders.
+    billing: {
+        // provider: 'none' | 'wave' | 'orange_money' | 'stripe'
+        provider: process.env.BILLING_PROVIDER || 'none',
+        wave: {
+            apiUrl: process.env.WAVE_API_URL || '',
+            secret: process.env.WAVE_API_SECRET || '',
+        },
+        orangeMoney: {
+            apiUrl: process.env.ORANGE_MONEY_API_URL || '',
+            clientId: process.env.ORANGE_MONEY_CLIENT_ID || '',
+            clientSecret: process.env.ORANGE_MONEY_CLIENT_SECRET || '',
+        },
+        stripe: {
+            secretKey: process.env.STRIPE_SECRET_KEY || '',
+            webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+            pricePrefix: process.env.STRIPE_PRICE_PREFIX || 'asadiya_',
+        },
+    },
 };
 
 /**

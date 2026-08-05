@@ -49,6 +49,7 @@
                         this.mainTab = 'dashboard';
                         if (this.isSuperAdmin) {
                             await this.loadOrganizations();
+                            await this.loadSuperAdminStats();
                         } else {
                             await this.loadAllData();
                             setTimeout(() => this.initCharts(), 150);
@@ -82,6 +83,9 @@
                 showOrgModal: false,
                 newOrg: { name: '', adminName: '', adminUsername: '', adminPassword: '' },
                 orgError: '',
+                orgSearch: '',
+                superadminStats: null,
+                isLoadingSuperAdmin: false,
 
                 async loadOrganizations() {
                     this.isLoadingOrgs = true;
@@ -92,6 +96,45 @@
                     } finally {
                         this.isLoadingOrgs = false;
                     }
+                },
+
+                // Statistiques globales de la plateforme (dashboard SuperAdmin premium)
+                async loadSuperAdminStats() {
+                    this.isLoadingSuperAdmin = true;
+                    try {
+                        this.superadminStats = await this.apiFetch('/api/analytics/superadmin/stats');
+                        setTimeout(() => this.initSuperAdminCharts(), 150);
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        this.isLoadingSuperAdmin = false;
+                    }
+                },
+
+                async refreshSuperAdmin() {
+                    await Promise.all([this.loadOrganizations(), this.loadSuperAdminStats()]);
+                },
+
+                get filteredOrganizations() {
+                    const q = (this.orgSearch || '').trim().toLowerCase();
+                    const list = (this.superadminStats && this.superadminStats.organizations) || this.organizations || [];
+                    if (!q) return list;
+                    return list.filter(o => (o.name || '').toLowerCase().includes(q));
+                },
+
+                fmtNum(n) {
+                    return (Number(n) || 0).toLocaleString('fr-FR');
+                },
+
+                fmtMoney(n) {
+                    return (Number(n) || 0).toLocaleString('fr-FR') + ' FCFA';
+                },
+
+                healthBadge(score) {
+                    if (score == null) return { label: '—', cls: 'bg-slate-800 text-slate-400' };
+                    if (score >= 85) return { label: 'Excellent', cls: 'bg-emerald-500/15 text-emerald-400' };
+                    if (score >= 70) return { label: 'Bon', cls: 'bg-amber-500/15 text-amber-400' };
+                    return { label: 'À surveiller', cls: 'bg-rose-500/15 text-rose-400' };
                 },
 
                 openOrgModal() {
@@ -117,7 +160,7 @@
                             })
                         });
                         this.showOrgModal = false;
-                        await this.loadOrganizations();
+                        await this.refreshSuperAdmin();
                     } catch (e) {
                         this.orgError = e.message || 'Impossible de créer le client.';
                     }
@@ -127,7 +170,7 @@
                     if (!confirm(`⚠️ Supprimer définitivement le client "${name}" ?\n\nToutes ses données (véhicules, conducteurs, utilisateurs, historique...) seront perdues irrémédiablement.`)) return;
                     try {
                         await this.apiFetch('/api/organizations/' + id, { method: 'DELETE' });
-                        await this.loadOrganizations();
+                        await this.refreshSuperAdmin();
                     } catch (e) {
                         alert('Erreur : ' + (e.message || 'suppression impossible.'));
                     }
@@ -276,6 +319,9 @@
                 chartTopVehicles: null,
                 chartOilChanges: null,
                 chartFuelConsumers: null,
+                chartOrgGrowth: null,
+                chartMrr: null,
+                chartFleetByOrg: null,
 
                 // Intervalle standard de vidange (km)
                 oilChangeInterval: 10000,
@@ -796,6 +842,7 @@
                         this.currentUser = data.user;
                         if (this.isSuperAdmin) {
                             await this.loadOrganizations();
+                            await this.loadSuperAdminStats();
                         } else {
                             await this.loadAllData();
                             setTimeout(() => this.initCharts(), 150);
@@ -1052,6 +1099,115 @@
                         }
                         } catch (e) { console.error('Erreur graphique Top Consommateurs Carburant:', e); }
 
+                    });
+                },
+
+                // Graphiques du dashboard plateforme (SuperAdmin)
+                initSuperAdminCharts() {
+                    this.$nextTick(() => {
+                        const stats = this.superadminStats;
+                        if (!stats || !stats.charts) return;
+                        const tickStyle = { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', size: 10 } };
+                        const gridStyle = { color: '#334155' };
+
+                        // 1. Croissance des clients (12 derniers mois)
+                        try {
+                            const ctxGrowth = document.getElementById('orgGrowthChart');
+                            if (ctxGrowth) {
+                                if (this.chartOrgGrowth) this.chartOrgGrowth.destroy();
+                                this.chartOrgGrowth = new Chart(ctxGrowth, {
+                                    type: 'line',
+                                    data: {
+                                        labels: stats.charts.orgGrowth.labels,
+                                        datasets: [{
+                                            label: 'Clients créés',
+                                            data: stats.charts.orgGrowth.data,
+                                            borderColor: '#6366f1',
+                                            backgroundColor: 'rgba(99,102,241,0.15)',
+                                            fill: true,
+                                            tension: 0.35,
+                                            pointRadius: 3,
+                                            pointBackgroundColor: '#6366f1'
+                                        }]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        plugins: { legend: { display: false } },
+                                        scales: {
+                                            x: { ticks: tickStyle, grid: { display: false } },
+                                            y: { ticks: tickStyle, grid: gridStyle, beginAtZero: true }
+                                        }
+                                    }
+                                });
+                            }
+                        } catch (e) { console.error('Erreur graphique Croissance clients:', e); }
+
+                        // 2. Évolution du MRR
+                        try {
+                            const ctxMrr = document.getElementById('mrrChart');
+                            if (ctxMrr) {
+                                if (this.chartMrr) this.chartMrr.destroy();
+                                this.chartMrr = new Chart(ctxMrr, {
+                                    type: 'line',
+                                    data: {
+                                        labels: stats.charts.mrrByMonth.labels,
+                                        datasets: [{
+                                            label: 'MRR (FCFA)',
+                                            data: stats.charts.mrrByMonth.data,
+                                            borderColor: '#10b981',
+                                            backgroundColor: 'rgba(16,185,129,0.15)',
+                                            fill: true,
+                                            tension: 0.35,
+                                            pointRadius: 3,
+                                            pointBackgroundColor: '#10b981'
+                                        }]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        plugins: { legend: { display: false } },
+                                        scales: {
+                                            x: { ticks: tickStyle, grid: { display: false } },
+                                            y: {
+                                                ticks: { ...tickStyle, callback: (v) => (Number(v) >= 1000 ? Math.round(v / 1000) + 'k' : v) },
+                                                grid: gridStyle
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                        } catch (e) { console.error('Erreur graphique MRR:', e); }
+
+                        // 3. Flotte par client
+                        try {
+                            const ctxFleet = document.getElementById('fleetByOrgChart');
+                            if (ctxFleet) {
+                                if (this.chartFleetByOrg) this.chartFleetByOrg.destroy();
+                                this.chartFleetByOrg = new Chart(ctxFleet, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: stats.charts.fleetByOrg.labels,
+                                        datasets: [{
+                                            label: 'Véhicules',
+                                            data: stats.charts.fleetByOrg.data,
+                                            backgroundColor: '#8b5cf6',
+                                            borderRadius: 8
+                                        }]
+                                    },
+                                    options: {
+                                        indexAxis: 'y',
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        plugins: { legend: { display: false } },
+                                        scales: {
+                                            x: { ticks: tickStyle, grid: gridStyle, beginAtZero: true },
+                                            y: { ticks: tickStyle, grid: { display: false } }
+                                        }
+                                    }
+                                });
+                            }
+                        } catch (e) { console.error('Erreur graphique Flotte par client:', e); }
                     });
                 },
 

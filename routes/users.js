@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { users } = require('../db/repositories');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { validateUser, VALID_ROLES } = require('../utils/validators');
+const { enforceUserLimit } = require('../services/subscriptions');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 
@@ -30,9 +31,11 @@ router.get('/', requireAuth, requireOrg, asyncHandler(async (req, res) => {
     res.json(list.map(safeUser));
 }));
 
-// Créer un utilisateur dans MA organisation (Admin uniquement)
+// Créer un utilisateur dans MA organisation (Admin uniquement).
+// Bloqué si le plan de l'organisation a atteint sa limite d'utilisateurs.
 router.post('/', requireAuth, requireOrg, requireRole('ADMIN'), asyncHandler(async (req, res) => {
     const data = validateUser(req.body || {});
+    await enforceUserLimit(req.user.organizationId);
     const existing = await users.findByUsername(data.username);
     if (existing) {
         throw AppError.conflict('Cet identifiant est déjà utilisé.');

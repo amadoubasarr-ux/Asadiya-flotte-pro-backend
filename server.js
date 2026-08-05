@@ -7,6 +7,7 @@ const path = require('path');
 const { config, assertProductionConfig } = require('./config');
 const { migrate } = require('./db/migrate');
 const { pool } = require('./db/pool');
+const { subscriptions } = require('./db/subscriptions');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 assertProductionConfig();
@@ -74,6 +75,9 @@ app.use('/api/accidents', require('./routes/accidents'));
 app.use('/api/fuel-logs', require('./routes/fuel'));
 app.use('/api/organizations', require('./routes/organizations'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/plans', require('./routes/plans'));
+app.use('/api/subscriptions', require('./routes/subscriptions'));
+app.use('/api/analytics', require('./routes/analytics'));
 
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
@@ -91,11 +95,26 @@ app.get('/', (req, res) => {
 // Gestion d'erreurs centralisée (AppError, erreurs PostgreSQL, JSON invalide)
 app.use(errorHandler);
 
+// Bascule périodique des abonnements échus en EXPIRED (toutes les 6 heures).
+const EXPIRY_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+async function refreshExpiredSubscriptions() {
+    try {
+        const count = await subscriptions.markExpired();
+        if (count > 0) console.log(`[abonnements] ${count} abonnement(s) passé(s) en EXPIRED.`);
+    } catch (err) {
+        console.error('[abonnements] Erreur lors du contrôle des expirations:', err.message);
+    }
+}
+
 async function start() {
     try {
         // Crée automatiquement les tables au démarrage (idempotent)
         await migrate();
         console.log('[db] Schéma PostgreSQL prêt.');
+
+        // Contrôle des abonnements expirés au démarrage puis périodiquement.
+        await refreshExpiredSubscriptions();
+        setInterval(refreshExpiredSubscriptions, EXPIRY_CHECK_INTERVAL_MS);
 
         const server = app.listen(config.port, () => {
             console.log(`✅ Asadiya Flotte PRO — API démarrée sur http://localhost:${config.port}`);

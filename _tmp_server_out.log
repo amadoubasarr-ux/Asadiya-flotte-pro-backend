@@ -1,0 +1,4 @@
+◇ injected env (11) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+[db] Schéma PostgreSQL prêt.
+✅ Asadiya Flotte PRO — API démarrée sur http://localhost:4000
