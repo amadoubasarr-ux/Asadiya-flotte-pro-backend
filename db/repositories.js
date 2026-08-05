@@ -103,7 +103,7 @@ const CHILD_REFS = {
     maintenances: ['vehicleId'],
     incidents: ['vehicleId', 'driverId'],
     accidents: ['vehicleId', 'driverId'],
-    fuelLogs: ['vehicleId'],
+    fuel_logs: ['vehicleId'],
     reservations: ['vehicleId', 'driverId'],
 };
 
@@ -125,7 +125,7 @@ function buildInsert(client, table, { orgId, data }) {
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
     return {
         text: `INSERT INTO ${table} (${cols}) VALUES (${placeholders}) RETURNING *`,
-        params: Object.values(row),
+        values: Object.values(row),
     };
 }
 
@@ -147,7 +147,7 @@ function buildUpdate(table, { orgId, id, data }) {
     }
     return {
         text: `UPDATE ${table} SET ${sets.join(', ')} WHERE ${where.clause} RETURNING *`,
-        params: [...params, ...where.params],
+        values: [...params, ...where.params],
     };
 }
 
@@ -238,7 +238,7 @@ const drivers = makeCrudRepo('drivers', FIELD_MAPS.drivers);
 const maintenances = makeCrudRepo('maintenances', FIELD_MAPS.maintenances);
 const incidents = makeCrudRepo('incidents', FIELD_MAPS.incidents);
 const accidents = makeCrudRepo('accidents', FIELD_MAPS.accidents);
-const fuelLogs = makeCrudRepo('fuelLogs', FIELD_MAPS.fuelLogs);
+const fuelLogs = makeCrudRepo('fuel_logs', FIELD_MAPS.fuelLogs);
 
 // ============================================================
 // Réservations (avec détection de conflit en base)

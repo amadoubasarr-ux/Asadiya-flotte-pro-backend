@@ -13,8 +13,47 @@ assertProductionConfig();
 
 const app = express();
 
-// En-têtes de sécurité de base (HSTS, X-Content-Type-Options, CSP en mode dev, ...)
-app.use(helmet());
+// En-têtes de sécurité (HSTS, X-Content-Type-Options, CSP, ...)
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            'default-src': ["'self'"],
+            // 'unsafe-eval' est requis par Alpine.js (évalue ses expressions avec new Function)
+            // et par le Play CDN de Tailwind (compilation JIT côté navigateur).
+            // Les scripts inline sont interdits : le code applicatif vit dans app.js.
+            'script-src': [
+                "'self'",
+                "'unsafe-eval'",
+                'https://cdn.tailwindcss.com',
+                'https://cdn.jsdelivr.net',
+                'https://cdnjs.cloudflare.com',
+            ],
+            // 'unsafe-inline' en style uniquement : <style> inline du HTML,
+            // attributs :style d'Alpine et CSS généré par Tailwind au runtime.
+            'style-src': [
+                "'self'",
+                "'unsafe-inline'",
+                'https://cdnjs.cloudflare.com',
+                'https://fonts.googleapis.com',
+            ],
+            'font-src': [
+                "'self'",
+                'https://cdnjs.cloudflare.com',
+                'https://fonts.gstatic.com',
+                'data:',
+            ],
+            'img-src': ["'self'", 'data:', 'blob:'],
+            'connect-src': ["'self'", 'https://cdn.tailwindcss.com'],
+            'object-src': ["'none'"],
+            'base-uri': ["'self'"],
+            'form-action': ["'self'"],
+            'frame-ancestors': ["'none'"],
+            // Désactivé : le frontend est servi en http (développement local).
+            // Sinon le navigateur forcerait /api/... vers https et casserait l'API.
+            'upgrade-insecure-requests': null,
+        },
+    },
+}));
 
 // CORS : origine restreinte en production, ouvert en développement.
 app.use(cors({
