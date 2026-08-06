@@ -966,6 +966,15 @@
                         this.incidents = incidents || [];
                         this.accidents = accidents || [];
                         this.fuelLogs = fuelLogs || [];
+                        console.log('[CHART-DIAG] loadAllData (reponses API)', {
+                            vehicles: { count: vehicles.length, premier: vehicles[0] ? { status: vehicles[0].status, mileage: vehicles[0].mileage } : null },
+                            drivers: { count: drivers.length },
+                            reservations: { count: reservations.length },
+                            maintenances: { count: maintenances.length, premier: maintenances[0] ? { type: maintenances[0].type, date: maintenances[0].date, cost: maintenances[0].cost } : null },
+                            incidents: { count: incidents.length, premier: incidents[0] ? { priority: incidents[0].priority, date: incidents[0].date } : null },
+                            accidents: { count: accidents.length, premier: accidents[0] ? { status: accidents[0].status, date: accidents[0].date } : null },
+                            fuelLogs: { count: fuelLogs.length, premier: fuelLogs[0] ? { date: fuelLogs[0].date, cost: fuelLogs[0].cost, liters: fuelLogs[0].liters, vehicle: fuelLogs[0].vehicle } : null }
+                        });
                         if (this.mainTab === 'dashboard') this.initCharts();
                     } catch (e) {
                         console.error(e);
@@ -1032,9 +1041,50 @@
                     return promise;
                 },
 
+                // DIAGNOSTIC : log détaillé pour chaque graphique (avant/après création).
+                chartDiag(name, step, ctx, labels, data, extra) {
+                    const nonNuls = (Array.isArray(data) ? data : []).filter(v => Number(v) !== 0).length;
+                    console.log('[CHART-DIAG] ' + name + ' [' + step + ']', {
+                        canvas: ctx ? {
+                            existe: true,
+                            largeur: ctx.clientWidth,
+                            hauteur: ctx.clientHeight,
+                            parentHauteur: ctx.parentElement ? ctx.parentElement.clientHeight : null
+                        } : { existe: false },
+                        labels: Array.isArray(labels) ? labels : null,
+                        labelsNonVides: Array.isArray(labels) && labels.length > 0,
+                        data: Array.isArray(data) ? data : null,
+                        dataCount: Array.isArray(data) ? data.length : 0,
+                        donneesNonNulles: nonNuls,
+                        ...(extra || {})
+                    });
+                },
+
+                _chartRaw(inst) {
+                    return (typeof window.Alpine !== 'undefined' && typeof window.Alpine.raw === 'function') ? window.Alpine.raw(inst) : inst;
+                },
+
                 initCharts() {
                     this.loadChartLibrary().then(() => {
                     this.$nextTick(() => {
+                        this._diagInitCount = (this._diagInitCount || 0) + 1;
+                        console.log('[CHART-DIAG] initCharts appel n°' + this._diagInitCount, {
+                            mainTab: this.mainTab,
+                            dashboardPeriod: this.dashboardPeriod,
+                            chartJSCharge: typeof window.Chart,
+                            sources: {
+                                vehicles: this.vehicles.length,
+                                fuelLogs: this.fuelLogs.length,
+                                maintenances: this.maintenances.length,
+                                incidents: this.incidents.length,
+                                accidents: this.accidents.length
+                            },
+                            instancesExistantes: {
+                                fuel: !!this.chartFuel, status: !!this.chartStatus, topVehicles: !!this.chartTopVehicles,
+                                oilChanges: !!this.chartOilChanges, incidents: !!this.chartIncidents, accidents: !!this.chartAccidents,
+                                maintenance: !!this.chartMaintenance, fuelConsumers: !!this.chartFuelConsumers
+                            }
+                        });
                         // Chaque graphique est isolé dans son propre try/catch :
                         // si l'un d'eux rencontre un problème de données, les autres
                         // continuent quand même de s'afficher normalement.
@@ -1043,8 +1093,9 @@
                         try {
                         const ctxFuel = document.getElementById('fuelChart');
                         if (ctxFuel) {
-                            if (this.chartFuel) this.chartFuel.destroy();
+                            if (this.chartFuel) this._chartRaw(this.chartFuel).destroy();
                             const fuelMonthly = this.fuelExpensesByMonth;
+                            this.chartDiag('1.Carburant', 'avant-creation', ctxFuel, fuelMonthly.labels, fuelMonthly.data, { sources: { fuelLogs: this.fuelLogs.length, periodFuelLogs: this.periodFuelLogs.length, dashboardPeriod: this.dashboardPeriod } });
                             this.chartFuel = new Chart(ctxFuel, {
                                 type: 'bar',
                                 data: {
@@ -1066,6 +1117,8 @@
                                     }
                                 }
                             });
+                            this._chartRaw(this.chartFuel).update();
+                            this.chartDiag('1.Carburant', 'apres-creation', ctxFuel, fuelMonthly.labels, fuelMonthly.data, { chartExecute: true, updateAppele: true });
                         }
                         } catch (e) { console.error('Erreur graphique Carburant:', e); }
 
@@ -1073,7 +1126,8 @@
                         try {
                         const ctxStatus = document.getElementById('statusChart');
                         if (ctxStatus) {
-                            if (this.chartStatus) this.chartStatus.destroy();
+                            if (this.chartStatus) this._chartRaw(this.chartStatus).destroy();
+                            this.chartDiag('2.Statut', 'avant-creation', ctxStatus, ['Disponibles', 'En Mission', 'En Maintenance'], [this.availableVehiclesCount, this.bookedVehiclesCount, this.maintenanceVehiclesCount], { sources: { vehicles: this.vehicles.length, available: this.availableVehiclesCount, booked: this.bookedVehiclesCount, maintenance: this.maintenanceVehiclesCount } });
                             this.chartStatus = new Chart(ctxStatus, {
                                 type: 'doughnut',
                                 data: {
@@ -1090,6 +1144,8 @@
                                     plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans' } } } }
                                 }
                             });
+                            this._chartRaw(this.chartStatus).update();
+                            this.chartDiag('2.Statut', 'apres-creation', ctxStatus, ['Disponibles', 'En Mission', 'En Maintenance'], [this.availableVehiclesCount, this.bookedVehiclesCount, this.maintenanceVehiclesCount], { chartExecute: true, updateAppele: true });
                         }
                         } catch (e) { console.error('Erreur graphique Statut Véhicules:', e); }
 
@@ -1097,8 +1153,9 @@
                         try {
                         const ctxTopVehicles = document.getElementById('topVehiclesChart');
                         if (ctxTopVehicles) {
-                            if (this.chartTopVehicles) this.chartTopVehicles.destroy();
+                            if (this.chartTopVehicles) this._chartRaw(this.chartTopVehicles).destroy();
                             const topData = this.topVehiclesData;
+                            this.chartDiag('3.TopVehicules', 'avant-creation', ctxTopVehicles, topData.labels, topData.data, { sources: { vehicles: this.vehicles.length } });
                             this.chartTopVehicles = new Chart(ctxTopVehicles, {
                                 type: 'bar',
                                 data: {
@@ -1121,6 +1178,8 @@
                                     }
                                 }
                             });
+                            this._chartRaw(this.chartTopVehicles).update();
+                            this.chartDiag('3.TopVehicules', 'apres-creation', ctxTopVehicles, topData.labels, topData.data, { chartExecute: true, updateAppele: true });
                         }
                         } catch (e) { console.error('Erreur graphique Top Véhicules:', e); }
 
@@ -1128,8 +1187,9 @@
                         try {
                         const ctxOilChanges = document.getElementById('oilChangesChart');
                         if (ctxOilChanges) {
-                            if (this.chartOilChanges) this.chartOilChanges.destroy();
+                            if (this.chartOilChanges) this._chartRaw(this.chartOilChanges).destroy();
                             const oilMonthly = this.oilChangesByMonth;
+                            this.chartDiag('4.Vidanges', 'avant-creation', ctxOilChanges, oilMonthly.labels, oilMonthly.data, { sources: { maintenances: this.maintenances.length, periodMaintenances: this.periodMaintenances.length, dashboardPeriod: this.dashboardPeriod } });
                             this.chartOilChanges = new Chart(ctxOilChanges, {
                                 type: 'line',
                                 data: {
@@ -1153,6 +1213,8 @@
                                     }
                                 }
                             });
+                            this._chartRaw(this.chartOilChanges).update();
+                            this.chartDiag('4.Vidanges', 'apres-creation', ctxOilChanges, oilMonthly.labels, oilMonthly.data, { chartExecute: true, updateAppele: true });
                         }
                         } catch (e) { console.error('Erreur graphique Vidanges:', e); }
 
@@ -1160,7 +1222,8 @@
                         try {
                         const ctxIncidents = document.getElementById('incidentsChart');
                         if (ctxIncidents) {
-                            if (this.chartIncidents) this.chartIncidents.destroy();
+                            if (this.chartIncidents) this._chartRaw(this.chartIncidents).destroy();
+                            this.chartDiag('5.Incidents', 'avant-creation', ctxIncidents, ['Haute Priorité', 'Moyenne Priorité', 'Basse Priorité'], this.incidentsPriorityCount, { sources: { incidents: this.incidents.length, periodIncidents: this.periodIncidents.length, dashboardPeriod: this.dashboardPeriod } });
                             this.chartIncidents = new Chart(ctxIncidents, {
                                 type: 'doughnut',
                                 data: {
@@ -1177,6 +1240,8 @@
                                     plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans' } } } }
                                 }
                             });
+                            this._chartRaw(this.chartIncidents).update();
+                            this.chartDiag('5.Incidents', 'apres-creation', ctxIncidents, ['Haute Priorité', 'Moyenne Priorité', 'Basse Priorité'], this.incidentsPriorityCount, { chartExecute: true, updateAppele: true });
                         }
                         } catch (e) { console.error('Erreur graphique Signalements:', e); }
 
@@ -1184,7 +1249,8 @@
                         try {
                         const ctxAccidents = document.getElementById('accidentsChart');
                         if (ctxAccidents) {
-                            if (this.chartAccidents) this.chartAccidents.destroy();
+                            if (this.chartAccidents) this._chartRaw(this.chartAccidents).destroy();
+                            this.chartDiag('6.Accidents', 'avant-creation', ctxAccidents, ['Déclaré', 'Assurance', 'Réparé'], this.accidentsStatusCount, { sources: { accidents: this.accidents.length, periodAccidents: this.periodAccidents.length, dashboardPeriod: this.dashboardPeriod } });
                             this.chartAccidents = new Chart(ctxAccidents, {
                                 type: 'bar',
                                 data: {
@@ -1206,6 +1272,8 @@
                                     }
                                 }
                             });
+                            this._chartRaw(this.chartAccidents).update();
+                            this.chartDiag('6.Accidents', 'apres-creation', ctxAccidents, ['Déclaré', 'Assurance', 'Réparé'], this.accidentsStatusCount, { chartExecute: true, updateAppele: true });
                         }
                         } catch (e) { console.error('Erreur graphique Accidents:', e); }
 
@@ -1213,8 +1281,9 @@
                         try {
                         const ctxMaintenance = document.getElementById('maintenanceChart');
                         if (ctxMaintenance) {
-                            if (this.chartMaintenance) this.chartMaintenance.destroy();
+                            if (this.chartMaintenance) this._chartRaw(this.chartMaintenance).destroy();
                             const maintMonthly = this.maintenanceCostByMonth;
+                            this.chartDiag('7.Maintenance', 'avant-creation', ctxMaintenance, maintMonthly.labels, maintMonthly.data, { sources: { maintenances: this.maintenances.length, periodMaintenances: this.periodMaintenances.length, dashboardPeriod: this.dashboardPeriod } });
                             this.chartMaintenance = new Chart(ctxMaintenance, {
                                 type: 'line',
                                 data: {
@@ -1238,6 +1307,8 @@
                                     }
                                 }
                             });
+                            this._chartRaw(this.chartMaintenance).update();
+                            this.chartDiag('7.Maintenance', 'apres-creation', ctxMaintenance, maintMonthly.labels, maintMonthly.data, { chartExecute: true, updateAppele: true });
                         }
                         } catch (e) { console.error('Erreur graphique Coût Entretiens:', e); }
 
@@ -1245,7 +1316,8 @@
                         try {
                         const ctxFuelConsumers = document.getElementById('fuelConsumersChart');
                         if (ctxFuelConsumers) {
-                            if (this.chartFuelConsumers) this.chartFuelConsumers.destroy();
+                            if (this.chartFuelConsumers) this._chartRaw(this.chartFuelConsumers).destroy();
+                            this.chartDiag('8.Consommateurs', 'avant-creation', ctxFuelConsumers, this.topFuelConsumersData.labels, this.topFuelConsumersData.data, { sources: { fuelLogs: this.fuelLogs.length, periodFuelLogs: this.periodFuelLogs.length, dashboardPeriod: this.dashboardPeriod } });
                             this.chartFuelConsumers = new Chart(ctxFuelConsumers, {
                                 type: 'bar',
                                 data: {
@@ -1268,6 +1340,8 @@
                                     }
                                 }
                             });
+                            this._chartRaw(this.chartFuelConsumers).update();
+                            this.chartDiag('8.Consommateurs', 'apres-creation', ctxFuelConsumers, this.topFuelConsumersData.labels, this.topFuelConsumersData.data, { chartExecute: true, updateAppele: true });
                         }
                         } catch (e) { console.error('Erreur graphique Top Consommateurs Carburant:', e); }
 
@@ -1283,12 +1357,22 @@
                         if (!stats || !stats.charts) return;
                         const tickStyle = { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', size: 10 } };
                         const gridStyle = { color: '#334155' };
+                        this._diagSuperInitCount = (this._diagSuperInitCount || 0) + 1;
+                        console.log('[CHART-DIAG] initSuperAdminCharts appel n°' + this._diagSuperInitCount, {
+                            chartJSCharge: typeof window.Chart,
+                            statsPresentes: !!stats,
+                            orgGrowth: { labels: stats.charts.orgGrowth.labels, data: stats.charts.orgGrowth.data },
+                            mrr: { labels: stats.charts.mrrByMonth.labels, data: stats.charts.mrrByMonth.data },
+                            fleetByOrg: { labels: stats.charts.fleetByOrg.labels, data: stats.charts.fleetByOrg.data },
+                            instancesExistantes: { orgGrowth: !!this.chartOrgGrowth, mrr: !!this.chartMrr, fleetByOrg: !!this.chartFleetByOrg }
+                        });
 
                         // 1. Croissance des clients (12 derniers mois)
                         try {
                             const ctxGrowth = document.getElementById('orgGrowthChart');
                             if (ctxGrowth) {
-                                if (this.chartOrgGrowth) this.chartOrgGrowth.destroy();
+                                if (this.chartOrgGrowth) this._chartRaw(this.chartOrgGrowth).destroy();
+                                this.chartDiag('S1.Croissance', 'avant-creation', ctxGrowth, stats.charts.orgGrowth.labels, stats.charts.orgGrowth.data);
                                 this.chartOrgGrowth = new Chart(ctxGrowth, {
                                     type: 'line',
                                     data: {
@@ -1314,6 +1398,8 @@
                                         }
                                     }
                                 });
+                                this._chartRaw(this.chartOrgGrowth).update();
+                                this.chartDiag('S1.Croissance', 'apres-creation', ctxGrowth, stats.charts.orgGrowth.labels, stats.charts.orgGrowth.data, { chartExecute: true, updateAppele: true });
                             }
                         } catch (e) { console.error('Erreur graphique Croissance clients:', e); }
 
@@ -1321,7 +1407,8 @@
                         try {
                             const ctxMrr = document.getElementById('mrrChart');
                             if (ctxMrr) {
-                                if (this.chartMrr) this.chartMrr.destroy();
+                                if (this.chartMrr) this._chartRaw(this.chartMrr).destroy();
+                                this.chartDiag('S2.MRR', 'avant-creation', ctxMrr, stats.charts.mrrByMonth.labels, stats.charts.mrrByMonth.data);
                                 this.chartMrr = new Chart(ctxMrr, {
                                     type: 'line',
                                     data: {
@@ -1350,6 +1437,8 @@
                                         }
                                     }
                                 });
+                                this._chartRaw(this.chartMrr).update();
+                                this.chartDiag('S2.MRR', 'apres-creation', ctxMrr, stats.charts.mrrByMonth.labels, stats.charts.mrrByMonth.data, { chartExecute: true, updateAppele: true });
                             }
                         } catch (e) { console.error('Erreur graphique MRR:', e); }
 
@@ -1357,7 +1446,8 @@
                         try {
                             const ctxFleet = document.getElementById('fleetByOrgChart');
                             if (ctxFleet) {
-                                if (this.chartFleetByOrg) this.chartFleetByOrg.destroy();
+                                if (this.chartFleetByOrg) this._chartRaw(this.chartFleetByOrg).destroy();
+                                this.chartDiag('S3.Flotte', 'avant-creation', ctxFleet, stats.charts.fleetByOrg.labels, stats.charts.fleetByOrg.data);
                                 this.chartFleetByOrg = new Chart(ctxFleet, {
                                     type: 'bar',
                                     data: {
@@ -1380,6 +1470,8 @@
                                         }
                                     }
                                 });
+                                this._chartRaw(this.chartFleetByOrg).update();
+                                this.chartDiag('S3.Flotte', 'apres-creation', ctxFleet, stats.charts.fleetByOrg.labels, stats.charts.fleetByOrg.data, { chartExecute: true, updateAppele: true });
                             }
                         } catch (e) { console.error('Erreur graphique Flotte par client:', e); }
                     });

@@ -18,8 +18,8 @@
 
     <script src="app.js"></script>
 
-    <!-- Alpine.js CDN avec l'attribut defer -->
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Alpine.js CDN (defer : Alpine ne démarre qu'une fois le <body> disponible) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
@@ -332,19 +332,24 @@
                         <p class="text-xs text-slate-400">Essai gratuit de 14 jours — sans carte bancaire.</p>
                     </div>
 
-                    <!-- Confirmation de création -->
-                    <div x-show="signupDone" class="bg-emerald-950/40 border border-emerald-500/30 rounded-3xl p-6 space-y-3 shadow-2xl text-center">
-                        <i class="fa-solid fa-circle-check text-emerald-400 text-3xl"></i>
-                        <h2 class="font-extrabold text-white">Compte créé avec succès !</h2>
-                        <p class="text-xs text-slate-400">
-                            L'entreprise <span class="text-white font-bold" x-text="signupDone.organizationName"></span>
-                            est inscrite au plan <span class="text-white font-bold" x-text="signupDone.planName"></span>
-                            en période d'essai jusqu'au <span class="text-white font-bold" x-text="signupDone.trialEndsAt"></span>.
-                        </p>
-                        <button @click="login()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-xl transition">
-                            Accéder à mon espace
-                        </button>
-                    </div>
+                    <!-- Confirmation de création
+                         x-if (et non x-show) : le bloc et ses x-text ne sont évalués
+                         que lorsque signupDone est non-null (évite les erreurs Alpine
+                         "Cannot read properties of null (reading '...')"). -->
+                    <template x-if="signupDone">
+                        <div class="bg-emerald-950/40 border border-emerald-500/30 rounded-3xl p-6 space-y-3 shadow-2xl text-center">
+                            <i class="fa-solid fa-circle-check text-emerald-400 text-3xl"></i>
+                            <h2 class="font-extrabold text-white">Compte créé avec succès !</h2>
+                            <p class="text-xs text-slate-400">
+                                L'entreprise <span class="text-white font-bold" x-text="signupDone.organizationName"></span>
+                                est inscrite au plan <span class="text-white font-bold" x-text="signupDone.planName"></span>
+                                en période d'essai jusqu'au <span class="text-white font-bold" x-text="signupDone.trialEndsAt"></span>.
+                            </p>
+                            <button @click="login()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-xl transition">
+                                Accéder à mon espace
+                            </button>
+                        </div>
+                    </template>
 
                     <!-- Formulaire d'inscription -->
                     <div x-show="!signupDone" class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl">
@@ -609,7 +614,7 @@
                                                 </template>
                                             </td>
                                             <td class="px-3 py-3.5">
-                                                <span x-show="org.subscription" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold bg-indigo-500/10 text-indigo-300" x-text="org.subscription.plan"></span>
+                                                <span x-show="org.subscription" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold bg-indigo-500/10 text-indigo-300" x-text="org.subscription?.plan"></span>
                                                 <span x-show="!org.subscription" class="text-[10px] text-slate-600">ESSENTIEL</span>
                                             </td>
                                             <td class="px-5 py-3.5">
@@ -851,7 +856,7 @@
                 </div>
                 <div>
                     <p class="text-xs font-bold text-white">
-                        Plan <span class="text-indigo-300" x-text="clientSubscription.plan.name"></span>
+                        Plan <span class="text-indigo-300" x-text="clientSubscription?.plan?.name"></span>
                         <span class="ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold border"
                               :class="subscriptionStatusColor(clientSubscription.subscription.status)">
                             <i class="fa-solid" :class="subscriptionActive ? 'fa-circle-check' : 'fa-triangle-exclamation'"></i>
