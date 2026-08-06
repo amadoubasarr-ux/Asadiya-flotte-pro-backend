@@ -6,10 +6,18 @@ API REST multi-tenant (JWT, rôles ADMIN / MANAGER / DRIVER / SUPERADMIN) alimen
 
 ## 1. Prérequis
 
-- Node.js 18+
-- PostgreSQL 14+ (local ou distant)
+- Node.js 18+ (développement) **ou** Docker 24+ avec Docker Compose v2 (déploiement)
+- PostgreSQL 14+ (local ou distant) — fourni automatiquement par Docker Compose
+
+> La méthode recommandée pour la production est **Docker Compose** (section 12) :
+> l'image construit l'application Node.js et Compose orchestre PostgreSQL avec
+> un volume persistant.
 
 ## 2. Installation
+
+**Déploiement en production** : suivez la section 12 (Docker Compose).
+
+Développement local :
 
 ```bash
 npm install
@@ -153,10 +161,16 @@ Le schéma est défini dans `db/migrate.js` et appliqué au démarrage.
 ├── routes/                   # Express routers (CRUD via crudFactory.js)
 ├── scripts/
 │   └── migrate-from-json.js  # Import one-time db.json -> PostgreSQL
-└── utils/
-    ├── AppError.js
-    ├── asyncHandler.js
-    └── validators.js         # Validation des corps de requête
+├── utils/
+│   ├── AppError.js
+│   ├── asyncHandler.js
+│   └── validators.js         # Validation des corps de requête
+├── Dockerfile                # Image multi-étapes, non root, HEALTHCHECK
+├── docker-compose.yml        # Pile app + PostgreSQL + volume + réseau (section 12)
+├── .dockerignore             # Exclusion des secrets/données de l'image
+├── .env.docker.example       # Modèle des variables d'environnement Docker
+└── deploy/
+    └── nginx.conf.example    # Reverse proxy Nginx (préparation, non installé)
 ```
 
 ## 11. Production
@@ -164,5 +178,144 @@ Le schéma est défini dans `db/migrate.js` et appliqué au démarrage.
 - `JWT_SECRET` aléatoire ≥ 32 caractères (`openssl rand -hex 32`) — le serveur refuse de
   démarrer sinon.
 - `NODE_ENV=production`, `CORS_ORIGIN` = origine exacte du frontend, `DB_SSL=true` si besoin.
-- Derrière un reverse proxy TLS (nginx, Caddy) avec arrêt propre (SIGINT/SIGTERM gérés).
+- Derrière un reverse proxy TLS (nginx, Caddy) avec arrêt propre (SIGINT/SIGTERM gérés) :
+  réglez `TRUST_PROXY=1` (voir `deploy/nginx.conf.example`).
 - Sauvegardes PostgreSQL régulières (`pg_dump`).
+- En production, déployez avec Docker Compose (section 12) : l'image est construite en
+  multi-étapes, s'exécute avec un utilisateur non root et intègre un HEALTHCHECK sur `/api/health`.
+
+## 12. Déploiement avec Docker (Docker Compose)
+
+La pile Docker se compose de deux services sur un réseau dédié :
+`db` (PostgreSQL 16 avec volume persistant) et `app` (l'application Node.js).
+Les migrations PostgreSQL s'exécutent **automatiquement au démarrage** de l'application
+(`db/migrate.js`), le seed des plans d'abonnement également.
+
+### 12.1 Installation de Docker
+
+- **Docker Engine 24+** : https://docs.docker.com/engine/install/
+- **Docker Compose v2** (plugin inclus avec Docker Desktop, ou paquet
+  `docker-compose-plugin` sur Linux)
+- Vérification : `docker --version` et `docker compose version`
+
+### 12.2 Configuration
+
+```bash
+cp .env.docker.example .env.docker
+# 1. Générer un JWT_SECRET fort :
+openssl rand -hex 32        # -> collez le résultat dans .env.docker (JWT_SECRET)
+# 2. Renseigner :
+#    - POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB (base de données)
+#    - CORS_ORIGIN : l'origine exacte du frontend (ex: https://flotte.example.com)
+#    - NODE_ENV=production, TRUST_PROXY=1, BILLING_PROVIDER...
+#    - APP_PORT : port exposé sur l'hôte (défaut 4000)
+```
+
+> ⚠️ `.env.docker` contient des secrets : il est ignoré par git (`.gitignore`) et
+> **exclu de l'image Docker** (`.dockerignore`). Ne jamais le commiter.
+
+### 12.3 Démarrage
+
+```bash
+docker compose --env-file .env.docker up -d --build
+```
+
+- `-d` : détaché (en arrière-plan) ; `--build` : construit l'image à la première exécution.
+- Le conteneur `app` n'attend pas : il démarre dès que `db` est sain (`pg_isready`),
+  puis `migrate()` crée le schéma et seed les plans.
+
+Vérifications :
+
+```bash
+docker compose --env-file .env.docker ps                 # les deux services doivent être "running"/"healthy"
+curl http://localhost:4000/api/health                     # -> {"status":"ok",...}
+docker compose --env-file .env.docker logs -f app         # suivi des journaux
+```
+
+Si `CORS_ORIGIN` ou `JWT_SECRET` sont invalides en `NODE_ENV=production`,
+l'application refuse de démarrer (voir les logs `app`) : corrigez `.env.docker`.
+
+### 12.4 Arrêt
+
+```bash
+docker compose --env-file .env.docker down               # arrête les conteneurs, GARDE les données
+docker compose --env-file .env.docker down -v            # arrête ET supprime le volume pgdata (⚠️ détruit les données)
+```
+
+> `down` (sans `-v`) conserve le volume `pgdata` : les données survivent.
+
+### 12.5 Mise à jour
+
+```bash
+git pull                          # récupère la nouvelle version du code
+docker compose --env-file .env.docker up -d --build      # reconstruit l'image et redémarre
+```
+
+Les migrations étant idempotentes (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`),
+elles s'appliquent automatiquement au redémarrage, sans perte de données.
+
+### 12.6 Sauvegarde des volumes (PostgreSQL)
+
+```bash
+# Dump logique de la base (recommandé, portable) — remplacez asadiya/asadiya_flotte
+# par votre POSTGRES_USER / POSTGRES_DB (défauts : asadiya / asadiya_flotte) :
+docker compose --env-file .env.docker exec db \
+  pg_dump -U asadiya asadiya_flotte > backup_$(date +%F).sql
+
+# Alternative : sauvegarde brute du volume
+#   docker run --rm -v asadiya-flotte-pro-backend_pgdata:/var/lib/postgresql/data \
+#     -v "$(pwd)":/backup alpine tar czf /backup/pgdata_$(date +%F).tar.gz \
+#     -C /var/lib/postgresql data
+```
+
+### 12.7 Restauration
+
+```bash
+# Restaurer un dump SQL dans la base (base vide au préalable) :
+docker compose --env-file .env.docker exec -T db psql -U asadiya -d asadiya_flotte < backup_2026-08-06.sql
+```
+
+Pour restaurer un dump **avec les tables déjà présentes**, utilisez
+`psql --clean --if-exists` ou créez la base avec `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`
+avant l'import. L'application recrée le schéma manquant au démarrage, mais n'efface **jamais**
+les données existantes.
+
+### 12.8 Import des données historiques (optionnel)
+
+L'image Docker n'embarque pas `data/db.json` (données clients exclues de l'image).
+Pour importer la base JSON legacy sur une base Docker **vide**, montez le fichier :
+
+```bash
+docker compose --env-file .env.docker run --rm \
+  -v "$(pwd)/data/db.json:/app/data/db.json" app npm run migrate:json
+```
+
+### 12.9 Reverse proxy (Nginx)
+
+Le projet est prêt à être servi derrière Nginx (aucun Nginx n'est installé à cette étape) :
+
+1. Réglez `TRUST_PROXY=1` dans `.env.docker` (IP réelle du client pour le rate limiting).
+2. Limitez l'exposition publique : remplacez dans `docker-compose.yml`
+   `- "${APP_PORT:-4000}:${PORT:-4000}"` par `- "127.0.0.1:${APP_PORT:-4000}:${PORT:-4000}"`
+   (le port n'est alors joignable que depuis l'hôte).
+3. Configurez Nginx selon `deploy/nginx.conf.example` (proxy vers `127.0.0.1:4000`,
+   en-têtes `X-Forwarded-*`, TLS via Let's Encrypt).
+
+### 12.10 Commandes utiles
+
+```bash
+docker compose --env-file .env.docker build              # reconstruit l'image
+docker compose --env-file .env.docker restart            # redémarre les conteneurs
+docker compose --env-file .env.docker logs -f --tail=100 app
+docker compose --env-file .env.docker exec -it app sh    # shell dans l'application (utilisateur non root)
+docker inspect asadiya-flotte-pro-backend_app --format "{{json .State.Health}}"   # état du HEALTHCHECK
+```
+
+### 12.11 Défauts connus / limites Docker
+
+- L'image s'exécute en **non-root** (`appuser`) : tout fichier écrit dans le système de
+  fichiers du conteneur y est restreint — les données applicatives vivent dans PostgreSQL.
+- `NODE_ENV=production` est appliqué par le Dockerfile **et** par `.env.docker` :
+  en cas de doute, c'est la valeur stricte (secret fort + CORS fermé) qui s'applique.
+- Le volume `pgdata` est **indispensable** à la persistance : ne lancez jamais `down -v`
+  sans sauvegarde.

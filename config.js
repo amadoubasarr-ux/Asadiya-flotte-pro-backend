@@ -5,6 +5,32 @@ function parseIntEnv(name, fallback) {
     return Number.isNaN(value) ? fallback : value;
 }
 
+// Secrets connus qui ne doivent JAMAIS être utilisés en production.
+const WEAK_JWT_SECRETS = [
+    'change-moi-en-production-asadiya-flotte-pro',
+    'change-moi',
+    'changeme',
+    'secret',
+    'password',
+];
+
+/**
+ * Parse CORS_ORIGIN : une liste de valeurs séparées par des virgules
+ * (ex: "https://flotte.example.com,https://admin.example.com").
+ * Retourne un tableau d'origines normalisées (sans slash final, minuscules).
+ */
+function parseCorsOrigins(raw) {
+    return String(raw || '*')
+        .split(',')
+        .map((o) => o.trim())
+        .filter((o) => o !== '')
+        .map((o) => (o === '*' ? '*' : o.replace(/\/+$/, '').toLowerCase()));
+}
+
+function normalizeCorsOrigins(list) {
+    return list.map((o) => (o === '*' ? '*' : o.replace(/\/+$/, '').toLowerCase()));
+}
+
 const config = {
     nodeEnv: process.env.NODE_ENV || 'development',
     port: parseIntEnv('PORT', 4000),
@@ -23,6 +49,21 @@ const config = {
     // HTTP
     jsonLimit: process.env.JSON_LIMIT || '15mb',
     corsOrigin: process.env.CORS_ORIGIN || '*',
+    // Liste d'origines autorisées (CORS_ORIGIN peut contenir plusieurs valeurs
+    // séparées par des virgules). En développement, '*' autorise tout.
+    corsOrigins: normalizeCorsOrigins(parseCorsOrigins(process.env.CORS_ORIGIN || '*')),
+
+    // Reverse proxy : nombre de sauts de proxy de confiance pour la lecture de
+    // l'adresse IP réelle du client (requis derrière nginx/Caddy pour le rate limiting).
+    trustProxy: process.env.TRUST_PROXY ? parseIntEnv('TRUST_PROXY', 0) : 0,
+
+    // Protection anti-DoS et anti force brute (rate limiting, compteur par IP).
+    // Fenêtre et nombre maximum de requêtes globales sur l'API.
+    rateLimitWindowMs: parseIntEnv('RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+    rateLimitMax: parseIntEnv('RATE_LIMIT_MAX', 300),
+    // Limite stricte sur la connexion / l'inscription (échecs uniquement).
+    loginRateLimitWindowMs: parseIntEnv('LOGIN_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
+    loginRateLimitMax: parseIntEnv('LOGIN_RATE_LIMIT_MAX', 20),
 
     // Revenu récurrent estimé (MRR) : prix mensuel par véhicule utilisé comme
     // fallback quand un client n'a pas encore d'abonnement explicite.
@@ -57,19 +98,37 @@ const config = {
 /**
  * Vérifie que la configuration est sûre pour la production.
  * À appeler au démarrage, avant de lancer le serveur.
+ * Refuse de démarrer si une valeur critique est absente, trop faible ou connue.
  */
 function assertProductionConfig() {
-    if (config.nodeEnv === 'production') {
-        if (!config.jwtSecret || config.jwtSecret.length < 32) {
-            throw new Error(
-                'JWT_SECRET doit être défini (au moins 32 caractères aléatoires) en production.'
-            );
-        }
-        if (config.corsOrigin === '*') {
-            console.warn(
-                '[config] CORS est ouvert à toutes les origines : définissez CORS_ORIGIN en production.'
-            );
-        }
+    if (config.nodeEnv !== 'production') return;
+
+    const failures = [];
+
+    if (!config.jwtSecret || config.jwtSecret.length < 32) {
+        failures.push('JWT_SECRET doit être défini (au moins 32 caractères aléatoires) en production.');
+    } else if (WEAK_JWT_SECRETS.includes(config.jwtSecret)) {
+        failures.push('JWT_SECRET est un secret de démonstration connu : remplacez-le par une chaîne aléatoire.');
+    }
+
+    // CORS : '*' (tout autoriser) est inacceptable en production.
+    if (config.corsOrigins.includes('*')) {
+        failures.push(
+            'CORS_ORIGIN est défini sur "*" : indiquez la liste exacte des origines autorisées (ex: https://flotte.example.com).'
+        );
+    } else if (config.corsOrigins.length === 0) {
+        failures.push('CORS_ORIGIN est vide : indiquez au moins une origine autorisée en production.');
+    }
+
+    // Base de données : pas de valeur par défaut locale en production.
+    if (!process.env.DATABASE_URL) {
+        failures.push('DATABASE_URL est obligatoire en production (pas de valeur par défaut).');
+    }
+
+    if (failures.length > 0) {
+        throw new Error(
+            'Configuration de production invalide :\n- ' + failures.join('\n- ')
+        );
     }
 }
 

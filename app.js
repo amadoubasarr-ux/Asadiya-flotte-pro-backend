@@ -1004,7 +1004,36 @@
                 },
                 // ===== FIN CONNEXION À L'API =====
 
+                // Garantit que Chart.js est chargé avant de créer les graphiques.
+                // Si le script CDN n'est pas encore disponible, le charge dynamiquement
+                // avec repli automatique sur un second CDN (cas de CDN bloqué/injoignable).
+                loadChartLibrary() {
+                    if (typeof window.Chart !== 'undefined') return Promise.resolve(window.Chart);
+                    if (this._chartLibPromise) return this._chartLibPromise;
+                    const fallbackUrls = [
+                        'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+                        'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js'
+                    ];
+                    const loadNext = (idx) => {
+                        if (typeof window.Chart !== 'undefined') return Promise.resolve(window.Chart);
+                        if (idx >= fallbackUrls.length) return Promise.reject(new Error('Chart.js indisponible (CDN injoignables).'));
+                        return new Promise((resolve, reject) => {
+                            const s = document.createElement('script');
+                            s.src = fallbackUrls[idx];
+                            s.async = true;
+                            s.onload = () => loadNext(idx + 1).then(resolve).catch(reject);
+                            s.onerror = () => loadNext(idx + 1).then(resolve).catch(reject);
+                            document.head.appendChild(s);
+                        });
+                    };
+                    const promise = loadNext(0);
+                    this._chartLibPromise = promise;
+                    promise.catch(() => { this._chartLibPromise = null; });
+                    return promise;
+                },
+
                 initCharts() {
+                    this.loadChartLibrary().then(() => {
                     this.$nextTick(() => {
                         // Chaque graphique est isolé dans son propre try/catch :
                         // si l'un d'eux rencontre un problème de données, les autres
@@ -1243,10 +1272,12 @@
                         } catch (e) { console.error('Erreur graphique Top Consommateurs Carburant:', e); }
 
                     });
+                    }).catch((e) => console.error('Chart.js indisponible, graphiques désactivés:', e.message));
                 },
 
                 // Graphiques du dashboard plateforme (SuperAdmin)
                 initSuperAdminCharts() {
+                    this.loadChartLibrary().then(() => {
                     this.$nextTick(() => {
                         const stats = this.superadminStats;
                         if (!stats || !stats.charts) return;
@@ -1352,6 +1383,7 @@
                             }
                         } catch (e) { console.error('Erreur graphique Flotte par client:', e); }
                     });
+                    }).catch((e) => console.error('Chart.js indisponible, graphiques désactivés:', e.message));
                 },
 
                 // ===== EXPORT DE RAPPORTS (PDF / EXCEL) =====

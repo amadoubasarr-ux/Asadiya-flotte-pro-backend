@@ -1,5 +1,6 @@
 node_modules/
 .env
+.env.docker
 data/db.json.bak
 
 # Fichiers temporaires de développement / de test

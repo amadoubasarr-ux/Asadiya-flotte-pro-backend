@@ -6,6 +6,7 @@ const { plans } = require('../db/subscriptions');
 const { validateOrganization } = require('../utils/validators');
 const subscriptionService = require('../services/subscriptions');
 const { requireAuth, JWT_SECRET } = require('../middleware/auth');
+const { config } = require('../config');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 
@@ -34,7 +35,7 @@ router.post('/login', asyncHandler(async (req, res) => {
         throw AppError.unauthorized('Identifiants incorrects.');
     }
     const payload = await safeUser(user);
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: config.jwtExpiresIn });
     res.json({ token, user: payload });
 }));
 

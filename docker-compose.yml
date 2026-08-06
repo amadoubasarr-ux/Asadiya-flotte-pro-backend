@@ -1,0 +1,75 @@
+# ============================================================
+# Asadiya Flotte PRO — Docker Compose (production-ready)
+#
+# Démarrage :
+#   cp .env.docker.example .env.docker
+#   # générez un JWT_SECRET aléatoire (openssl rand -hex 32)
+#   docker compose --env-file .env.docker up -d --build
+#
+# Les variables du fichier .env.docker sont utilisées à la fois
+# pour l'interpolation (${...}) et injectées dans le conteneur app
+# (env_file). DATABASE_URL est reconstruit ci-dessous pour pointer
+# vers le service « db » (le réseau dédié est utilisé).
+# ============================================================
+
+services:
+  # ---- PostgreSQL persistant ----
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-asadiya}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-asadiya_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-asadiya_flotte}
+    volumes:
+      # Volume nommé : les données survivent aux redémarrages / rebuilds.
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - asadiya_net
+    healthcheck:
+      # -h 127.0.0.1 force une vérification TCP (et non le socket Unix) :
+      # pendant l'init, PostgreSQL peut accepter sur le socket avant que le
+      # port 5432 n'écoute — ce qui faisait démarrer `app` trop tôt (ECONNREFUSED).
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-asadiya} -d ${POSTGRES_DB:-asadiya_flotte}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---- Application Node.js (API + frontend statique) ----
+  app:
+    build: .
+    image: asadiya-flotte-pro-backend:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        # L'application ne démarre qu'une fois PostgreSQL prêt
+        # (pg_isready OK). Les migrations tournent ensuite dans server.js.
+        condition: service_healthy
+    env_file:
+      - .env.docker
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-4000}
+      # Pointe vers le service db du réseau dédié (remplace toute valeur
+      # DATABASE_URL locale éventuelle du fichier .env.docker).
+      DATABASE_URL: postgres://${POSTGRES_USER:-asadiya}:${POSTGRES_PASSWORD:-asadiya_dev_password}@db:5432/${POSTGRES_DB:-asadiya_flotte}
+      # TLS interne désactivé : le transport est chiffré par le reverse proxy (nginx).
+      DB_SSL: "false"
+      # 1 seul saut de proxy : l'IP réelle du client est lue derrière nginx.
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+    ports:
+      # Exposé vers l'hôte (nginx sur le même hôte, ou accès direct).
+      - "${APP_PORT:-4000}:${PORT:-4000}"
+    networks:
+      - asadiya_net
+
+networks:
+  # Réseau interne dédié, isolé des autres stacks.
+  asadiya_net:
+    driver: bridge
+
+volumes:
+  # Volume persistant PostgreSQL : les données sont conservées
+  # entre les redémarrages (docker compose down) et les reconstructions.
+  pgdata:

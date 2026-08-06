@@ -10,11 +10,19 @@ const { pool } = require('./db/pool');
 const { subscriptions } = require('./db/subscriptions');
 const { requireAuth } = require('./middleware/auth');
 const { subscriptionGuard } = require('./middleware/subscriptionGuard');
+const { apiLimiter, loginLimiter } = require('./middleware/rateLimit');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 assertProductionConfig();
 
 const app = express();
+
+// Adresse IP réelle du client derrière un reverse proxy (nginx/Caddy).
+// Requis pour que le rate limiting compte correctement par IP.
+app.set('trust proxy', config.trustProxy);
+
+// Ne jamais divulguer la technologie du serveur.
+app.disable('x-powered-by');
 
 // En-têtes de sécurité (HSTS, X-Content-Type-Options, CSP, ...)
 app.use(helmet({
@@ -58,13 +66,41 @@ app.use(helmet({
     },
 }));
 
-// CORS : origine restreinte en production, ouvert en développement.
+// Permissions-Policy : aucune API navigateur sensible n'est nécessaire
+// (helmet v8 n'inclut plus ce middleware, il est ajouté manuellement).
+app.use((req, res, next) => {
+    res.setHeader(
+        'Permissions-Policy',
+        'camera=(), microphone=(), geolocation=(), payment=(), usb=(), notifications=(), fullscreen=(self)'
+    );
+    next();
+});
+
+// CORS : en production, uniquement les origines listées dans CORS_ORIGIN.
+// En développement, l'origine est réfléchie (tout est autorisé).
+const isProduction = config.nodeEnv === 'production';
 app.use(cors({
-    origin: config.nodeEnv === 'production' ? config.corsOrigin : true,
+    origin: isProduction
+        ? (origin, callback) => {
+            // Requêtes sans en-tête Origin (curl, serveur-à-serveur) : autorisées.
+            if (!origin) return callback(null, true);
+            const allowed = config.corsOrigins.some((o) => o === origin);
+            // Non autorisée : on laisse la requête passer SANS en-têtes CORS,
+            // le navigateur bloquera alors la lecture de la réponse.
+            callback(null, allowed);
+        }
+        : true,
 }));
 
 // Augmenté pour accepter les photos encodées en base64 dans les payloads JSON
 app.use(express.json({ limit: config.jsonLimit }));
+
+// ===== PROTECTION (Phase 4.1) =====
+// Limite globale anti-DoS sur toute l'API (compteur par IP).
+app.use('/api', apiLimiter);
+// Protection anti force brute : échecs de connexion / d'inscription limités.
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/signup', loginLimiter);
 
 // ===== ROUTES API =====
 app.use('/api/auth', require('./routes/auth'));
@@ -91,11 +127,30 @@ app.get('/api/health', (req, res) => {
 // Route API inconnue -> 404 JSON (plutôt qu'un fallback HTML)
 app.use('/api', notFoundHandler);
 
-// ===== SERT LE FRONTEND (fichier statique index.html) =====
-app.use(express.static(path.join(__dirname)));
+// ===== SERT LE FRONTEND (fichiers statiques publics UNIQUEMENT) =====
+// Seuls index.html et app.js sont exposés. Tout le reste du projet
+// (config.js, db/, routes/, data/db.json, node_modules/, .env, logs, tests...)
+// reste inaccessible depuis HTTP : évite la fuite du code source, des secrets
+// et des données clients.
+const PUBLIC_STATIC_FILES = new Set(['/index.html', '/app.js']);
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
+
+app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+        return next();
+    }
+    if (PUBLIC_STATIC_FILES.has(req.path)) {
+        return res.sendFile(path.join(__dirname, req.path.replace(/^\/+/, '')));
+    }
+    return next();
+});
+
+// Toute autre requête ne correspondant à aucune route -> 404 JSON propre
+// (remplace le 500 renvoyé jusqu'ici pour les chemins inconnus).
+app.use(notFoundHandler);
 
 // Gestion d'erreurs centralisée (AppError, erreurs PostgreSQL, JSON invalide)
 app.use(errorHandler);

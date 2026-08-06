@@ -1,0 +1,42 @@
+# ============================================================
+# .dockerignore — exclut tout ce qui n'est pas nécessaire au
+# runtime. Les données et fichiers sensibles ne sont JAMAIS
+# embarqués dans l'image (aucune fuite de secrets/clients).
+# ============================================================
+
+# Dépendances (réinstallées proprement pendant le build)
+node_modules/
+npm-debug.log*
+
+# Fichiers d'environnement / secrets (jamais dans l'image)
+.env
+.env.*
+
+# Données clients (source JSON legacy, base locale, uploads)
+data/
+backup_old_json/
+
+# Versionnage, IDE, outils
+.git
+.gitignore
+.github
+.vscode
+.idea
+*.md
+
+# Logs et fichiers temporaires
+*.log
+_tmp_*
+
+# Tests (non embarqués dans l'image de production)
+tests/
+coverage/
+
+# Fichiers Docker / déploiement (nginx etc.)
+Dockerfile
+docker-compose.yml
+.dockerignore
+deploy/
+
+# Scripts système / artefacts divers
+SECURITY.md

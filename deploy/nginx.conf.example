@@ -1,0 +1,73 @@
+# ============================================================
+# Asadiya Flotte PRO — configuration reverse proxy Nginx (EXEMPLE)
+#
+# Ce fichier est fourni à titre de préparation : Nginx n'est PAS
+# installé ni démarré à cette étape. Il s'installe sur l'hôte Docker
+# (ou dans un conteneur) et reverse-proxie vers le conteneur « app ».
+#
+# Prérequis côté application :
+#   - TRUST_PROXY=1 dans .env.docker (l'IP réelle du client est lue
+#     derrière le proxy pour le rate limiting).
+#   - CORS_ORIGIN doit contenir l'origine publique du frontend
+#     (ex: https://flotte.example.com).
+#   - Le conteneur « app » n'expose le port que sur 127.0.0.1 de
+#     l'hôte (voir "app.ports" dans docker-compose.yml) afin que
+#     Nginx soit la seule porte d'entrée publique.
+#
+# Installer sur Debian/Ubuntu :
+#   sudo apt install nginx
+#   sudo cp deploy/nginx.conf.example /etc/nginx/sites-available/asadiya-flotte
+#   sudo ln -s /etc/nginx/sites-available/asadiya-flotte /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
+# ============================================================
+
+server {
+    listen 80;
+    # Nom public de l'application (à adapter). Le port 80 est ensuite
+    # redirigé vers HTTPS via certbot (Let's Encrypt) :
+    #   sudo certbot --nginx -d flotte.example.com
+    server_name flotte.example.com;
+
+    # Redirection HTTP -> HTTPS obligatoire pour toute l'API.
+    # (À activer une fois le certificat en place.)
+    # return 301 https://$host$request_uri;
+
+    client_max_body_size 15m;   # doit correspondre à JSON_LIMIT (photos base64)
+
+    # --- API + frontend statique servis par l'application Node ---
+    location / {
+        # Adresse du conteneur « app » depuis l'hôte. Si Nginx tourne
+        # aussi dans Docker Compose, utilisez "app:4000" sur le même réseau.
+        proxy_pass http://127.0.0.1:4000;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Arrêt propre : transmet SIGTERM au processus Node lors des reloads.
+        proxy_read_timeout 60s;
+    }
+}
+
+# --- Serveur HTTPS (après obtention du certificat) ---
+# server {
+#     listen 443 ssl;
+#     http2 on;
+#     server_name flotte.example.com;
+#
+#     ssl_certificate     /etc/letsencrypt/live/flotte.example.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/flotte.example.com/privkey.pem;
+#
+#     client_max_body_size 15m;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:4000;
+#         proxy_http_version 1.1;
+#         proxy_set_header Host              $host;
+#         proxy_set_header X-Real-IP         $remote_addr;
+#         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+# }
