@@ -253,25 +253,25 @@
     <!--                    inscription)            -->
     <!-- ========================================== -->
     <template x-if="!currentUser">
-    <div class="min-h-screen flex flex-col bg-slate-950">
+    <div class="min-h-screen flex flex-col bg-[#f5f7fb] text-slate-900">
 
         <!-- NAVIGATION PUBLIQUE -->
-        <header class="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/85 backdrop-blur-md">
+        <header class="sticky top-0 z-50 border-b border-slate-200 bg-white/85 backdrop-blur-md">
             <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center space-x-2.5">
-                    <div class="bg-indigo-600 w-10 h-10 rounded-xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center">
+                    <div class="bg-gradient-to-br from-indigo-600 to-violet-600 w-10 h-10 rounded-xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center">
                         <i class="fa-solid fa-truck-fast text-lg"></i>
                     </div>
                     <div>
-                        <h1 class="font-extrabold text-base text-white">Asadiya Flotte <span class="text-indigo-400">PRO</span></h1>
-                        <p class="text-[10px] text-slate-400 font-medium">Gestion intelligente de flotte automobile</p>
+                        <h1 class="font-extrabold text-base text-slate-900">Asadiya Flotte <span class="text-indigo-600">PRO</span></h1>
+                        <p class="text-[10px] text-slate-500 font-medium">Gestion intelligente de flotte automobile</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button @click="showLogin()" class="text-xs font-semibold text-slate-300 hover:text-white px-4 py-2 rounded-xl hover:bg-slate-800 transition">
+                    <button @click="showLogin()" class="text-xs font-semibold text-slate-600 hover:text-slate-900 px-4 py-2 rounded-xl hover:bg-slate-100 transition">
                         <i class="fa-solid fa-right-to-bracket mr-1"></i>Se connecter
                     </button>
-                    <button @click="startSignup()" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl transition">
+                    <button @click="startSignup()" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl shadow-sm shadow-indigo-500/30 transition">
                         Créer un compte
                     </button>
                 </div>
@@ -284,64 +284,64 @@
             <div x-show="publicView === 'landing'" class="max-w-7xl mx-auto px-4 md:px-6 space-y-16 py-12">
 
                 <!-- HERO -->
-                <section class="text-center space-y-6 pt-4 md:pt-10">
-                    <span class="inline-flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold px-3 py-1.5 rounded-full">
+                <section class="text-center space-y-6 pt-4 md:pt-10 bg-gradient-to-b from-indigo-50/70 via-white to-transparent rounded-[2.5rem] px-4 py-10">
+                    <span class="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-600 text-[11px] font-bold px-3 py-1.5 rounded-full">
                         <i class="fa-solid fa-sparkles"></i> Nouvelle version SaaS multi-entreprises
                     </span>
-                    <h1 class="text-3xl md:text-5xl font-extrabold text-white leading-tight max-w-3xl mx-auto">
-                        Pilotez toute votre flotte, <span class="text-indigo-400">sans effort.</span>
+                    <h1 class="text-3xl md:text-5xl font-extrabold text-slate-900 leading-tight max-w-3xl mx-auto tracking-tight">
+                        Pilotez toute votre flotte, <span class="text-indigo-600">sans effort.</span>
                     </h1>
-                    <p class="text-sm md:text-base text-slate-400 max-w-2xl mx-auto">
+                    <p class="text-sm md:text-base text-slate-500 max-w-2xl mx-auto">
                         Tableau de bord, alertes vidanges, planning, carburant, signalements et accidents…
                         Asadiya Flotte PRO centralise la gestion de votre parc dans une interface moderne et claire.
                     </p>
                     <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
-                        <button @click="startSignup()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-lg shadow-indigo-500/25 transition">
-                            <i class="fa-solid fa-user-plus mr-2"></i>Créer un compte gratuit
+                        <button @click="startSignup()" class="btn btn-primary text-sm px-6 py-3">
+                            <i class="fa-solid fa-user-plus mr-1"></i>Créer un compte gratuit
                         </button>
-                        <a href="#tarifs" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm px-6 py-3 rounded-xl transition">
+                        <a href="#tarifs" class="btn btn-secondary text-sm px-6 py-3">
                             Voir les tarifs
                         </a>
                     </div>
-                    <p class="text-[11px] text-slate-500">Essai gratuit de 14 jours — sans carte bancaire.</p>
+                    <p class="text-[11px] text-slate-400">Essai gratuit de 14 jours — sans carte bancaire.</p>
                 </section>
 
                 <!-- FONCTIONNALITÉS -->
                 <section class="space-y-6">
                     <div class="text-center space-y-2">
-                        <h2 class="text-2xl font-extrabold text-white">Tout le nécessaire pour votre parc</h2>
+                        <h2 class="text-2xl font-extrabold text-slate-900">Tout le nécessaire pour votre parc</h2>
                         <p class="text-xs text-slate-500">Des fonctionnalités pensées pour les flottes de 5 à 500+ véhicules.</p>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
-                            <div class="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center"><i class="fa-solid fa-chart-pie"></i></div>
-                            <h3 class="text-sm font-bold text-white">Tableau de bord &amp; KPIs</h3>
-                            <p class="text-xs text-slate-400 leading-relaxed">Disponibilité, coûts, Fleet Health Score et graphiques en temps réel.</p>
+                        <div class="card card-hover card-pad space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center"><i class="fa-solid fa-chart-pie"></i></div>
+                            <h3 class="text-sm font-bold text-slate-900">Tableau de bord &amp; KPIs</h3>
+                            <p class="text-xs text-slate-500 leading-relaxed">Disponibilité, coûts, Fleet Health Score et graphiques en temps réel.</p>
                         </div>
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
-                            <div class="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center"><i class="fa-solid fa-oil-can"></i></div>
-                            <h3 class="text-sm font-bold text-white">Alertes vidanges &amp; entretien</h3>
-                            <p class="text-xs text-slate-400 leading-relaxed">Suivi préventif des vidanges et des échéances par véhicule.</p>
+                        <div class="card card-hover card-pad space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center"><i class="fa-solid fa-oil-can"></i></div>
+                            <h3 class="text-sm font-bold text-slate-900">Alertes vidanges &amp; entretien</h3>
+                            <p class="text-xs text-slate-500 leading-relaxed">Suivi préventif des vidanges et des échéances par véhicule.</p>
                         </div>
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
-                            <div class="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center"><i class="fa-solid fa-calendar-days"></i></div>
-                            <h3 class="text-sm font-bold text-white">Planning &amp; réservations</h3>
-                            <p class="text-xs text-slate-400 leading-relaxed">Missions planifiées avec détection automatique des conflits.</p>
+                        <div class="card card-hover card-pad space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center"><i class="fa-solid fa-calendar-days"></i></div>
+                            <h3 class="text-sm font-bold text-slate-900">Planning &amp; réservations</h3>
+                            <p class="text-xs text-slate-500 leading-relaxed">Missions planifiées avec détection automatique des conflits.</p>
                         </div>
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
-                            <div class="w-10 h-10 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center"><i class="fa-solid fa-gas-pump"></i></div>
-                            <h3 class="text-sm font-bold text-white">Carburant</h3>
-                            <p class="text-xs text-slate-400 leading-relaxed">Pleins, coûts et consommation moyenne (L/100 km) par véhicule.</p>
+                        <div class="card card-hover card-pad space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 border border-violet-100 flex items-center justify-center"><i class="fa-solid fa-gas-pump"></i></div>
+                            <h3 class="text-sm font-bold text-slate-900">Carburant</h3>
+                            <p class="text-xs text-slate-500 leading-relaxed">Pleins, coûts et consommation moyenne (L/100 km) par véhicule.</p>
                         </div>
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
-                            <div class="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                            <h3 class="text-sm font-bold text-white">Signalements &amp; accidents</h3>
-                            <p class="text-xs text-slate-400 leading-relaxed">Pannes, incidents et dossiers d'assurance suivis de bout en bout.</p>
+                        <div class="card card-hover card-pad space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <h3 class="text-sm font-bold text-slate-900">Signalements &amp; accidents</h3>
+                            <p class="text-xs text-slate-500 leading-relaxed">Pannes, incidents et dossiers d'assurance suivis de bout en bout.</p>
                         </div>
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
-                            <div class="w-10 h-10 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center"><i class="fa-solid fa-file-shield"></i></div>
-                            <h3 class="text-sm font-bold text-white">Documents &amp; permis</h3>
-                            <p class="text-xs text-slate-400 leading-relaxed">Alertes sur les assurances, cartes grises, contrôles techniques et permis.</p>
+                        <div class="card card-hover card-pad space-y-2.5">
+                            <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center"><i class="fa-solid fa-file-shield"></i></div>
+                            <h3 class="text-sm font-bold text-slate-900">Documents &amp; permis</h3>
+                            <p class="text-xs text-slate-500 leading-relaxed">Alertes sur les assurances, cartes grises, contrôles techniques et permis.</p>
                         </div>
                     </div>
                 </section>
@@ -349,30 +349,30 @@
                 <!-- TARIFS -->
                 <section id="tarifs" class="scroll-mt-24 space-y-6">
                     <div class="text-center space-y-2">
-                        <h2 class="text-2xl font-extrabold text-white">Offres simples et évolutives</h2>
+                        <h2 class="text-2xl font-extrabold text-slate-900">Offres simples et évolutives</h2>
                         <p class="text-xs text-slate-500">Commencez en Starter et changez de plan quand votre flotte grandit.</p>
                     </div>
 
-                    <div x-show="publicPlansLoading" class="text-center text-slate-400 text-sm py-10">
-                        <i class="fa-solid fa-spinner fa-spin text-xl"></i>
+                    <div x-show="publicPlansLoading" class="text-center text-slate-500 text-sm py-10">
+                        <i class="fa-solid fa-spinner fa-spin text-xl text-indigo-500"></i>
                         <p class="mt-2">Chargement des offres...</p>
                     </div>
-                    <p x-show="publicPlansError" class="text-center text-rose-400 text-xs" x-text="publicPlansError"></p>
+                    <p x-show="publicPlansError" class="text-center text-rose-500 text-xs" x-text="publicPlansError"></p>
 
                     <div x-show="!publicPlansLoading && publicPlans.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
                         <template x-for="plan in publicPlans" :key="plan.id">
-                            <div class="relative bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col transition hover:border-indigo-500/50"
-                                 :class="plan.code === 'PRO' ? 'border-indigo-500/50 ring-1 ring-indigo-500/30 md:-mt-2 md:mb-2' : ''">
-                                <span x-show="plan.code === 'PRO'" class="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap">
+                            <div class="relative card card-hover card-pad flex flex-col transition border"
+                                 :class="plan.code === 'PRO' ? 'border-indigo-500 ring-1 ring-indigo-500/20 shadow-xl shadow-indigo-500/10 md:-mt-2 md:mb-2' : 'border-slate-200'">
+                                <span x-show="plan.code === 'PRO'" class="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap shadow-md shadow-indigo-500/30">
                                     <i class="fa-solid fa-crown mr-1"></i>POPULAIRE
                                 </span>
-                                <h3 class="text-sm font-bold text-white uppercase tracking-wider" x-text="plan.name"></h3>
-                                <p class="mt-1 text-[11px] text-slate-400 leading-relaxed" x-text="plan.description"></p>
+                                <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider" x-text="plan.name"></h3>
+                                <p class="mt-1 text-[11px] text-slate-500 leading-relaxed" x-text="plan.description"></p>
                                 <div class="mt-4 flex items-baseline gap-1">
-                                    <span class="text-3xl font-extrabold text-white font-mono" x-text="fmtPrice(plan.monthlyPrice)"></span>
+                                    <span class="text-3xl font-extrabold text-slate-900 font-mono" x-text="fmtPrice(plan.monthlyPrice)"></span>
                                     <span class="text-xs text-slate-500">FCFA / mois</span>
                                 </div>
-                                <p class="mt-1 text-[11px] text-slate-500">
+                                <p class="mt-1 text-[11px] text-slate-400">
                                     <span x-show="plan.maxVehicles" x-text="'Jusqu\'à ' + fmtNum(plan.maxVehicles) + ' véhicules'"></span>
                                     <span x-show="!plan.maxVehicles">Véhicules illimités</span>
                                     <span> · </span>
@@ -381,13 +381,13 @@
                                 </p>
                                 <ul class="mt-4 space-y-2 text-xs flex-grow">
                                     <template x-for="f in plan.features" :key="f">
-                                        <li class="flex items-start gap-2 text-slate-300">
-                                            <i class="fa-solid fa-circle-check text-emerald-400 mt-0.5 text-[10px]"></i>
+                                        <li class="flex items-start gap-2 text-slate-600">
+                                            <i class="fa-solid fa-circle-check text-emerald-500 mt-0.5 text-[10px]"></i>
                                             <span x-text="f"></span>
                                         </li>
                                     </template>
                                 </ul>
-                                <button @click="startSignup(plan.code)" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-xl transition">
+                                <button @click="startSignup(plan.code)" class="btn btn-primary w-full mt-6" :class="plan.code === 'PRO' ? '' : 'btn-secondary'">
                                     Créer un compte
                                 </button>
                             </div>
@@ -398,48 +398,48 @@
                 <!-- COMPARAISON -->
                 <section class="space-y-6">
                     <div class="text-center space-y-2">
-                        <h2 class="text-2xl font-extrabold text-white">Comparer les offres</h2>
+                        <h2 class="text-2xl font-extrabold text-slate-900">Comparer les offres</h2>
                         <p class="text-xs text-slate-500">Le détail des limites et fonctionnalités de chaque plan.</p>
                     </div>
-                    <div x-show="publicPlans.length > 0" class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden overflow-x-auto">
+                    <div x-show="publicPlans.length > 0" class="card overflow-hidden overflow-x-auto">
                         <table class="w-full text-left text-xs min-w-[640px]">
                             <thead>
-                                <tr class="text-slate-500 border-b border-slate-800 bg-slate-950/40">
+                                <tr class="text-slate-500 border-b border-slate-200 bg-slate-50">
                                     <th class="px-5 py-3 font-semibold">Fonctionnalité</th>
                                     <template x-for="plan in publicPlans" :key="'cmp-h-' + plan.id">
-                                        <th class="px-4 py-3 font-bold text-slate-200 text-center" :class="plan.code === 'PRO' ? 'text-indigo-300' : ''" x-text="plan.name"></th>
+                                        <th class="px-4 py-3 font-bold text-slate-800 text-center" :class="plan.code === 'PRO' ? 'text-indigo-600' : ''" x-text="plan.name"></th>
                                     </template>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr class="border-b border-slate-800/60">
-                                    <td class="px-5 py-3 text-slate-300">Prix mensuel</td>
+                                <tr class="border-b border-slate-100">
+                                    <td class="px-5 py-3 text-slate-600">Prix mensuel</td>
                                     <template x-for="plan in publicPlans" :key="'cmp-p-' + plan.id">
-                                        <td class="px-4 py-3 text-center font-mono font-bold text-white" x-text="fmtPrice(plan.monthlyPrice) + ' F'"></td>
+                                        <td class="px-4 py-3 text-center font-mono font-bold text-slate-900" x-text="fmtPrice(plan.monthlyPrice) + ' F'"></td>
                                     </template>
                                 </tr>
-                                <tr class="border-b border-slate-800/60">
-                                    <td class="px-5 py-3 text-slate-300">Véhicules maximum</td>
+                                <tr class="border-b border-slate-100">
+                                    <td class="px-5 py-3 text-slate-600">Véhicules maximum</td>
                                     <template x-for="plan in publicPlans" :key="'cmp-v-' + plan.id">
-                                        <td class="px-4 py-3 text-center text-slate-200" x-text="plan.maxVehicles ? fmtNum(plan.maxVehicles) : 'Illimité'"></td>
+                                        <td class="px-4 py-3 text-center text-slate-700" x-text="plan.maxVehicles ? fmtNum(plan.maxVehicles) : 'Illimité'"></td>
                                     </template>
                                 </tr>
-                                <tr class="border-b border-slate-800/60">
-                                    <td class="px-5 py-3 text-slate-300">Utilisateurs maximum</td>
+                                <tr class="border-b border-slate-100">
+                                    <td class="px-5 py-3 text-slate-600">Utilisateurs maximum</td>
                                     <template x-for="plan in publicPlans" :key="'cmp-u-' + plan.id">
-                                        <td class="px-4 py-3 text-center text-slate-200" x-text="plan.maxUsers ? fmtNum(plan.maxUsers) : 'Illimité'"></td>
+                                        <td class="px-4 py-3 text-center text-slate-700" x-text="plan.maxUsers ? fmtNum(plan.maxUsers) : 'Illimité'"></td>
                                     </template>
                                 </tr>
                                 <template x-for="feat in comparisonFeatures" :key="'cmp-r-' + feat">
-                                    <tr class="border-b border-slate-800/60">
-                                        <td class="px-5 py-3 text-slate-300" x-text="feat"></td>
+                                    <tr class="border-b border-slate-100">
+                                        <td class="px-5 py-3 text-slate-600" x-text="feat"></td>
                                         <template x-for="plan in publicPlans" :key="'cmp-c-' + plan.id + '-' + feat">
                                             <td class="px-4 py-3 text-center">
                                                 <template x-if="(plan.features || []).includes(feat)">
-                                                    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+                                                    <i class="fa-solid fa-circle-check text-emerald-500"></i>
                                                 </template>
                                                 <template x-if="!(plan.features || []).includes(feat)">
-                                                    <span class="text-slate-600">—</span>
+                                                    <span class="text-slate-300">—</span>
                                                 </template>
                                             </td>
                                         </template>
@@ -451,68 +451,68 @@
                 </section>
 
                 <!-- APPEL À L'ACTION FINAL -->
-                <section class="bg-gradient-to-r from-indigo-900/50 via-slate-900 to-indigo-950 border border-indigo-500/20 rounded-3xl p-8 md:p-12 text-center space-y-4">
+                <section class="bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 rounded-3xl p-8 md:p-12 text-center space-y-4 shadow-xl shadow-indigo-500/20">
                     <h2 class="text-2xl md:text-3xl font-extrabold text-white">Prêt à moderniser la gestion de votre flotte ?</h2>
-                    <p class="text-sm text-slate-400 max-w-xl mx-auto">
+                    <p class="text-sm text-indigo-100 max-w-xl mx-auto">
                         Créez votre compte en 2 minutes : votre entreprise, votre administrateur, et c'est parti.
                         Période d'essai de 14 jours offerte.
                     </p>
-                    <button @click="startSignup()" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm px-8 py-3.5 rounded-xl shadow-lg shadow-indigo-500/25 transition">
+                    <button @click="startSignup()" class="inline-flex items-center gap-2 bg-white hover:bg-indigo-50 text-indigo-700 font-bold text-sm px-8 py-3.5 rounded-xl shadow-lg shadow-indigo-900/20 transition hover:-translate-y-0.5">
                         <i class="fa-solid fa-user-plus"></i>Créer un compte gratuit
                     </button>
                 </section>
             </div>
 
             <!-- ===== ÉCRAN DE CONNEXION ===== -->
-            <div x-show="publicView === 'login'" class="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" x-cloak>
-                <div class="w-full max-w-sm space-y-6">
+            <div x-show="publicView === 'login'" class="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 via-white to-indigo-50" x-cloak>
+                <div class="w-full max-w-sm space-y-6 animate-fade-up">
                     <div class="text-center space-y-2">
-                        <button @click="showLanding()" class="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition">
+                        <button @click="showLanding()" class="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition">
                             <i class="fa-solid fa-arrow-left"></i> Retour à l'accueil
                         </button>
-                        <div class="bg-indigo-600 w-14 h-14 rounded-2xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center mx-auto mt-2">
+                        <div class="bg-gradient-to-br from-indigo-600 to-violet-600 w-14 h-14 rounded-2xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center mx-auto mt-2">
                             <i class="fa-solid fa-truck-fast text-2xl"></i>
                         </div>
-                        <h1 class="font-extrabold text-xl text-white">Asadiya Flotte <span class="text-indigo-400">PRO</span></h1>
-                        <p class="text-xs text-slate-400">Connectez-vous pour accéder à votre espace</p>
+                        <h1 class="font-extrabold text-xl text-slate-900">Asadiya Flotte <span class="text-indigo-600">PRO</span></h1>
+                        <p class="text-xs text-slate-500">Connectez-vous pour accéder à votre espace</p>
                     </div>
 
-                    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl">
+                    <div class="card card-pad space-y-4 shadow-xl shadow-slate-200/60">
                         <div class="space-y-3 text-xs">
                             <div>
-                                <label class="block text-slate-400 mb-1">Identifiant</label>
-                                <input type="text" x-model="loginForm.username" @keydown.enter="login()" placeholder="admin / gestionnaire / conducteur" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                <label class="label">Identifiant</label>
+                                <input type="text" x-model="loginForm.username" @keydown.enter="login()" placeholder="admin / gestionnaire / conducteur" class="input">
                             </div>
                             <div>
-                                <label class="block text-slate-400 mb-1">Mot de passe</label>
-                                <input type="password" x-model="loginForm.password" @keydown.enter="login()" placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                <label class="label">Mot de passe</label>
+                                <input type="password" x-model="loginForm.password" @keydown.enter="login()" placeholder="••••••••" class="input">
                             </div>
-                            <p x-show="loginError" x-text="loginError" class="text-rose-400 text-[11px] font-semibold"></p>
-                            <button @click="login()" :disabled="isLoggingIn" :class="isLoggingIn ? 'opacity-60 cursor-not-allowed' : 'hover:bg-indigo-500'" class="w-full bg-indigo-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                            <p x-show="loginError" x-text="loginError" class="text-rose-500 text-[11px] font-semibold"></p>
+                            <button @click="login()" :disabled="isLoggingIn" class="btn btn-primary w-full">
                                 <i x-show="isLoggingIn" class="fa-solid fa-spinner fa-spin"></i>
                                 <span x-text="isLoggingIn ? 'Connexion en cours...' : 'Se connecter'"></span>
                             </button>
                         </div>
 
-                        <div class="border-t border-slate-800 pt-4 space-y-2">
-                            <p class="text-[10px] text-slate-500 font-semibold uppercase text-center">Comptes de démonstration</p>
-                            <button @click="quickLogin('admin')" class="w-full flex justify-between items-center bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2.5 text-[11px] transition">
-                                <span class="flex items-center gap-2 text-slate-200"><i class="fa-solid fa-user-shield text-indigo-400"></i> Administrateur</span>
-                                <span class="text-slate-500 font-mono">admin / admin123</span>
+                        <div class="border-t border-slate-200 pt-4 space-y-2">
+                            <p class="text-[10px] text-slate-400 font-semibold uppercase text-center">Comptes de démonstration</p>
+                            <button @click="quickLogin('admin')" class="w-full flex justify-between items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-2.5 text-[11px] transition">
+                                <span class="flex items-center gap-2 text-slate-700"><i class="fa-solid fa-user-shield text-indigo-500"></i> Administrateur</span>
+                                <span class="text-slate-400 font-mono">admin / admin123</span>
                             </button>
-                            <button @click="quickLogin('gestionnaire')" class="w-full flex justify-between items-center bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2.5 text-[11px] transition">
-                                <span class="flex items-center gap-2 text-slate-200"><i class="fa-solid fa-user-tie text-amber-400"></i> Gestionnaire</span>
-                                <span class="text-slate-500 font-mono">gestionnaire / gest123</span>
+                            <button @click="quickLogin('gestionnaire')" class="w-full flex justify-between items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-2.5 text-[11px] transition">
+                                <span class="flex items-center gap-2 text-slate-700"><i class="fa-solid fa-user-tie text-amber-500"></i> Gestionnaire</span>
+                                <span class="text-slate-400 font-mono">gestionnaire / gest123</span>
                             </button>
-                            <button @click="quickLogin('conducteur')" class="w-full flex justify-between items-center bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl p-2.5 text-[11px] transition">
-                                <span class="flex items-center gap-2 text-slate-200"><i class="fa-solid fa-user text-emerald-400"></i> Conducteur</span>
-                                <span class="text-slate-500 font-mono">conducteur / cond123</span>
+                            <button @click="quickLogin('conducteur')" class="w-full flex justify-between items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl p-2.5 text-[11px] transition">
+                                <span class="flex items-center gap-2 text-slate-700"><i class="fa-solid fa-user text-emerald-500"></i> Conducteur</span>
+                                <span class="text-slate-400 font-mono">conducteur / cond123</span>
                             </button>
                         </div>
 
-                        <div class="border-t border-slate-800 pt-3 text-center">
+                        <div class="border-t border-slate-200 pt-3 text-center">
                             <p class="text-[11px] text-slate-500">Pas encore de compte ?
-                                <button @click="startSignup()" class="text-indigo-400 hover:text-indigo-300 font-bold">Créer un compte</button>
+                                <button @click="startSignup()" class="text-indigo-600 hover:text-indigo-500 font-bold">Créer un compte</button>
                             </p>
                         </div>
                     </div>
@@ -520,17 +520,17 @@
             </div>
 
             <!-- ===== TUNNEL D'INSCRIPTION ===== -->
-            <div x-show="publicView === 'signup'" class="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950" x-cloak>
-                <div class="w-full max-w-md space-y-6">
+            <div x-show="publicView === 'signup'" class="min-h-[calc(100vh-64px)] flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 via-white to-indigo-50" x-cloak>
+                <div class="w-full max-w-md space-y-6 animate-fade-up">
                     <div class="text-center space-y-2">
-                        <button @click="showLanding()" class="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-300 transition">
+                        <button @click="showLanding()" class="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 transition">
                             <i class="fa-solid fa-arrow-left"></i> Retour à l'accueil
                         </button>
-                        <div class="bg-indigo-600 w-14 h-14 rounded-2xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center mx-auto mt-2">
+                        <div class="bg-gradient-to-br from-indigo-600 to-violet-600 w-14 h-14 rounded-2xl text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center mx-auto mt-2">
                             <i class="fa-solid fa-user-plus text-2xl"></i>
                         </div>
-                        <h1 class="font-extrabold text-xl text-white">Créer votre compte</h1>
-                        <p class="text-xs text-slate-400">Essai gratuit de 14 jours — sans carte bancaire.</p>
+                        <h1 class="font-extrabold text-xl text-slate-900">Créer votre compte</h1>
+                        <p class="text-xs text-slate-500">Essai gratuit de 14 jours — sans carte bancaire.</p>
                     </div>
 
                     <!-- Confirmation de création
@@ -538,61 +538,61 @@
                          que lorsque signupDone est non-null (évite les erreurs Alpine
                          "Cannot read properties of null (reading '...')"). -->
                     <template x-if="signupDone">
-                        <div class="bg-emerald-950/40 border border-emerald-500/30 rounded-3xl p-6 space-y-3 shadow-2xl text-center">
-                            <i class="fa-solid fa-circle-check text-emerald-400 text-3xl"></i>
-                            <h2 class="font-extrabold text-white">Compte créé avec succès !</h2>
-                            <p class="text-xs text-slate-400">
-                                L'entreprise <span class="text-white font-bold" x-text="signupDone.organizationName"></span>
-                                est inscrite au plan <span class="text-white font-bold" x-text="signupDone.planName"></span>
-                                en période d'essai jusqu'au <span class="text-white font-bold" x-text="signupDone.trialEndsAt"></span>.
+                        <div class="card card-pad space-y-3 shadow-xl text-center border-emerald-200">
+                            <i class="fa-solid fa-circle-check text-emerald-500 text-3xl"></i>
+                            <h2 class="font-extrabold text-slate-900">Compte créé avec succès !</h2>
+                            <p class="text-xs text-slate-500">
+                                L'entreprise <span class="text-slate-900 font-bold" x-text="signupDone.organizationName"></span>
+                                est inscrite au plan <span class="text-slate-900 font-bold" x-text="signupDone.planName"></span>
+                                en période d'essai jusqu'au <span class="text-slate-900 font-bold" x-text="signupDone.trialEndsAt"></span>.
                             </p>
-                            <button @click="login()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-xl transition">
+                            <button @click="login()" class="btn btn-primary w-full">
                                 Accéder à mon espace
                             </button>
                         </div>
                     </template>
 
                     <!-- Formulaire d'inscription -->
-                    <div x-show="!signupDone" class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-2xl">
+                    <div x-show="!signupDone" class="card card-pad space-y-4 shadow-xl shadow-slate-200/60">
                         <div class="space-y-3 text-xs">
                             <div>
-                                <label class="block text-slate-400 mb-1">Entreprise / Organisation <span class="text-rose-400">*</span></label>
-                                <input type="text" x-model="signupForm.name" placeholder="ex: Transport Ndiaye SARL" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                <label class="label">Entreprise / Organisation <span class="text-rose-500">*</span></label>
+                                <input type="text" x-model="signupForm.name" placeholder="ex: Transport Ndiaye SARL" class="input">
                             </div>
 
                             <div>
-                                <label class="block text-slate-400 mb-1">Votre plan</label>
-                                <select x-model="signupForm.planCode" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                <label class="label">Votre plan</label>
+                                <select x-model="signupForm.planCode" class="input">
                                     <template x-for="plan in publicPlans" :key="'signup-plan-' + plan.id">
                                         <option :value="plan.code" x-text="plan.name + ' — ' + fmtPrice(plan.monthlyPrice) + ' FCFA/mois'"></option>
                                     </template>
                                 </select>
                             </div>
 
-                            <div class="pt-2 border-t border-slate-800">
-                                <p class="text-slate-400 mb-2 font-semibold">Premier compte Administrateur</p>
+                            <div class="pt-2 border-t border-slate-200">
+                                <p class="text-slate-700 mb-2 font-semibold">Premier compte Administrateur</p>
                             </div>
                             <div>
-                                <label class="block text-slate-400 mb-1">Nom complet</label>
-                                <input type="text" x-model="signupForm.adminName" placeholder="ex: Cheikh Ndiaye" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                <label class="label">Nom complet</label>
+                                <input type="text" x-model="signupForm.adminName" placeholder="ex: Cheikh Ndiaye" class="input">
                             </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="block text-slate-400 mb-1">Identifiant</label>
-                                    <input type="text" x-model="signupForm.adminUsername" placeholder="ex: ndiaye_admin" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                    <label class="label">Identifiant</label>
+                                    <input type="text" x-model="signupForm.adminUsername" placeholder="ex: ndiaye_admin" class="input">
                                 </div>
                                 <div>
-                                    <label class="block text-slate-400 mb-1">Mot de passe</label>
-                                    <input type="password" x-model="signupForm.adminPassword" placeholder="min. 6 caractères" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                                    <label class="label">Mot de passe</label>
+                                    <input type="password" x-model="signupForm.adminPassword" placeholder="min. 6 caractères" class="input">
                                 </div>
                             </div>
-                            <p x-show="signupError" x-text="signupError" class="text-rose-400 text-[11px] font-semibold"></p>
+                            <p x-show="signupError" x-text="signupError" class="text-rose-500 text-[11px] font-semibold"></p>
                         </div>
-                        <button @click="submitSignup()" :disabled="isSigningUp" :class="isSigningUp ? 'opacity-60 cursor-not-allowed' : 'hover:bg-indigo-500'" class="w-full bg-indigo-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                        <button @click="submitSignup()" :disabled="isSigningUp" class="btn btn-primary w-full">
                             <i x-show="isSigningUp" class="fa-solid fa-spinner fa-spin"></i>
                             <span x-text="isSigningUp ? 'Création du compte...' : 'Créer mon compte'"></span>
                         </button>
-                        <p class="text-center text-[10px] text-slate-500">
+                        <p class="text-center text-[10px] text-slate-400">
                             En créant un compte, vous acceptez l'utilisation de vos données conformément à notre politique de confidentialité.
                         </p>
                     </div>
@@ -600,16 +600,13 @@
             </div>
         </main>
 
-        <footer class="border-t border-slate-800 py-5 text-center text-[11px] text-slate-500">
+        <footer class="border-t border-slate-200 bg-white py-5 text-center text-[11px] text-slate-500">
             © 2026 Asadiya Flotte PRO — Gestion intelligente de flotte automobile.
-            <span class="text-slate-600">Essai gratuit de 14 jours, puis à partir de 15 000 FCFA / mois.</span>
+            <span class="text-slate-400">Essai gratuit de 14 jours, puis à partir de 15 000 FCFA / mois.</span>
         </footer>
     </div>
     </template>
 
-    <!-- ========================================== -->
-    <!-- APPLICATION (visible une fois connecté)    -->
-    <!-- ========================================== -->
     <!-- ========================================== -->
     <!-- ESPACE SUPER ADMIN (gestion des clients)   -->
     <!-- ========================================== -->
