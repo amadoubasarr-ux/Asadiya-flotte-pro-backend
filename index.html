@@ -1655,838 +1655,857 @@
                 <!-- VUE 2 : FLOTTE DE VÉHICULES               -->
                 <!-- ========================================== -->
                 <div x-show="mainTab === 'vehicles'" class="space-y-6" x-cloak>
-            
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h2 class="text-xl font-bold text-white">Parc Automobile Asadiya Flotte</h2>
-                    <p class="text-xs text-slate-400">Consultez, filtrez, suivez le kilométrage et les échéances de vidange.</p>
-                </div>
-                <button x-show="canManageFleet" @click="openVehicleModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : 'hover:bg-indigo-500'" class="bg-indigo-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
-                    + Ajouter un Véhicule
-                </button>
-            </div>
 
-            <!-- Barre de Recherche et Filtres -->
-            <div class="flex flex-col sm:flex-row gap-3">
-                <div class="relative flex-grow">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-500 text-xs"></i>
-                    <input type="text" x-model="vehicleSearch" placeholder="Rechercher par marque, modèle ou plaque..." class="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-                <select x-model="vehicleFilterStatus" class="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
-                    <option value="ALL">Tous les statuts</option>
-                    <option value="AVAILABLE">Disponible</option>
-                    <option value="BOOKED">En Mission</option>
-                    <option value="IN_MAINTENANCE">En Maintenance</option>
-                </select>
-            </div>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Parc Automobile Asadiya Flotte</h2>
+                            <p class="text-xs text-slate-500">Consultez, filtrez, suivez le kilométrage et les échéances de vidange.</p>
+                        </div>
+                        <button x-show="canManageFleet" @click="openVehicleModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : ''" class="btn btn-primary">
+                            + Ajouter un Véhicule
+                        </button>
+                    </div>
 
-            <!-- Grille des Cartes Véhicules avec Suivi Vidange -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <template x-for="v in filteredVehicles" :key="v.id">
-                    <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 shadow-lg space-y-4 transition flex flex-col justify-between">
-                        <div class="space-y-3">
-                            <div class="flex justify-between items-start">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <div class="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center flex-shrink-0">
-                                        <img x-show="v.photo" :src="v.photo" class="w-full h-full object-cover">
-                                        <i x-show="!v.photo" class="fa-solid fa-car text-slate-600"></i>
+                    <!-- Barre de Recherche et Filtres -->
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <div class="relative flex-grow">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" x-model="vehicleSearch" placeholder="Rechercher par marque, modèle ou plaque..." class="input pl-9">
+                        </div>
+                        <select x-model="vehicleFilterStatus" class="input sm:!w-56">
+                            <option value="ALL">Tous les statuts</option>
+                            <option value="AVAILABLE">Disponible</option>
+                            <option value="BOOKED">En Mission</option>
+                            <option value="IN_MAINTENANCE">En Maintenance</option>
+                        </select>
+                    </div>
+
+                    <!-- Grille des Cartes Véhicules avec Suivi Vidange -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <template x-for="v in filteredVehicles" :key="v.id">
+                            <div class="card card-hover card-pad space-y-4 transition flex flex-col justify-between">
+                                <div class="space-y-3">
+                                    <div class="flex justify-between items-start gap-2">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                                <img x-show="v.photo" :src="v.photo" class="w-full h-full object-cover">
+                                                <i x-show="!v.photo" class="fa-solid fa-car text-slate-400"></i>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <h3 class="font-bold text-base text-slate-900 truncate" x-text="v.brand + ' ' + v.model"></h3>
+                                                <p class="text-xs font-mono text-indigo-600" x-text="v.plate"></p>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                                            <span :class="{
+                                                'badge-green': v.status === 'AVAILABLE',
+                                                'badge-blue': v.status === 'BOOKED',
+                                                'badge-amber': v.status === 'IN_MAINTENANCE'
+                                            }" class="badge" x-text="v.status === 'AVAILABLE' ? 'Disponible' : (v.status === 'BOOKED' ? 'En Mission' : 'En Maintenance')"></span>
+                                            <span x-show="getVehicleDocumentAlerts(v).length > 0" class="badge badge-red flex items-center gap-1">
+                                                <i class="fa-solid fa-file-circle-exclamation"></i>
+                                                <span x-text="getVehicleDocumentAlerts(v).length + ' doc(s) à renouveler'"></span>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-2 text-xs text-slate-500 pt-2 border-t border-slate-100">
+                                        <div>Kilométrage : <span class="text-slate-800 font-mono" x-text="v.mileage.toLocaleString() + ' km'"></span></div>
+                                        <div>Année : <span class="text-slate-800" x-text="v.year"></span></div>
+                                        <div>Carburant : <span class="text-slate-800" x-text="v.fuel"></span></div>
+                                        <div>Chauffeur : <span class="text-slate-800" x-text="v.driver"></span></div>
+                                    </div>
+
+                                    <!-- BLOC DOCUMENTS : ASSURANCE / CARTE GRISE / CONTRÔLE TECHNIQUE -->
+                                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
+                                        <p class="font-semibold text-slate-600 text-[11px] flex items-center gap-1.5">
+                                            <i class="fa-solid fa-file-lines text-indigo-500"></i> Documents Administratifs
+                                        </p>
+                                        <div class="flex justify-between items-center text-[10px]">
+                                            <span class="text-slate-500">Assurance</span>
+                                            <span :class="{
+                                                'text-rose-500': getDocumentStatus(v.insuranceExpiry).color === 'rose',
+                                                'text-amber-600': getDocumentStatus(v.insuranceExpiry).color === 'amber',
+                                                'text-emerald-600': getDocumentStatus(v.insuranceExpiry).color === 'emerald',
+                                                'text-slate-500': getDocumentStatus(v.insuranceExpiry).color === 'slate'
+                                            }" class="font-mono font-bold" x-text="getDocumentStatus(v.insuranceExpiry).label"></span>
+                                        </div>
+                                        <div class="flex justify-between items-center text-[10px]">
+                                            <span class="text-slate-500">Carte Grise</span>
+                                            <span :class="{
+                                                'text-rose-500': getDocumentStatus(v.registrationExpiry).color === 'rose',
+                                                'text-amber-600': getDocumentStatus(v.registrationExpiry).color === 'amber',
+                                                'text-emerald-600': getDocumentStatus(v.registrationExpiry).color === 'emerald',
+                                                'text-slate-500': getDocumentStatus(v.registrationExpiry).color === 'slate'
+                                            }" class="font-mono font-bold" x-text="getDocumentStatus(v.registrationExpiry).label"></span>
+                                        </div>
+                                        <div class="flex justify-between items-center text-[10px]">
+                                            <span class="text-slate-500">Contrôle Technique</span>
+                                            <span :class="{
+                                                'text-rose-500': getDocumentStatus(v.technicalControlExpiry).color === 'rose',
+                                                'text-amber-600': getDocumentStatus(v.technicalControlExpiry).color === 'amber',
+                                                'text-emerald-600': getDocumentStatus(v.technicalControlExpiry).color === 'emerald',
+                                                'text-slate-500': getDocumentStatus(v.technicalControlExpiry).color === 'slate'
+                                            }" class="font-mono font-bold" x-text="getDocumentStatus(v.technicalControlExpiry).label"></span>
+                                        </div>
+                                    </div>
+
+                                    <!-- BLOC ALERTE VIDANGE INDIVIDUEL -->
+                                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                                        <div class="flex justify-between items-center text-xs gap-2">
+                                            <span class="font-semibold text-slate-600 flex items-center gap-1.5">
+                                                <i class="fa-solid fa-oil-can text-amber-500"></i> Vidange Moteur :
+                                            </span>
+                                            <span :class="{
+                                                'badge-red': getOilChangeStatus(v).color === 'rose',
+                                                'badge-amber': getOilChangeStatus(v).color === 'amber',
+                                                'badge-green': getOilChangeStatus(v).color === 'emerald',
+                                                'badge-slate': getOilChangeStatus(v).color === 'slate'
+                                            }" class="badge" x-text="getOilChangeStatus(v).label"></span>
+                                        </div>
+                                        <template x-if="v.fuel !== 'Électrique'">
+                                            <div class="space-y-1">
+                                                <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                                                    <span>Dernière: <strong class="text-slate-700" x-text="v.lastOilChangeKm.toLocaleString() + ' km'"></strong></span>
+                                                    <span>Prochaine: <strong class="text-indigo-600" x-text="v.nextOilChangeKm.toLocaleString() + ' km'"></strong></span>
+                                                </div>
+                                                <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                                    <div :class="getOilChangeStatus(v).color === 'rose' ? 'bg-rose-500' : (getOilChangeStatus(v).color === 'amber' ? 'bg-amber-500' : 'bg-emerald-500')"
+                                                         class="h-full rounded-full transition-all duration-300"
+                                                         :style="'width: ' + Math.min(100, Math.max(0, ((v.mileage - v.lastOilChangeKm) / oilChangeInterval) * 100)) + '%'">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-between items-center pt-2 border-t border-slate-100 flex-wrap gap-1.5">
+                                    <button x-show="v.fuel !== 'Électrique' && canManageFleet" @click="openOilChangeModal(v)" class="btn btn-ghost btn-xs !text-amber-600 font-bold flex items-center gap-1">
+                                        <i class="fa-solid fa-oil-can"></i> Vidange
+                                    </button>
+                                    <div class="flex items-center gap-1 ml-auto">
+                                        <button @click="openVehicleDetail(v)" title="Fiche complète" class="btn btn-ghost btn-xs !text-indigo-600">
+                                            <i class="fa-solid fa-id-card"></i>
+                                        </button>
+                                        <button x-show="canManageFleet" @click="openVehicleModal(v)" title="Modifier" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button x-show="canManageFleet" @click="deleteVehicle(v.id)" title="Supprimer" class="btn btn-ghost btn-xs !text-rose-500">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <p x-show="filteredVehicles.length === 0" class="text-sm text-slate-500 text-center py-10">Aucun véhicule ne correspond à votre recherche.</p>
+
+                </div>
+
+                <!-- ========================================== -->
+                <!-- VUE 3 : CONDUCTEURS                       -->
+                <!-- ========================================== -->
+                <div x-show="mainTab === 'drivers'" class="space-y-6" x-cloak>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Gestion des Conducteurs</h2>
+                            <p class="text-xs text-slate-500">Gérez la liste des chauffeurs habilités à conduire les véhicules du parc.</p>
+                        </div>
+                        <button @click="openDriverModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : ''" class="btn btn-primary">
+                            + Ajouter un Conducteur
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <template x-for="d in drivers" :key="d.id">
+                            <div class="card card-hover card-pad flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div class="flex items-center space-x-4 min-w-0">
+                                    <div class="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 text-lg font-bold flex-shrink-0 overflow-hidden">
+                                        <img x-show="d.photo" :src="d.photo" class="w-full h-full object-cover">
+                                        <span x-show="!d.photo" x-text="d.name.charAt(0)"></span>
                                     </div>
                                     <div class="min-w-0">
-                                        <h3 class="font-bold text-base text-white truncate" x-text="v.brand + ' ' + v.model"></h3>
-                                        <p class="text-xs font-mono text-indigo-400" x-text="v.plate"></p>
+                                        <h3 class="font-bold text-sm text-slate-900 truncate" x-text="d.name"></h3>
+                                        <p class="text-xs text-slate-500 truncate" x-text="d.email"></p>
+                                        <p class="text-xs text-slate-500" x-text="'Tél: ' + d.phone"></p>
+                                        <p class="text-xs font-mono text-slate-500" x-text="'Permis: ' + d.license"></p>
+                                        <p class="text-[10px] font-mono" :class="{
+                                            'text-rose-500': getDocumentStatus(d.licenseExpiry).color === 'rose',
+                                            'text-amber-600': getDocumentStatus(d.licenseExpiry).color === 'amber',
+                                            'text-emerald-600': getDocumentStatus(d.licenseExpiry).color === 'emerald',
+                                            'text-slate-500': getDocumentStatus(d.licenseExpiry).color === 'slate'
+                                        }" x-text="'Validité permis: ' + getDocumentStatus(d.licenseExpiry).label"></p>
                                     </div>
                                 </div>
-                                <div class="flex flex-col items-end gap-1">
-                                    <span :class="{
-                                        'bg-emerald-500/20 text-emerald-400 border-emerald-500/30': v.status === 'AVAILABLE',
-                                        'bg-blue-500/20 text-blue-400 border-blue-500/30': v.status === 'BOOKED',
-                                        'bg-amber-500/20 text-amber-400 border-amber-500/30': v.status === 'IN_MAINTENANCE'
-                                    }" class="text-[10px] font-bold px-2.5 py-1 rounded-full border" x-text="v.status === 'AVAILABLE' ? 'Disponible' : (v.status === 'BOOKED' ? 'En Mission' : 'En Maintenance')"></span>
-                                    <span x-show="getVehicleDocumentAlerts(v).length > 0" class="text-[9px] font-bold px-2 py-0.5 rounded border bg-rose-500/20 text-rose-400 border-rose-500/30 flex items-center gap-1">
-                                        <i class="fa-solid fa-file-circle-exclamation"></i>
-                                        <span x-text="getVehicleDocumentAlerts(v).length + ' doc(s) à renouveler'"></span>
-                                    </span>
+                                <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start space-y-0 sm:space-y-2 flex-shrink-0">
+                                    <span :class="d.status === 'DISPONIBLE' ? 'badge-green' : 'badge-blue'" class="badge border-slate-200" x-text="d.status"></span>
+                                    <div class="flex items-center gap-1">
+                                        <button @click="openDriverModal(d)" title="Modifier" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                            <i class="fa-solid fa-pen"></i>
+                                        </button>
+                                        <button x-show="canDeleteDrivers" @click="deleteDriver(d.id)" title="Supprimer" class="btn btn-ghost btn-xs !text-rose-500">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
+                        </template>
+                    </div>
+                    <p x-show="drivers.length === 0" class="text-sm text-slate-500 text-center py-10">Aucun conducteur enregistré.</p>
+                </div>
 
-                            <div class="grid grid-cols-2 gap-2 text-xs text-slate-400 pt-2 border-t border-slate-800/80">
-                                <div>Kilométrage : <span class="text-slate-200 font-mono" x-text="v.mileage.toLocaleString() + ' km'"></span></div>
-                                <div>Année : <span class="text-slate-200" x-text="v.year"></span></div>
-                                <div>Carburant : <span class="text-slate-200" x-text="v.fuel"></span></div>
-                                <div>Chauffeur : <span class="text-slate-200" x-text="v.driver"></span></div>
+                <!-- ========================================== -->
+                <!-- VUE : GESTION DES UTILISATEURS (Admin)    -->
+                <!-- ========================================== -->
+                <div x-show="mainTab === 'users'" class="space-y-6" x-cloak>
+                    <div class="flex justify-between items-center animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Utilisateurs de <span x-text="currentUser.organizationName"></span></h2>
+                            <p class="text-xs text-slate-500">Chaque membre de votre équipe a son propre identifiant et mot de passe.</p>
+                        </div>
+                        <button @click="openUserModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : ''" class="btn btn-primary">
+                            + Ajouter un Utilisateur
+                        </button>
+                    </div>
+
+                    <div x-show="isLoadingUsers" class="text-center text-slate-500 text-sm py-10">
+                        <i class="fa-solid fa-spinner fa-spin text-indigo-500"></i> Chargement...
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-4" x-show="!isLoadingUsers">
+                        <template x-for="u in orgUsers" :key="u.id">
+                            <div class="card card-hover card-pad flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="w-11 h-11 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold flex-shrink-0" x-text="u.name.charAt(0)"></div>
+                                    <div class="min-w-0">
+                                        <h3 class="font-bold text-sm text-slate-900 truncate" x-text="u.name"></h3>
+                                        <p class="text-xs text-slate-500 font-mono" x-text="'@' + u.username"></p>
+                                        <span :class="{
+                                            'badge-indigo': u.role === 'ADMIN',
+                                            'badge-amber': u.role === 'MANAGER',
+                                            'badge-green': u.role === 'DRIVER'
+                                        }" class="badge inline-block mt-1" x-text="u.role === 'ADMIN' ? 'Administrateur' : (u.role === 'MANAGER' ? 'Gestionnaire' : 'Conducteur')"></span>
+                                        <span x-show="u.id === currentUser.id" class="text-[9px] text-slate-400 ml-1">(vous)</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1 flex-shrink-0">
+                                    <button @click="openUserModal(u)" title="Modifier" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button x-show="u.id !== currentUser.id" @click="deleteUser(u.id)" title="Supprimer" class="btn btn-ghost btn-xs !text-rose-500">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </div>
                             </div>
+                        </template>
+                        <p x-show="orgUsers.length === 0" class="text-sm text-slate-500 col-span-2 text-center py-10">Aucun utilisateur pour l'instant.</p>
+                    </div>
+                </div>
 
-                            <!-- BLOC DOCUMENTS : ASSURANCE / CARTE GRISE / CONTRÔLE TECHNIQUE -->
-                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5">
-                                <p class="font-semibold text-slate-400 text-[11px] flex items-center gap-1.5">
-                                    <i class="fa-solid fa-file-lines text-indigo-400"></i> Documents Administratifs
-                                </p>
-                                <div class="flex justify-between items-center text-[10px]">
-                                    <span class="text-slate-500">Assurance</span>
-                                    <span :class="{
-                                        'text-rose-400': getDocumentStatus(v.insuranceExpiry).color === 'rose',
-                                        'text-amber-400': getDocumentStatus(v.insuranceExpiry).color === 'amber',
-                                        'text-emerald-400': getDocumentStatus(v.insuranceExpiry).color === 'emerald',
-                                        'text-slate-500': getDocumentStatus(v.insuranceExpiry).color === 'slate'
-                                    }" class="font-mono font-bold" x-text="getDocumentStatus(v.insuranceExpiry).label"></span>
-                                </div>
-                                <div class="flex justify-between items-center text-[10px]">
-                                    <span class="text-slate-500">Carte Grise</span>
-                                    <span :class="{
-                                        'text-rose-400': getDocumentStatus(v.registrationExpiry).color === 'rose',
-                                        'text-amber-400': getDocumentStatus(v.registrationExpiry).color === 'amber',
-                                        'text-emerald-400': getDocumentStatus(v.registrationExpiry).color === 'emerald',
-                                        'text-slate-500': getDocumentStatus(v.registrationExpiry).color === 'slate'
-                                    }" class="font-mono font-bold" x-text="getDocumentStatus(v.registrationExpiry).label"></span>
-                                </div>
-                                <div class="flex justify-between items-center text-[10px]">
-                                    <span class="text-slate-500">Contrôle Technique</span>
-                                    <span :class="{
-                                        'text-rose-400': getDocumentStatus(v.technicalControlExpiry).color === 'rose',
-                                        'text-amber-400': getDocumentStatus(v.technicalControlExpiry).color === 'amber',
-                                        'text-emerald-400': getDocumentStatus(v.technicalControlExpiry).color === 'emerald',
-                                        'text-slate-500': getDocumentStatus(v.technicalControlExpiry).color === 'slate'
-                                    }" class="font-mono font-bold" x-text="getDocumentStatus(v.technicalControlExpiry).label"></span>
-                                </div>
-                            </div>
+                <!-- ========================================== -->
+                <!-- VUE 4 : RESERVATIONS & PLANNING           -->
+                <!-- ========================================== -->
+                <div x-show="mainTab === 'reservations'" class="space-y-6" x-cloak>
+                    <div class="flex justify-between items-center animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Planning des Missions</h2>
+                            <p class="text-xs text-slate-500">Validation et historique des affectations de véhicules.</p>
+                        </div>
+                        <button @click="openReservationModal()" class="btn btn-primary">
+                            + Faire une Demande
+                        </button>
+                    </div>
 
-                            <!-- BLOC ALERTE VIDANGE INDIVIDUEL -->
-                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
-                                <div class="flex justify-between items-center text-xs">
-                                    <span class="font-semibold text-slate-400 flex items-center gap-1.5">
-                                        <i class="fa-solid fa-oil-can text-amber-400"></i> Vidange Moteur :
-                                    </span>
-                                    <span :class="{
-                                        'bg-rose-500/20 text-rose-400 border-rose-500/30': getOilChangeStatus(v).color === 'rose',
-                                        'bg-amber-500/20 text-amber-400 border-amber-500/30': getOilChangeStatus(v).color === 'amber',
-                                        'bg-emerald-500/20 text-emerald-400 border-emerald-500/30': getOilChangeStatus(v).color === 'emerald',
-                                        'bg-slate-800 text-slate-400': getOilChangeStatus(v).color === 'slate'
-                                    }" class="text-[9px] font-bold px-2 py-0.5 rounded border" x-text="getOilChangeStatus(v).label"></span>
-                                </div>
-                                <template x-if="v.fuel !== 'Électrique'">
-                                    <div class="space-y-1">
-                                        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
-                                            <span>Dernière: <strong class="text-slate-300" x-text="v.lastOilChangeKm.toLocaleString() + ' km'"></strong></span>
-                                            <span>Prochaine: <strong class="text-indigo-400" x-text="v.nextOilChangeKm.toLocaleString() + ' km'"></strong></span>
+                    <div class="table-wrap shadow-sm">
+                        <div class="overflow-x-auto">
+                            <table class="app-table min-w-[760px]">
+                                <thead>
+                                    <tr>
+                                        <th>Véhicule</th>
+                                        <th>Conducteur</th>
+                                        <th>Début</th>
+                                        <th>Fin</th>
+                                        <th>Motif</th>
+                                        <th>Statut</th>
+                                        <th class="text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <template x-for="r in reservations" :key="r.id">
+                                        <tr>
+                                            <td class="font-semibold text-slate-900" x-text="r.vehicle"></td>
+                                            <td x-text="r.driver"></td>
+                                            <td class="font-mono text-slate-500 whitespace-nowrap" x-text="r.start"></td>
+                                            <td class="font-mono text-slate-500 whitespace-nowrap" x-text="r.end"></td>
+                                            <td x-text="r.purpose"></td>
+                                            <td>
+                                                <span :class="{
+                                                    'badge-green': r.status === 'APPROVED',
+                                                    'badge-amber': r.status === 'PENDING'
+                                                }" class="badge" x-text="r.status === 'APPROVED' ? 'Approuvé' : 'En Attente'"></span>
+                                            </td>
+                                            <td class="text-right">
+                                                <div class="flex items-center justify-end gap-1.5">
+                                                    <button x-show="r.status === 'PENDING'" @click="approveReservation(r.id)" class="btn btn-success btn-xs">
+                                                        Valider
+                                                    </button>
+                                                    <button @click="openReservationModal(r)" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                                        <i class="fa-solid fa-pen text-xs"></i>
+                                                    </button>
+                                                    <button @click="deleteReservation(r.id)" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-rose-500">
+                                                        <i class="fa-solid fa-trash-can text-xs"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <p x-show="reservations.length === 0" class="text-sm text-slate-500 text-center py-10">Aucune réservation enregistrée.</p>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- VUE 5 : ENTRETIEN & CARBURANT             -->
+                <!-- ========================================== -->
+                <div x-show="mainTab === 'maintenance'" class="space-y-6" x-cloak>
+                    <div class="flex justify-between items-center animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Planification & Suivi de Maintenance</h2>
+                            <p class="text-xs text-slate-500">Organisez les révisions périodiques, les vidanges et le contrôle du budget entretien.</p>
+                        </div>
+                        <button @click="openMaintenanceModal()" class="btn btn-primary">
+                            + Planifier un Entretien
+                        </button>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <!-- Tableau des Entretiens -->
+                        <div class="card card-pad space-y-4">
+                            <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-wrench text-amber-500"></i> Calendrier d'Entretien & Vidanges
+                            </h3>
+                            <div class="space-y-3">
+                                <template x-for="m in maintenances" :key="m.id">
+                                    <div class="card p-3.5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 bg-slate-50/60 border-slate-200 card-hover">
+                                        <div class="min-w-0">
+                                            <h4 class="font-bold text-xs text-slate-900 truncate" x-text="m.vehicle"></h4>
+                                            <p class="text-[11px] text-slate-600" x-text="m.type"></p>
+                                            <p class="text-[10px] text-slate-500" x-text="'Prestataire: ' + (m.provider || 'Garage partenaire')"></p>
+                                            <p class="text-[10px] text-slate-500 font-mono" x-text="'Date: ' + m.date"></p>
                                         </div>
-                                        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                                            <div :class="getOilChangeStatus(v).color === 'rose' ? 'bg-rose-500' : (getOilChangeStatus(v).color === 'amber' ? 'bg-amber-500' : 'bg-emerald-500')"
-                                                 class="h-full rounded-full transition-all duration-300"
-                                                 :style="'width: ' + Math.min(100, Math.max(0, ((v.mileage - v.lastOilChangeKm) / oilChangeInterval) * 100)) + '%'">
+                                        <div class="text-left sm:text-right flex-shrink-0">
+                                            <p class="font-mono text-xs font-bold text-indigo-600" x-text="m.cost.toLocaleString() + ' FCFA'"></p>
+                                            <span :class="{
+                                                'badge-red': m.status === 'URGENT',
+                                                'badge-green': m.status === 'EFFECTUÉ',
+                                                'badge-indigo': m.status === 'PLANIFIÉ'
+                                            }" class="badge" x-text="m.status"></span>
+                                            <div class="flex items-center sm:justify-end gap-1 mt-1.5">
+                                                <button @click="openMaintenanceModal(m)" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                                    <i class="fa-solid fa-pen text-[10px]"></i>
+                                                </button>
+                                                <button @click="deleteMaintenance(m.id)" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-rose-500">
+                                                    <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <p x-show="maintenances.length === 0" class="text-xs text-slate-500 text-center py-4">Aucun entretien planifié.</p>
+                            </div>
+                        </div>
+
+                        <!-- Reçus de Carburant -->
+                        <div class="card card-pad space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                                    <i class="fa-solid fa-gas-pump text-emerald-500"></i> Reçus Carburant récents
+                                </h3>
+                                <button @click="mainTab = 'fuel'" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-500">Voir tout →</button>
+                            </div>
+                            <div class="space-y-3">
+                                <template x-for="f in filteredFuelLogs.slice(0, 3)" :key="f.id">
+                                    <div class="card p-3.5 flex justify-between items-center gap-2 bg-slate-50/60 border-slate-200 card-hover">
+                                        <div class="min-w-0">
+                                            <h4 class="font-bold text-xs text-slate-900" x-text="f.vehicle"></h4>
+                                            <p class="text-[11px] text-slate-500" x-text="f.liters + ' Litres (' + f.mileage + ' km)'"></p>
+                                            <p class="text-[10px] text-slate-500 font-mono" x-text="f.date"></p>
+                                        </div>
+                                        <div class="font-mono text-xs font-bold text-emerald-600 flex-shrink-0" x-text="f.cost.toLocaleString() + ' FCFA'"></div>
+                                    </div>
+                                </template>
+                                <p x-show="fuelLogs.length === 0" class="text-xs text-slate-500 text-center py-2">Aucun plein enregistré.</p>
+                                <button @click="openFuelModal()" class="w-full text-center text-[11px] font-bold text-emerald-600 border border-dashed border-emerald-300 rounded-xl py-2 hover:bg-emerald-50 transition">
+                                    + Ajouter un plein
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- VUE : GESTION DES CARBURANTS               -->
+                <!-- ========================================== -->
+                <div x-show="mainTab === 'fuel'" class="space-y-6" x-cloak>
+                    <div class="flex justify-between items-center animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Gestion des Carburants</h2>
+                            <p class="text-xs text-slate-500">Suivez les pleins, les dépenses et la consommation de chaque véhicule.</p>
+                        </div>
+                        <button @click="openFuelModal()" class="btn btn-success">
+                            + Ajouter un Plein
+                        </button>
+                    </div>
+
+                    <!-- Statistiques carburant -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="card card-hover card-pad">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Dépense Totale</p>
+                                <i class="fa-solid fa-money-bill-wave text-indigo-500"></i>
+                            </div>
+                            <p class="text-lg font-bold text-slate-900 font-mono mt-1" x-text="totalFuelCost.toLocaleString() + ' FCFA'"></p>
+                        </div>
+                        <div class="card card-hover card-pad">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Volume Total</p>
+                                <i class="fa-solid fa-gas-pump text-emerald-500"></i>
+                            </div>
+                            <p class="text-lg font-bold text-slate-900 font-mono mt-1" x-text="totalFuelLiters.toLocaleString() + ' L'"></p>
+                        </div>
+                        <div class="card card-hover card-pad">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Prix Moyen / Litre</p>
+                                <i class="fa-solid fa-tags text-amber-500"></i>
+                            </div>
+                            <p class="text-lg font-bold text-emerald-600 font-mono mt-1" x-text="avgFuelPricePerLiter.toLocaleString() + ' FCFA'"></p>
+                        </div>
+                        <div class="card card-hover card-pad">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Nombre de Pleins</p>
+                                <i class="fa-solid fa-circle-check text-blue-500"></i>
+                            </div>
+                            <p class="text-lg font-bold text-slate-900 font-mono mt-1" x-text="fuelLogs.length"></p>
+                        </div>
+                    </div>
+
+                    <!-- Filtre par véhicule -->
+                    <div class="card card-pad flex items-center gap-3 flex-wrap">
+                        <label class="text-xs text-slate-600 font-semibold"><i class="fa-solid fa-filter mr-1 text-indigo-500"></i>Filtrer par véhicule :</label>
+                        <select x-model="fuelFilterVehicle" class="input !w-auto">
+                            <option value="ALL">Tous les véhicules</option>
+                            <template x-for="name in fuelVehicleNames" :key="name">
+                                <option :value="name" x-text="name"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- Historique des pleins -->
+                    <div class="card card-pad space-y-4">
+                        <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-gas-pump text-emerald-500"></i> Historique des Pleins
+                        </h3>
+                        <div class="space-y-3">
+                            <template x-for="f in filteredFuelLogs" :key="f.id">
+                                <div class="card p-3.5 flex justify-between items-center gap-3 bg-slate-50/60 border-slate-200 card-hover">
+                                    <div class="min-w-0">
+                                        <h4 class="font-bold text-xs text-slate-900" x-text="f.vehicle"></h4>
+                                        <p class="text-[11px] text-slate-500" x-text="f.liters + ' Litres — Odomètre: ' + f.mileage.toLocaleString() + ' km'"></p>
+                                        <p class="text-[10px] text-slate-500 font-mono" x-text="f.date"></p>
+                                        <p x-show="getVehicleConsumption(f.vehicle)" class="text-[10px] text-indigo-600 font-mono" x-text="'≈ ' + getVehicleConsumption(f.vehicle) + ' L/100km (dernier plein)'"></p>
+                                    </div>
+                                    <div class="text-right flex items-center gap-3 flex-shrink-0">
+                                        <div>
+                                            <p class="font-mono text-xs font-bold text-emerald-600" x-text="f.cost.toLocaleString() + ' FCFA'"></p>
+                                            <p class="text-[10px] text-slate-500 font-mono" x-text="Math.round(f.cost / f.liters) + ' FCFA/L'"></p>
+                                        </div>
+                                        <button @click="deleteFuelLog(f.id)" class="btn btn-ghost btn-xs !text-slate-400 hover:!text-rose-500">
+                                            <i class="fa-solid fa-trash-can text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                            <p x-show="filteredFuelLogs.length === 0" class="text-xs text-slate-500 text-center py-4">Aucun reçu de carburant enregistré.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- VUE 6 : SIGNALEMENTS & INCIDENTS          -->
+                <!-- ========================================== -->
+                <div x-show="mainTab === 'incidents'" class="space-y-6" x-cloak>
+                    <div class="flex justify-between items-center animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Signalements de Dysfonctionnement</h2>
+                            <p class="text-xs text-slate-500">Suivi des anomalies techniques rapportées par les chauffeurs (bruits, carrosserie, voyants).</p>
+                        </div>
+                        <button @click="openIncidentModal()" class="btn btn-warning">
+                            + Déclarer un Signalement
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <template x-for="i in incidents" :key="i.id">
+                            <div class="card card-hover card-pad space-y-3">
+                                <div class="flex justify-between items-start gap-2">
+                                    <div class="min-w-0">
+                                        <h3 class="font-bold text-sm text-slate-900" x-text="i.title"></h3>
+                                        <p class="text-xs text-indigo-600 font-medium" x-text="i.vehicle"></p>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                                        <span :class="{
+                                            'badge-red': i.priority === 'HAUTE',
+                                            'badge-amber': i.priority === 'MOYENNE',
+                                            'badge-slate': i.priority === 'BASSE'
+                                        }" class="badge" x-text="'Priorité ' + i.priority"></span>
+                                        <button @click="openIncidentModal(i)" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                            <i class="fa-solid fa-pen text-[11px]"></i>
+                                        </button>
+                                        <button @click="deleteIncident(i.id)" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-rose-500">
+                                            <i class="fa-solid fa-trash-can text-[11px]"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200" x-text="i.description"></p>
+
+                                <div class="flex justify-between items-center text-xs text-slate-500 pt-1 border-t border-slate-100 flex-wrap gap-2">
+                                    <span>Déclaré par : <strong class="text-slate-800" x-text="i.driver"></strong> le <span class="font-mono" x-text="i.date"></span></span>
+                                    <div class="flex gap-1">
+                                        <button x-show="i.status !== 'RÉSOLU'" @click="updateIncidentStatus(i.id, 'EN_COURS')" class="btn btn-warning btn-xs">En cours</button>
+                                        <button x-show="i.status !== 'RÉSOLU'" @click="updateIncidentStatus(i.id, 'RÉSOLU')" class="btn btn-success btn-xs">Résolu</button>
+                                        <span x-show="i.status === 'RÉSOLU'" class="badge badge-green"><i class="fa-solid fa-check"></i> Traité</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <p x-show="incidents.length === 0" class="text-sm text-slate-500 text-center py-10">Aucun signalement enregistré.</p>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- VUE 7 : GESTION DES ACCIDENTS              -->
+                <!-- ========================================== -->
+                <div x-show="mainTab === 'accidents'" class="space-y-6" x-cloak>
+                    <div class="flex justify-between items-center animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-car-burst text-rose-500"></i> Traitement des Sinistres & Accidents
+                            </h2>
+                            <p class="text-xs text-slate-500">Déclaration, constats, estimations des réparations et suivi d'assurance.</p>
+                        </div>
+                        <button @click="openAccidentModal()" class="btn btn-danger">
+                            + Déclarer un Accident
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <template x-for="a in accidents" :key="a.id">
+                            <div class="card card-pad space-y-4 card-hover">
+                                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-100 pb-3">
+                                    <div>
+                                        <h3 class="font-bold text-base text-slate-900" x-text="a.vehicle"></h3>
+                                        <p class="text-xs text-slate-500">Conducteur : <span class="text-slate-800 font-medium" x-text="a.driver"></span></p>
+                                    </div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="text-xs font-mono text-slate-500" x-text="a.date + ' à ' + a.location"></span>
+                                        <span :class="{
+                                            'badge-red': a.status === 'DECLARÉ',
+                                            'badge-amber': a.status === 'ASSURANCE',
+                                            'badge-green': a.status === 'RÉPARÉ'
+                                        }" class="badge" x-text="'Dossier: ' + a.status"></span>
+                                        <button @click="openAccidentModal(a)" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                            <i class="fa-solid fa-pen text-xs"></i>
+                                        </button>
+                                        <button @click="deleteAccident(a.id)" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-rose-500">
+                                            <i class="fa-solid fa-trash-can text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="grid md:grid-cols-3 gap-4 text-xs">
+                                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                                        <p class="text-slate-600 font-semibold"><i class="fa-solid fa-triangle-exclamation text-rose-500"></i> Dégâts Constatés :</p>
+                                        <p class="text-slate-700" x-text="a.damage"></p>
+                                    </div>
+                                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
+                                        <p class="text-slate-600 font-semibold"><i class="fa-solid fa-file-contract text-indigo-500"></i> Procédure :</p>
+                                        <p class="text-slate-700">Tiers impliqué : <strong x-text="a.thirdParty"></strong></p>
+                                        <p class="text-slate-700">Constat : <strong x-text="a.report"></strong></p>
+                                    </div>
+                                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 flex flex-col justify-between">
+                                        <div>
+                                            <p class="text-slate-600 font-semibold"><i class="fa-solid fa-coins text-amber-500"></i> Estimation Réparations :</p>
+                                            <p class="text-indigo-600 font-mono text-sm font-bold" x-text="a.costEstimate.toLocaleString() + ' FCFA'"></p>
+                                        </div>
+                                        <div class="flex gap-1 pt-2 flex-wrap">
+                                            <button @click="updateAccidentStatus(a.id, 'ASSURANCE')" class="btn btn-warning btn-xs">Transmission Assurance</button>
+                                            <button @click="updateAccidentStatus(a.id, 'RÉPARÉ')" class="btn btn-success btn-xs">Clôturer Dossier</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <p x-show="accidents.length === 0" class="text-sm text-slate-500 text-center py-10">Aucun accident enregistré.</p>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- VUE 8 : VIDÉO DE PRÉSENTATION & STORYBOARD -->
+                <!-- ========================================== -->
+                <div x-show="mainTab === 'video'" class="space-y-6" x-cloak>
+
+                    <div class="flex justify-between items-center border-b border-slate-200 pb-4 flex-wrap gap-3 animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                Vidéo Explicative Interactive <span class="badge badge-indigo">Asadiya Flotte PRO</span>
+                            </h2>
+                            <p class="text-xs text-slate-500">Présentation animée avec synthèse vocale en français et script de promotion YouTube.</p>
+                        </div>
+
+                        <div class="flex space-x-2">
+                            <button @click="videoTab = 'player'" :class="videoTab === 'player' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                                <i class="fa-solid fa-play mr-1"></i> Lecteur Animé
+                            </button>
+                            <button @click="videoTab = 'script'" :class="videoTab === 'script' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
+                                <i class="fa-solid fa-scroll mr-1"></i> Storyboard & Script
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ONGLET VIDÉO PLAYER -->
+                    <div x-show="videoTab === 'player'" class="space-y-6">
+                        <!-- Écran de Vidéo Synthetique (écran sombre, style lecteur vidéo) -->
+                        <div class="relative bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden aspect-video max-w-5xl mx-auto flex flex-col justify-between select-none">
+
+                            <!-- Filigrane & Badge -->
+                            <div class="absolute top-4 left-4 right-4 z-20 flex justify-between items-center pointer-events-none">
+                                <div class="flex items-center space-x-2 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700">
+                                    <i class="fa-solid fa-truck-fast text-indigo-400 text-sm"></i>
+                                    <span class="text-xs font-bold tracking-wider text-slate-200">Asadiya Flotte <span class="text-indigo-400">PRO</span></span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/30 uppercase tracking-widest flex items-center gap-1">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        4K Ultra HD
+                                    </span>
+                                    <span class="bg-slate-800/80 text-slate-300 text-xs px-2.5 py-1 rounded-lg font-mono" x-text="'Scène ' + (currentSceneIndex + 1) + '/' + scenes.length"></span>
+                                </div>
+                            </div>
+
+                            <!-- VISUEL DE LA SCÈNE VIDÉO -->
+                            <div class="relative flex-grow flex items-center justify-center p-6 overflow-hidden">
+                                <div class="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:24px_24px]"></div>
+
+                                <!-- Scène 1 -->
+                                <div x-show="currentSceneIndex === 0" class="text-center space-y-6 max-w-2xl z-10">
+                                    <div class="inline-flex p-5 bg-indigo-600/20 border border-indigo-500/30 rounded-3xl text-indigo-400 animate-float">
+                                        <i class="fa-solid fa-truck-fast text-6xl"></i>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <h2 class="text-3xl md:text-5xl font-extrabold text-white tracking-tight">Asadiya Flotte <span class="text-indigo-400">PRO</span></h2>
+                                        <p class="text-slate-400 text-base">La solution SaaS intelligente pour piloter votre flotte automobile.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Scène 2 -->
+                                <div x-show="currentSceneIndex === 1" class="w-full max-w-3xl z-10 space-y-4">
+                                    <div class="text-center mb-2">
+                                        <span class="text-indigo-400 text-xs font-bold uppercase">Module 1</span>
+                                        <h3 class="text-xl md:text-2xl font-bold text-white">Tableau de Bord & KPIs</h3>
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-3">
+                                        <div class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 text-center">
+                                            <i class="fa-solid fa-car text-indigo-400 text-2xl mb-1"></i>
+                                            <div class="text-2xl font-extrabold text-white">24</div>
+                                            <div class="text-[10px] text-slate-400">Véhicules Totaux</div>
+                                        </div>
+                                        <div class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 text-center">
+                                            <i class="fa-solid fa-circle-check text-emerald-400 text-2xl mb-1"></i>
+                                            <div class="text-2xl font-extrabold text-emerald-400">85%</div>
+                                            <div class="text-[10px] text-slate-400">Disponibilité</div>
+                                        </div>
+                                        <div class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 text-center">
+                                            <i class="fa-solid fa-chart-line text-indigo-400 text-2xl mb-1"></i>
+                                            <div class="text-2xl font-extrabold text-indigo-400">7</div>
+                                            <div class="text-[10px] text-slate-400">Graphiques Live</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Scène 3 : Alertes Vidanges -->
+                                <div x-show="currentSceneIndex === 2" class="w-full max-w-3xl z-10 space-y-4">
+                                    <div class="text-center mb-2">
+                                        <span class="text-rose-400 text-xs font-bold uppercase">Module Avancé</span>
+                                        <h3 class="text-xl md:text-2xl font-bold text-white">Alertes & Suivi des Vidanges Moteur</h3>
+                                    </div>
+                                    <div class="bg-rose-950/40 p-4 rounded-2xl border border-rose-500/30 space-y-2">
+                                        <div class="flex items-center space-x-2 text-rose-400 font-bold text-sm">
+                                            <i class="fa-solid fa-oil-can"></i>
+                                            <span>Alerte Seuil Kilométrique</span>
+                                        </div>
+                                        <p class="text-xs text-slate-300">Détection automatique des échéances tous les 10 000 km avec réinitialisation et enregistrement direct.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Scène 4 -->
+                                <div x-show="currentSceneIndex === 3" class="w-full max-w-3xl z-10 space-y-4">
+                                    <div class="text-center mb-2">
+                                        <span class="text-indigo-400 text-xs font-bold uppercase">Module 2</span>
+                                        <h3 class="text-xl md:text-2xl font-bold text-white">Parc Automobile & Conducteurs</h3>
+                                    </div>
+                                    <div class="grid md:grid-cols-2 gap-4">
+                                        <div class="bg-slate-800/90 p-4 rounded-2xl border border-slate-700">
+                                            <span class="font-bold text-white text-sm">Peugeot 208</span>
+                                            <p class="text-xs text-slate-400 font-mono">Plaque: AA-123-BB | 34 500 km</p>
+                                        </div>
+                                        <div class="bg-slate-800/90 p-4 rounded-2xl border border-slate-700">
+                                            <span class="font-bold text-white text-sm">Tesla Model 3</span>
+                                            <p class="text-xs text-slate-400 font-mono">Conducteur: Sarah Martin</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Scène 5 -->
+                                <div x-show="currentSceneIndex === 4" class="w-full max-w-3xl z-10 space-y-4">
+                                    <div class="text-center mb-2">
+                                        <span class="text-indigo-400 text-xs font-bold uppercase">Module 3</span>
+                                        <h3 class="text-xl md:text-2xl font-bold text-white">Planning & Réservations</h3>
+                                    </div>
+                                    <div class="bg-slate-800/90 p-4 rounded-2xl border border-slate-700 space-y-2">
+                                        <div class="flex justify-between text-xs text-slate-300 border-b border-slate-700 pb-2">
+                                            <span>Mission Dakar - Thomas Dubois</span>
+                                            <span class="bg-indigo-500 font-bold px-2 py-0.5 rounded text-white">Approuvé</span>
+                                        </div>
+                                        <p class="text-center text-xs text-slate-400 pt-1"><i class="fa-solid fa-calendar-days text-indigo-400 mr-1"></i> Prévention des conflits d'agenda</p>
+                                    </div>
+                                </div>
+
+                                <!-- Scène 6 -->
+                                <div x-show="currentSceneIndex === 5" class="w-full max-w-3xl z-10 space-y-4">
+                                    <div class="text-center mb-2">
+                                        <span class="text-indigo-400 text-xs font-bold uppercase">Module 4</span>
+                                        <h3 class="text-xl md:text-2xl font-bold text-white">Signalements & Gestion des Accidents</h3>
+                                    </div>
+                                    <div class="grid md:grid-cols-2 gap-4">
+                                        <div class="bg-amber-950/40 p-4 rounded-2xl border border-amber-800/50">
+                                            <p class="text-xs font-bold text-amber-400"><i class="fa-solid fa-triangle-exclamation"></i> Signalement Panne</p>
+                                            <p class="text-xs text-slate-300">Suivi des anomalies et voyants par priorité</p>
+                                        </div>
+                                        <div class="bg-rose-950/40 p-4 rounded-2xl border border-rose-800/50">
+                                            <p class="text-xs font-bold text-rose-400"><i class="fa-solid fa-car-burst"></i> Sinistre & Accident</p>
+                                            <p class="text-xs text-slate-300">Constat, assurance et immobilisation auto</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Scène 7 -->
+                                <div x-show="currentSceneIndex === 6" class="text-center space-y-6 max-w-2xl z-10">
+                                    <div class="inline-flex p-4 bg-emerald-500/20 border border-emerald-500/30 rounded-3xl text-emerald-400 animate-pulse">
+                                        <i class="fa-solid fa-rocket text-5xl"></i>
+                                    </div>
+                                    <h2 class="text-3xl font-bold text-white">Optimisez votre gestion avec Asadiya Flotte PRO</h2>
+                                    <button @click="mainTab = 'dashboard'" class="btn btn-primary text-sm px-6 py-3">
+                                        Explorer l'application
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- SOUS-TITRES -->
+                            <div class="bg-slate-950/90 border-t border-slate-800 px-6 py-3 text-center min-h-[60px] flex items-center justify-center z-20">
+                                <p class="text-xs md:text-sm font-medium text-slate-200 tracking-wide" x-text="scenes[currentSceneIndex].subtitle"></p>
+                            </div>
+
+                            <!-- BARRE DE CONTRÔLE DE LECTURE -->
+                            <div class="bg-slate-900 border-t border-slate-800 p-4 flex flex-col space-y-2 z-20">
+                                <div class="relative w-full bg-slate-800 h-2 rounded-full cursor-pointer overflow-hidden" @click="seekVideo($event)">
+                                    <div class="bg-indigo-500 h-full rounded-full transition-all duration-200" :style="'width: ' + videoProgressPercentage + '%'"></div>
+                                </div>
+
+                                <div class="flex items-center justify-between pt-1">
+                                    <div class="flex items-center space-x-3">
+                                        <button @click="togglePlayVideo()" class="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition flex items-center justify-center w-10 h-10 shadow-md">
+                                            <i :class="isPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play'"></i>
+                                        </button>
+                                        <span class="text-xs font-mono text-slate-400" x-text="formatTime(currentTime) + ' / ' + formatTime(videoTotalDuration)"></span>
+                                    </div>
+
+                                    <div class="hidden sm:block text-xs font-semibold text-slate-300">
+                                        <span class="text-indigo-400">Scène actuelle :</span> <span x-text="scenes[currentSceneIndex].title"></span>
+                                    </div>
+
+                                    <div class="flex items-center space-x-3">
+                                        <button @click="voiceEnabled = !voiceEnabled"
+                                                :class="voiceEnabled ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 bg-slate-800'"
+                                                class="p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 px-3">
+                                            <i :class="voiceEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark'"></i>
+                                            <span class="hidden md:inline" x-text="voiceEnabled ? 'Voix FR ON' : 'Voix OFF'"></span>
+                                        </button>
+                                        <button @click="restartVideo()" class="p-2 text-slate-400 hover:text-white rounded-lg transition" title="Redémarrer">
+                                            <i class="fa-solid fa-rotate-left"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Boutons de saut rapide vers une scène -->
+                        <div class="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                            <template x-for="(s, index) in scenes" :key="index">
+                                <button @click="jumpToScene(index)"
+                                        :class="currentSceneIndex === index ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-500/30' : 'card text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-slate-900 hover:shadow-md'"
+                                        class="p-2.5 rounded-2xl border text-left text-[11px] font-medium transition flex flex-col justify-between space-y-1">
+                                    <span class="font-bold text-[9px] opacity-70" x-text="'0' + (index + 1)"></span>
+                                    <span class="font-semibold line-clamp-2" x-text="s.title"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- ONGLET SCRIPT & STORYBOARD -->
+                    <div x-show="videoTab === 'script'" class="max-w-4xl mx-auto space-y-6">
+                        <div class="card p-6 space-y-4">
+                            <div class="flex justify-between items-center border-b border-slate-200 pb-4 flex-wrap gap-2">
+                                <div>
+                                    <h3 class="text-lg font-bold text-slate-900">Script YouTube & Storyboard Asadiya Flotte PRO</h3>
+                                    <p class="text-xs text-slate-500">Texte de voix off et indications visuelles par scène.</p>
+                                </div>
+                                <button @click="copyScriptText()" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-copy"></i>
+                                    <span>Copier le Script</span>
+                                </button>
+                            </div>
+
+                            <div class="space-y-4">
+                                <template x-for="(s, index) in scenes" :key="index">
+                                    <div class="card p-4 space-y-2 bg-slate-50/60 border-slate-200">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-xs font-bold text-indigo-600" x-text="'SCÈNE ' + (index + 1) + ' : ' + s.title"></span>
+                                            <span class="text-[10px] font-mono bg-white border border-slate-200 text-slate-500 px-2 py-0.5 rounded" x-text="s.duration + ' secondes'"></span>
+                                        </div>
+                                        <div class="grid md:grid-cols-2 gap-3 text-xs pt-1">
+                                            <div class="bg-white p-3 rounded-xl border border-slate-200">
+                                                <p class="font-semibold text-slate-700 mb-1"><i class="fa-solid fa-eye text-indigo-500 mr-1"></i> Animation Visuelle :</p>
+                                                <p class="text-slate-500" x-text="s.visual"></p>
+                                            </div>
+                                            <div class="bg-white p-3 rounded-xl border border-slate-200">
+                                                <p class="font-semibold text-slate-700 mb-1"><i class="fa-solid fa-microphone text-emerald-500 mr-1"></i> Voix Off (Français) :</p>
+                                                <p class="text-slate-700 italic" x-text="'« ' + s.narration + ' »'"></p>
                                             </div>
                                         </div>
                                     </div>
                                 </template>
                             </div>
                         </div>
-
-                        <div class="flex justify-between items-center pt-2 border-t border-slate-800 flex-wrap gap-1.5">
-                            <button x-show="v.fuel !== 'Électrique' && canManageFleet" @click="openOilChangeModal(v)" class="text-xs text-amber-400 hover:text-amber-300 p-1.5 rounded hover:bg-amber-500/10 transition font-bold flex items-center gap-1">
-                                <i class="fa-solid fa-oil-can"></i> Vidange
-                            </button>
-                            <div class="flex items-center gap-1 ml-auto">
-                                <button @click="openVehicleDetail(v)" title="Fiche complète" class="text-xs text-indigo-400 hover:text-indigo-300 p-1.5 rounded hover:bg-indigo-500/10 transition">
-                                    <i class="fa-solid fa-id-card"></i>
-                                </button>
-                                <button x-show="canManageFleet" @click="openVehicleModal(v)" title="Modifier" class="text-xs text-slate-400 hover:text-indigo-300 p-1.5 rounded hover:bg-indigo-500/10 transition">
-                                    <i class="fa-solid fa-pen"></i>
-                                </button>
-                                <button x-show="canManageFleet" @click="deleteVehicle(v.id)" title="Supprimer" class="text-xs text-rose-400 hover:text-rose-300 p-1.5 rounded hover:bg-rose-500/10 transition">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-
-        </div>
-
-        <!-- ========================================== -->
-        <!-- VUE 3 : CONDUCTEURS                       -->
-        <!-- ========================================== -->
-        <div x-show="mainTab === 'drivers'" class="space-y-6" x-cloak>
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h2 class="text-xl font-bold text-white">Gestion des Conducteurs</h2>
-                    <p class="text-xs text-slate-400">Gérez la liste des chauffeurs habilités à conduire les véhicules du parc.</p>
-                </div>
-                <button @click="openDriverModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : 'hover:bg-indigo-500'" class="bg-indigo-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
-                    + Ajouter un Conducteur
-                </button>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <template x-for="d in drivers" :key="d.id">
-                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div class="flex items-center space-x-4 min-w-0">
-                            <div class="w-12 h-12 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-lg font-bold flex-shrink-0 overflow-hidden">
-                                <img x-show="d.photo" :src="d.photo" class="w-full h-full object-cover">
-                                <span x-show="!d.photo" x-text="d.name.charAt(0)"></span>
-                            </div>
-                            <div class="min-w-0">
-                                <h3 class="font-bold text-sm text-white truncate" x-text="d.name"></h3>
-                                <p class="text-xs text-slate-400 truncate" x-text="d.email"></p>
-                                <p class="text-xs text-slate-400" x-text="'Tél: ' + d.phone"></p>
-                                <p class="text-xs font-mono text-slate-500" x-text="'Permis: ' + d.license"></p>
-                                <p class="text-[10px] font-mono" :class="{
-                                    'text-rose-400': getDocumentStatus(d.licenseExpiry).color === 'rose',
-                                    'text-amber-400': getDocumentStatus(d.licenseExpiry).color === 'amber',
-                                    'text-emerald-400': getDocumentStatus(d.licenseExpiry).color === 'emerald',
-                                    'text-slate-500': getDocumentStatus(d.licenseExpiry).color === 'slate'
-                                }" x-text="'Validité permis: ' + getDocumentStatus(d.licenseExpiry).label"></p>
-                            </div>
-                        </div>
-                        <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start space-y-0 sm:space-y-2 flex-shrink-0">
-                            <span :class="d.status === 'DISPONIBLE' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'" class="text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-700" x-text="d.status"></span>
-                            <div class="flex items-center gap-1">
-                                <button @click="openDriverModal(d)" title="Modifier" class="text-xs text-slate-400 hover:text-indigo-300 p-1 rounded hover:bg-indigo-500/10 transition">
-                                    <i class="fa-solid fa-pen"></i>
-                                </button>
-                                <button x-show="canDeleteDrivers" @click="deleteDriver(d.id)" title="Supprimer" class="text-xs text-rose-400 hover:text-rose-300 p-1 rounded hover:bg-rose-500/10 transition">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- VUE : GESTION DES UTILISATEURS (Admin)    -->
-        <!-- ========================================== -->
-        <div x-show="mainTab === 'users'" class="space-y-6" x-cloak>
-            <div class="flex justify-between items-center">
-                <div>
-                    <h2 class="text-xl font-bold text-white">Utilisateurs de <span x-text="currentUser.organizationName"></span></h2>
-                    <p class="text-xs text-slate-400">Chaque membre de votre équipe a son propre identifiant et mot de passe.</p>
-                </div>
-                <button @click="openUserModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : 'hover:bg-indigo-500'" class="bg-indigo-600 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
-                    + Ajouter un Utilisateur
-                </button>
-            </div>
-
-            <div x-show="isLoadingUsers" class="text-center text-slate-400 text-sm py-10">
-                <i class="fa-solid fa-spinner fa-spin"></i> Chargement...
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-4" x-show="!isLoadingUsers">
-                <template x-for="u in orgUsers" :key="u.id">
-                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-3">
-                        <div class="flex items-center gap-3 min-w-0">
-                            <div class="w-11 h-11 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold flex-shrink-0" x-text="u.name.charAt(0)"></div>
-                            <div class="min-w-0">
-                                <h3 class="font-bold text-sm text-white truncate" x-text="u.name"></h3>
-                                <p class="text-xs text-slate-400 font-mono" x-text="'@' + u.username"></p>
-                                <span :class="{
-                                    'bg-indigo-500/20 text-indigo-400': u.role === 'ADMIN',
-                                    'bg-amber-500/20 text-amber-400': u.role === 'MANAGER',
-                                    'bg-emerald-500/20 text-emerald-400': u.role === 'DRIVER'
-                                }" class="text-[9px] font-bold px-2 py-0.5 rounded-full inline-block mt-1" x-text="u.role === 'ADMIN' ? 'Administrateur' : (u.role === 'MANAGER' ? 'Gestionnaire' : 'Conducteur')"></span>
-                                <span x-show="u.id === currentUser.id" class="text-[9px] text-slate-500 ml-1">(vous)</span>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-1 flex-shrink-0">
-                            <button @click="openUserModal(u)" title="Modifier" class="text-xs text-slate-400 hover:text-indigo-300 p-1.5 rounded hover:bg-indigo-500/10 transition">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
-                            <button x-show="u.id !== currentUser.id" @click="deleteUser(u.id)" title="Supprimer" class="text-xs text-rose-400 hover:text-rose-300 p-1.5 rounded hover:bg-rose-500/10 transition">
-                                <i class="fa-solid fa-trash-can"></i>
-                            </button>
-                        </div>
-                    </div>
-                </template>
-                <p x-show="orgUsers.length === 0" class="text-sm text-slate-500 col-span-2 text-center py-10">Aucun utilisateur pour l'instant.</p>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- VUE 4 : RESERVATIONS & PLANNING           -->
-        <!-- ========================================== -->
-        <div x-show="mainTab === 'reservations'" class="space-y-6" x-cloak>
-            <div class="flex justify-between items-center">
-                <div>
-                    <h2 class="text-xl font-bold text-white">Planning des Missions</h2>
-                    <p class="text-xs text-slate-400">Validation et historique des affectations de véhicules.</p>
-                </div>
-                <button @click="openReservationModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
-                    + Faire une Demande
-                </button>
-            </div>
-
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-                <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-xs min-w-[720px]">
-                    <thead>
-                        <tr class="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] font-semibold">
-                            <th class="p-4">Véhicule</th>
-                            <th class="p-4">Conducteur</th>
-                            <th class="p-4">Début</th>
-                            <th class="p-4">Fin</th>
-                            <th class="p-4">Motif</th>
-                            <th class="p-4">Statut</th>
-                            <th class="p-4 text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/80 text-slate-300">
-                        <template x-for="r in reservations" :key="r.id">
-                            <tr class="hover:bg-slate-800/40 transition">
-                                <td class="p-4 font-semibold text-white" x-text="r.vehicle"></td>
-                                <td class="p-4" x-text="r.driver"></td>
-                                <td class="p-4 font-mono text-slate-400" x-text="r.start"></td>
-                                <td class="p-4 font-mono text-slate-400" x-text="r.end"></td>
-                                <td class="p-4" x-text="r.purpose"></td>
-                                <td class="p-4">
-                                    <span :class="{
-                                        'bg-emerald-500/20 text-emerald-400 border-emerald-500/30': r.status === 'APPROVED',
-                                        'bg-amber-500/20 text-amber-400 border-amber-500/30': r.status === 'PENDING'
-                                    }" class="text-[10px] font-bold px-2 py-0.5 rounded border" x-text="r.status === 'APPROVED' ? 'Approuvé' : 'En Attente'"></span>
-                                </td>
-                                <td class="p-4 text-right">
-                                    <div class="flex items-center justify-end gap-1.5">
-                                        <button x-show="r.status === 'PENDING'" @click="approveReservation(r.id)" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-2.5 py-1 rounded transition font-bold">
-                                            Valider
-                                        </button>
-                                        <button @click="openReservationModal(r)" class="text-slate-400 hover:text-indigo-400 p-1.5 rounded hover:bg-indigo-500/10 transition">
-                                            <i class="fa-solid fa-pen text-xs"></i>
-                                        </button>
-                                        <button @click="deleteReservation(r.id)" class="text-slate-400 hover:text-rose-400 p-1.5 rounded hover:bg-rose-500/10 transition">
-                                            <i class="fa-solid fa-trash-can text-xs"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- VUE 5 : ENTRETIEN & CARBURANT             -->
-        <!-- ========================================== -->
-        <div x-show="mainTab === 'maintenance'" class="space-y-6" x-cloak>
-            <div class="flex justify-between items-center">
-                <div>
-                    <h2 class="text-xl font-bold text-white">Planification & Suivi de Maintenance</h2>
-                    <p class="text-xs text-slate-400">Organisez les révisions périodiques, les vidanges et le contrôle du budget entretien.</p>
-                </div>
-                <button @click="openMaintenanceModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
-                    + Planifier un Entretien
-                </button>
-            </div>
-
-            <div class="grid md:grid-cols-2 gap-6">
-                <!-- Tableau des Entretiens -->
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-                    <h3 class="font-bold text-sm text-white flex items-center gap-2">
-                        <i class="fa-solid fa-wrench text-amber-400"></i> Calendrier d'Entretien & Vidanges
-                    </h3>
-                    <div class="space-y-3">
-                        <template x-for="m in maintenances" :key="m.id">
-                            <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                                <div class="min-w-0">
-                                    <h4 class="font-bold text-xs text-white truncate" x-text="m.vehicle"></h4>
-                                    <p class="text-[11px] text-slate-300" x-text="m.type"></p>
-                                    <p class="text-[10px] text-slate-500" x-text="'Prestataire: ' + (m.provider || 'Garage partenaire')"></p>
-                                    <p class="text-[10px] text-slate-400 font-mono" x-text="'Date: ' + m.date"></p>
-                                </div>
-                                <div class="text-left sm:text-right flex-shrink-0">
-                                    <p class="font-mono text-xs font-bold text-indigo-400" x-text="m.cost.toLocaleString() + ' FCFA'"></p>
-                                    <span :class="{
-                                        'bg-rose-500/20 text-rose-400 border-rose-500/30': m.status === 'URGENT',
-                                        'bg-emerald-500/20 text-emerald-400 border-emerald-500/30': m.status === 'EFFECTUÉ',
-                                        'bg-indigo-500/20 text-indigo-400 border-indigo-500/30': m.status === 'PLANIFIÉ'
-                                    }" class="text-[9px] font-bold px-2 py-0.5 rounded border" x-text="m.status"></span>
-                                    <div class="flex items-center sm:justify-end gap-1 mt-1.5">
-                                        <button @click="openMaintenanceModal(m)" class="text-slate-500 hover:text-indigo-400 p-1 rounded hover:bg-indigo-500/10 transition">
-                                            <i class="fa-solid fa-pen text-[10px]"></i>
-                                        </button>
-                                        <button @click="deleteMaintenance(m.id)" class="text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-rose-500/10 transition">
-                                            <i class="fa-solid fa-trash-can text-[10px]"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-
-                <!-- Reçus de Carburant -->
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-                    <div class="flex justify-between items-center">
-                        <h3 class="font-bold text-sm text-white flex items-center gap-2">
-                            <i class="fa-solid fa-gas-pump text-emerald-400"></i> Reçus Carburant récents
-                        </h3>
-                        <button @click="mainTab = 'fuel'" class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300">Voir tout →</button>
-                    </div>
-                    <div class="space-y-3">
-                        <template x-for="f in filteredFuelLogs.slice(0, 3)" :key="f.id">
-                            <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
-                                <div>
-                                    <h4 class="font-bold text-xs text-white" x-text="f.vehicle"></h4>
-                                    <p class="text-[11px] text-slate-400" x-text="f.liters + ' Litres (' + f.mileage + ' km)'"></p>
-                                    <p class="text-[10px] text-slate-500 font-mono" x-text="f.date"></p>
-                                </div>
-                                <div class="font-mono text-xs font-bold text-emerald-400" x-text="f.cost.toLocaleString() + ' FCFA'"></div>
-                            </div>
-                        </template>
-                        <p x-show="fuelLogs.length === 0" class="text-xs text-slate-500 text-center py-2">Aucun plein enregistré.</p>
-                        <button @click="openFuelModal()" class="w-full text-center text-[11px] font-bold text-emerald-400 border border-dashed border-emerald-500/30 rounded-xl py-2 hover:bg-emerald-500/10">
-                            + Ajouter un plein
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- VUE : GESTION DES CARBURANTS               -->
-        <!-- ========================================== -->
-        <div x-show="mainTab === 'fuel'" class="space-y-6" x-cloak>
-            <div class="flex justify-between items-center">
-                <div>
-                    <h2 class="text-xl font-bold text-white">Gestion des Carburants</h2>
-                    <p class="text-xs text-slate-400">Suivez les pleins, les dépenses et la consommation de chaque véhicule.</p>
-                </div>
-                <button @click="openFuelModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
-                    + Ajouter un Plein
-                </button>
-            </div>
-
-            <!-- Statistiques carburant -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                    <p class="text-[10px] text-slate-400 font-semibold uppercase">Dépense Totale</p>
-                    <p class="text-lg font-bold text-white font-mono" x-text="totalFuelCost.toLocaleString() + ' FCFA'"></p>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                    <p class="text-[10px] text-slate-400 font-semibold uppercase">Volume Total</p>
-                    <p class="text-lg font-bold text-white font-mono" x-text="totalFuelLiters.toLocaleString() + ' L'"></p>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                    <p class="text-[10px] text-slate-400 font-semibold uppercase">Prix Moyen / Litre</p>
-                    <p class="text-lg font-bold text-emerald-400 font-mono" x-text="avgFuelPricePerLiter.toLocaleString() + ' FCFA'"></p>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                    <p class="text-[10px] text-slate-400 font-semibold uppercase">Nombre de Pleins</p>
-                    <p class="text-lg font-bold text-white font-mono" x-text="fuelLogs.length"></p>
-                </div>
-            </div>
-
-            <!-- Filtre par véhicule -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
-                <label class="text-xs text-slate-400 font-semibold">Filtrer par véhicule :</label>
-                <select x-model="fuelFilterVehicle" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
-                    <option value="ALL">Tous les véhicules</option>
-                    <template x-for="name in fuelVehicleNames" :key="name">
-                        <option :value="name" x-text="name"></option>
-                    </template>
-                </select>
-            </div>
-
-            <!-- Historique des pleins -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-                <h3 class="font-bold text-sm text-white flex items-center gap-2">
-                    <i class="fa-solid fa-gas-pump text-emerald-400"></i> Historique des Pleins
-                </h3>
-                <div class="space-y-3">
-                    <template x-for="f in filteredFuelLogs" :key="f.id">
-                        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
-                            <div>
-                                <h4 class="font-bold text-xs text-white" x-text="f.vehicle"></h4>
-                                <p class="text-[11px] text-slate-400" x-text="f.liters + ' Litres — Odomètre: ' + f.mileage.toLocaleString() + ' km'"></p>
-                                <p class="text-[10px] text-slate-500 font-mono" x-text="f.date"></p>
-                                <p x-show="getVehicleConsumption(f.vehicle)" class="text-[10px] text-indigo-400 font-mono" x-text="'≈ ' + getVehicleConsumption(f.vehicle) + ' L/100km (dernier plein)'"></p>
-                            </div>
-                            <div class="text-right flex items-center gap-3">
-                                <div>
-                                    <p class="font-mono text-xs font-bold text-emerald-400" x-text="f.cost.toLocaleString() + ' FCFA'"></p>
-                                    <p class="text-[10px] text-slate-500 font-mono" x-text="Math.round(f.cost / f.liters) + ' FCFA/L'"></p>
-                                </div>
-                                <button @click="deleteFuelLog(f.id)" class="text-slate-500 hover:text-rose-400 transition">
-                                    <i class="fa-solid fa-trash-can text-xs"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </template>
-                    <p x-show="filteredFuelLogs.length === 0" class="text-xs text-slate-500 text-center py-4">Aucun reçu de carburant enregistré.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- VUE 6 : SIGNALEMENTS & INCIDENTS          -->
-        <!-- ========================================== -->
-        <div x-show="mainTab === 'incidents'" class="space-y-6" x-cloak>
-            <div class="flex justify-between items-center">
-                <div>
-                    <h2 class="text-xl font-bold text-white">Signalements de Dysfonctionnement</h2>
-                    <p class="text-xs text-slate-400">Suivi des anomalies techniques rapportées par les chauffeurs (bruits, carrosserie, voyants).</p>
-                </div>
-                <button @click="openIncidentModal()" class="bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
-                    + Déclarer un Signalement
-                </button>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <template x-for="i in incidents" :key="i.id">
-                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <h3 class="font-bold text-sm text-white" x-text="i.title"></h3>
-                                <p class="text-xs text-indigo-400 font-medium" x-text="i.vehicle"></p>
-                            </div>
-                            <div class="flex items-center gap-1.5">
-                                <span :class="{
-                                    'bg-rose-500/20 text-rose-400 border-rose-500/30': i.priority === 'HAUTE',
-                                    'bg-amber-500/20 text-amber-400 border-amber-500/30': i.priority === 'MOYENNE',
-                                    'bg-slate-800 text-slate-400': i.priority === 'BASSE'
-                                }" class="text-[9px] font-bold px-2 py-0.5 rounded border" x-text="'Priorité ' + i.priority"></span>
-                                <button @click="openIncidentModal(i)" class="text-slate-500 hover:text-indigo-400 p-1 rounded hover:bg-indigo-500/10 transition">
-                                    <i class="fa-solid fa-pen text-[11px]"></i>
-                                </button>
-                                <button @click="deleteIncident(i.id)" class="text-slate-500 hover:text-rose-400 p-1 rounded hover:bg-rose-500/10 transition">
-                                    <i class="fa-solid fa-trash-can text-[11px]"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <p class="text-xs text-slate-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800/80" x-text="i.description"></p>
-
-                        <div class="flex justify-between items-center text-xs text-slate-400 pt-1 border-t border-slate-800">
-                            <span>Déclaré par : <strong class="text-slate-200" x-text="i.driver"></strong> le <span class="font-mono" x-text="i.date"></span></span>
-                            <div class="flex gap-1">
-                                <button x-show="i.status !== 'RÉSOLU'" @click="updateIncidentStatus(i.id, 'EN_COURS')" class="bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 text-[10px] px-2 py-1 rounded">En cours</button>
-                                <button x-show="i.status !== 'RÉSOLU'" @click="updateIncidentStatus(i.id, 'RÉSOLU')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-2 py-1 rounded font-bold">Résolu</button>
-                                <span x-show="i.status === 'RÉSOLU'" class="text-emerald-400 font-bold text-[10px]"><i class="fa-solid fa-check"></i> Traité</span>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- VUE 7 : GESTION DES ACCIDENTS              -->
-        <!-- ========================================== -->
-        <div x-show="mainTab === 'accidents'" class="space-y-6" x-cloak>
-            <div class="flex justify-between items-center">
-                <div>
-                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-car-burst text-rose-500"></i> Traitement des Sinistres & Accidents
-                    </h2>
-                    <p class="text-xs text-slate-400">Déclaration, constats, estimations des réparations et suivi d'assurance.</p>
-                </div>
-                <button @click="openAccidentModal()" class="bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg transition">
-                    + Déclarer un Accident
-                </button>
-            </div>
-
-            <div class="space-y-4">
-                <template x-for="a in accidents" :key="a.id">
-                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-800 pb-3">
-                            <div>
-                                <h3 class="font-bold text-base text-white" x-text="a.vehicle"></h3>
-                                <p class="text-xs text-slate-400">Conducteur : <span class="text-slate-200 font-medium" x-text="a.driver"></span></p>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-mono text-slate-400" x-text="a.date + ' à ' + a.location"></span>
-                                <span :class="{
-                                    'bg-rose-500/20 text-rose-400 border-rose-500/30': a.status === 'DECLARÉ',
-                                    'bg-amber-500/20 text-amber-400 border-amber-500/30': a.status === 'ASSURANCE',
-                                    'bg-emerald-500/20 text-emerald-400 border-emerald-500/30': a.status === 'RÉPARÉ'
-                                }" class="text-[10px] font-bold px-3 py-1 rounded-full border" x-text="'Dossier: ' + a.status"></span>
-                                <button @click="openAccidentModal(a)" class="text-slate-500 hover:text-indigo-400 p-1.5 rounded hover:bg-indigo-500/10 transition">
-                                    <i class="fa-solid fa-pen text-xs"></i>
-                                </button>
-                                <button @click="deleteAccident(a.id)" class="text-slate-500 hover:text-rose-400 p-1.5 rounded hover:bg-rose-500/10 transition">
-                                    <i class="fa-solid fa-trash-can text-xs"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="grid md:grid-cols-3 gap-4 text-xs">
-                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-                                <p class="text-slate-400 font-semibold"><i class="fa-solid fa-triangle-exclamation text-rose-400"></i> Dégâts Constatés :</p>
-                                <p class="text-slate-200" x-text="a.damage"></p>
-                            </div>
-                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-                                <p class="text-slate-400 font-semibold"><i class="fa-solid fa-file-contract text-indigo-400"></i> Procédure :</p>
-                                <p class="text-slate-200">Tiers impliqué : <strong x-text="a.thirdParty"></strong></p>
-                                <p class="text-slate-200">Constat : <strong x-text="a.report"></strong></p>
-                            </div>
-                            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1 flex flex-col justify-between">
-                                <div>
-                                    <p class="text-slate-400 font-semibold"><i class="fa-solid fa-coins text-amber-400"></i> Estimation Réparations :</p>
-                                    <p class="text-indigo-400 font-mono text-sm font-bold" x-text="a.costEstimate.toLocaleString() + ' FCFA'"></p>
-                                </div>
-                                <div class="flex gap-1 pt-2">
-                                    <button @click="updateAccidentStatus(a.id, 'ASSURANCE')" class="bg-amber-600/30 text-amber-300 text-[10px] px-2 py-1 rounded hover:bg-amber-600/50">Transmission Assurance</button>
-                                    <button @click="updateAccidentStatus(a.id, 'RÉPARÉ')" class="bg-emerald-600 text-white text-[10px] px-2 py-1 rounded font-bold hover:bg-emerald-500">Clôturer Dossier</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- VUE 8 : VIDÉO DE PRÉSENTATION & STORYBOARD -->
-        <!-- ========================================== -->
-        <div x-show="mainTab === 'video'" class="space-y-6" x-cloak>
-            
-            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
-                <div>
-                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                        Vidéo Explicative Interactive <span class="bg-indigo-500/20 text-indigo-400 text-xs px-2.5 py-0.5 rounded-full border border-indigo-500/30">Asadiya Flotte PRO</span>
-                    </h2>
-                    <p class="text-xs text-slate-400">Présentation animée avec synthèse vocale en français et script de promotion YouTube.</p>
-                </div>
-
-                <div class="flex space-x-2">
-                    <button @click="videoTab = 'player'" :class="videoTab === 'player' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
-                        <i class="fa-solid fa-play mr-1"></i> Lecteur Animé
-                    </button>
-                    <button @click="videoTab = 'script'" :class="videoTab === 'script' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition">
-                        <i class="fa-solid fa-scroll mr-1"></i> Storyboard & Script
-                    </button>
-                </div>
-            </div>
-
-            <!-- ONGLET VIDÉO PLAYER -->
-            <div x-show="videoTab === 'player'" class="space-y-6">
-                <!-- Écran de Vidéo Synthetique -->
-                <div class="relative bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden aspect-video max-w-5xl mx-auto flex flex-col justify-between select-none">
-                    
-                    <!-- Filigrane & Badge -->
-                    <div class="absolute top-4 left-4 right-4 z-20 flex justify-between items-center pointer-events-none">
-                        <div class="flex items-center space-x-2 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800">
-                            <i class="fa-solid fa-truck-fast text-indigo-400 text-sm"></i>
-                            <span class="text-xs font-bold tracking-wider text-slate-200">Asadiya Flotte <span class="text-indigo-400">PRO</span></span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/30 uppercase tracking-widest flex items-center gap-1">
-                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                4K Ultra HD
-                            </span>
-                            <span class="bg-slate-800/80 text-slate-300 text-xs px-2.5 py-1 rounded-lg font-mono" x-text="'Scène ' + (currentSceneIndex + 1) + '/' + scenes.length"></span>
-                        </div>
                     </div>
 
-                    <!-- VISUEL DE LA SCÈNE VIDÉO -->
-                    <div class="relative flex-grow flex items-center justify-center p-6 overflow-hidden">
-                        <div class="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:24px_24px]"></div>
-
-                        <!-- Scène 1 -->
-                        <div x-show="currentSceneIndex === 0" class="text-center space-y-6 max-w-2xl z-10">
-                            <div class="inline-flex p-5 bg-indigo-600/20 border border-indigo-500/30 rounded-3xl text-indigo-400 animate-float">
-                                <i class="fa-solid fa-truck-fast text-6xl"></i>
-                            </div>
-                            <div class="space-y-2">
-                                <h2 class="text-3xl md:text-5xl font-extrabold text-white tracking-tight">Asadiya Flotte <span class="text-indigo-400">PRO</span></h2>
-                                <p class="text-slate-400 text-base">La solution SaaS intelligente pour piloter votre flotte automobile.</p>
-                            </div>
-                        </div>
-
-                        <!-- Scène 2 -->
-                        <div x-show="currentSceneIndex === 1" class="w-full max-w-3xl z-10 space-y-4">
-                            <div class="text-center mb-2">
-                                <span class="text-indigo-400 text-xs font-bold uppercase">Module 1</span>
-                                <h3 class="text-xl md:text-2xl font-bold text-white">Tableau de Bord & KPIs</h3>
-                            </div>
-                            <div class="grid grid-cols-3 gap-3">
-                                <div class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 text-center">
-                                    <i class="fa-solid fa-car text-indigo-400 text-2xl mb-1"></i>
-                                    <div class="text-2xl font-extrabold text-white">24</div>
-                                    <div class="text-[10px] text-slate-400">Véhicules Totaux</div>
-                                </div>
-                                <div class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 text-center">
-                                    <i class="fa-solid fa-circle-check text-emerald-400 text-2xl mb-1"></i>
-                                    <div class="text-2xl font-extrabold text-emerald-400">85%</div>
-                                    <div class="text-[10px] text-slate-400">Disponibilité</div>
-                                </div>
-                                <div class="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 text-center">
-                                    <i class="fa-solid fa-chart-line text-indigo-400 text-2xl mb-1"></i>
-                                    <div class="text-2xl font-extrabold text-indigo-400">7</div>
-                                    <div class="text-[10px] text-slate-400">Graphiques Live</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Scène 3 : Alertes Vidanges -->
-                        <div x-show="currentSceneIndex === 2" class="w-full max-w-3xl z-10 space-y-4">
-                            <div class="text-center mb-2">
-                                <span class="text-rose-400 text-xs font-bold uppercase">Module Avancé</span>
-                                <h3 class="text-xl md:text-2xl font-bold text-white">Alertes & Suivi des Vidanges Moteur</h3>
-                            </div>
-                            <div class="bg-rose-950/40 p-4 rounded-2xl border border-rose-500/30 space-y-2">
-                                <div class="flex items-center space-x-2 text-rose-400 font-bold text-sm">
-                                    <i class="fa-solid fa-oil-can"></i>
-                                    <span>Alerte Seuil Kilométrique</span>
-                                </div>
-                                <p class="text-xs text-slate-300">Détection automatique des échéances tous les 10 000 km avec réinitialisation et enregistrement direct.</p>
-                            </div>
-                        </div>
-
-                        <!-- Scène 4 -->
-                        <div x-show="currentSceneIndex === 3" class="w-full max-w-3xl z-10 space-y-4">
-                            <div class="text-center mb-2">
-                                <span class="text-indigo-400 text-xs font-bold uppercase">Module 2</span>
-                                <h3 class="text-xl md:text-2xl font-bold text-white">Parc Automobile & Conducteurs</h3>
-                            </div>
-                            <div class="grid md:grid-cols-2 gap-4">
-                                <div class="bg-slate-800/90 p-4 rounded-2xl border border-slate-700">
-                                    <span class="font-bold text-white text-sm">Peugeot 208</span>
-                                    <p class="text-xs text-slate-400 font-mono">Plaque: AA-123-BB | 34 500 km</p>
-                                </div>
-                                <div class="bg-slate-800/90 p-4 rounded-2xl border border-slate-700">
-                                    <span class="font-bold text-white text-sm">Tesla Model 3</span>
-                                    <p class="text-xs text-slate-400 font-mono">Conducteur: Sarah Martin</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Scène 5 -->
-                        <div x-show="currentSceneIndex === 4" class="w-full max-w-3xl z-10 space-y-4">
-                            <div class="text-center mb-2">
-                                <span class="text-indigo-400 text-xs font-bold uppercase">Module 3</span>
-                                <h3 class="text-xl md:text-2xl font-bold text-white">Planning & Réservations</h3>
-                            </div>
-                            <div class="bg-slate-800/90 p-4 rounded-2xl border border-slate-700 space-y-2">
-                                <div class="flex justify-between text-xs text-slate-300 border-b border-slate-700 pb-2">
-                                    <span>Mission Dakar - Thomas Dubois</span>
-                                    <span class="bg-indigo-500 font-bold px-2 py-0.5 rounded text-white">Approuvé</span>
-                                </div>
-                                <p class="text-center text-xs text-slate-400 pt-1"><i class="fa-solid fa-calendar-days text-indigo-400 mr-1"></i> Prévention des conflits d'agenda</p>
-                            </div>
-                        </div>
-
-                        <!-- Scène 6 -->
-                        <div x-show="currentSceneIndex === 5" class="w-full max-w-3xl z-10 space-y-4">
-                            <div class="text-center mb-2">
-                                <span class="text-indigo-400 text-xs font-bold uppercase">Module 4</span>
-                                <h3 class="text-xl md:text-2xl font-bold text-white">Signalements & Gestion des Accidents</h3>
-                            </div>
-                            <div class="grid md:grid-cols-2 gap-4">
-                                <div class="bg-amber-950/40 p-4 rounded-2xl border border-amber-800/50">
-                                    <p class="text-xs font-bold text-amber-400"><i class="fa-solid fa-triangle-exclamation"></i> Signalement Panne</p>
-                                    <p class="text-xs text-slate-300">Suivi des anomalies et voyants par priorité</p>
-                                </div>
-                                <div class="bg-rose-950/40 p-4 rounded-2xl border border-rose-800/50">
-                                    <p class="text-xs font-bold text-rose-400"><i class="fa-solid fa-car-burst"></i> Sinistre & Accident</p>
-                                    <p class="text-xs text-slate-300">Constat, assurance et immobilisation auto</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Scène 7 -->
-                        <div x-show="currentSceneIndex === 6" class="text-center space-y-6 max-w-2xl z-10">
-                            <div class="inline-flex p-4 bg-emerald-500/20 border border-emerald-500/30 rounded-3xl text-emerald-400 animate-pulse">
-                                <i class="fa-solid fa-rocket text-5xl"></i>
-                            </div>
-                            <h2 class="text-3xl font-bold text-white">Optimisez votre gestion avec Asadiya Flotte PRO</h2>
-                            <button @click="mainTab = 'dashboard'" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition">
-                                Explorer l'application
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- SOUS-TITRES -->
-                    <div class="bg-slate-950/90 border-t border-slate-800 px-6 py-3 text-center min-h-[60px] flex items-center justify-center z-20">
-                        <p class="text-xs md:text-sm font-medium text-slate-200 tracking-wide" x-text="scenes[currentSceneIndex].subtitle"></p>
-                    </div>
-
-                    <!-- BARRE DE CONTRÔLE DE LECTURE -->
-                    <div class="bg-slate-900 border-t border-slate-800 p-4 flex flex-col space-y-2 z-20">
-                        <div class="relative w-full bg-slate-800 h-2 rounded-full cursor-pointer overflow-hidden" @click="seekVideo($event)">
-                            <div class="bg-indigo-500 h-full rounded-full transition-all duration-200" :style="'width: ' + videoProgressPercentage + '%'"></div>
-                        </div>
-
-                        <div class="flex items-center justify-between pt-1">
-                            <div class="flex items-center space-x-3">
-                                <button @click="togglePlayVideo()" class="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition flex items-center justify-center w-10 h-10 shadow-md">
-                                    <i :class="isPlaying ? 'fa-solid fa-pause' : 'fa-solid fa-play'"></i>
-                                </button>
-                                <span class="text-xs font-mono text-slate-400" x-text="formatTime(currentTime) + ' / ' + formatTime(videoTotalDuration)"></span>
-                            </div>
-
-                            <div class="hidden sm:block text-xs font-semibold text-slate-300">
-                                <span class="text-indigo-400">Scène actuelle :</span> <span x-text="scenes[currentSceneIndex].title"></span>
-                            </div>
-
-                            <div class="flex items-center space-x-3">
-                                <button @click="voiceEnabled = !voiceEnabled" 
-                                        :class="voiceEnabled ? 'text-indigo-400 bg-indigo-500/10' : 'text-slate-500 bg-slate-800'"
-                                        class="p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 px-3">
-                                    <i :class="voiceEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark'"></i>
-                                    <span class="hidden md:inline" x-text="voiceEnabled ? 'Voix FR ON' : 'Voix OFF'"></span>
-                                </button>
-                                <button @click="restartVideo()" class="p-2 text-slate-400 hover:text-white rounded-lg transition" title="Redémarrer">
-                                    <i class="fa-solid fa-rotate-left"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
-                <!-- Boutons de saut rapide vers une scène -->
-                <div class="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
-                    <template x-for="(s, index) in scenes" :key="index">
-                        <button @click="jumpToScene(index)" 
-                                :class="currentSceneIndex === index ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'"
-                                class="p-2.5 rounded-2xl border text-left text-[11px] font-medium transition flex flex-col justify-between space-y-1">
-                            <span class="font-bold text-[9px] opacity-70" x-text="'0' + (index + 1)"></span>
-                            <span class="font-semibold line-clamp-2" x-text="s.title"></span>
-                        </button>
-                    </template>
-                </div>
-            </div>
-
-            <!-- ONGLET SCRIPT & STORYBOARD -->
-            <div x-show="videoTab === 'script'" class="max-w-4xl mx-auto space-y-6">
-                <div class="bg-slate-900 p-6 rounded-3xl border border-slate-800 space-y-4">
-                    <div class="flex justify-between items-center border-b border-slate-800 pb-4">
-                        <div>
-                            <h3 class="text-lg font-bold text-white">Script YouTube & Storyboard Asadiya Flotte PRO</h3>
-                            <p class="text-xs text-slate-400">Texte de voix off et indications visuelles par scène.</p>
-                        </div>
-                        <button @click="copyScriptText()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3 py-2 rounded-xl transition flex items-center gap-2">
-                            <i class="fa-solid fa-copy"></i>
-                            <span>Copier le Script</span>
-                        </button>
-                    </div>
-
-                    <div class="space-y-4">
-                        <template x-for="(s, index) in scenes" :key="index">
-                            <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-xs font-bold text-indigo-400" x-text="'SCÈNE ' + (index + 1) + ' : ' + s.title"></span>
-                                    <span class="text-[10px] font-mono bg-slate-900 text-slate-400 px-2 py-0.5 rounded" x-text="s.duration + ' secondes'"></span>
-                                </div>
-                                <div class="grid md:grid-cols-2 gap-3 text-xs pt-1">
-                                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                                        <p class="font-semibold text-slate-300 mb-1"><i class="fa-solid fa-eye text-indigo-400 mr-1"></i> Animation Visuelle :</p>
-                                        <p class="text-slate-400" x-text="s.visual"></p>
-                                    </div>
-                                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                                        <p class="font-semibold text-slate-300 mb-1"><i class="fa-solid fa-microphone text-emerald-400 mr-1"></i> Voix Off (Français) :</p>
-                                        <p class="text-slate-200 italic" x-text="'« ' + s.narration + ' »'"></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-    </main>
+            </main>
 
     <!-- SECTION CONTACT SUPPORT (WHATSAPP & EMAIL) -->
     <footer class="bg-slate-900 border-t border-slate-800 py-6 px-4 mt-auto">
