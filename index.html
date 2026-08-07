@@ -611,302 +611,377 @@
     <!-- ESPACE SUPER ADMIN (gestion des clients)   -->
     <!-- ========================================== -->
     <template x-if="currentUser && isSuperAdmin">
-    <div class="min-h-screen flex flex-col w-full">
-        <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-                <div class="flex items-center space-x-3">
-                    <div class="bg-slate-700 p-2.5 rounded-2xl text-white shadow-lg flex items-center justify-center">
-                        <i class="fa-solid fa-server text-2xl"></i>
-                    </div>
-                    <div>
-                        <h1 class="font-extrabold text-lg tracking-tight text-white flex items-center gap-2">
-                            Asadiya Flotte <span class="text-indigo-400">PRO</span> <span class="text-slate-500 text-sm font-normal">— Console Plateforme</span>
-                        </h1>
-                        <p class="text-[11px] text-slate-400 font-medium">Gestion des clients (organisations)</p>
-                    </div>
+    <div class="min-h-screen flex w-full bg-[#f5f7fb] text-slate-900" x-data="{ sidebarOpen: false }">
+
+        <!-- SIDEBAR SUPER ADMIN (desktop) -->
+        <aside class="sidebar hidden lg:flex flex-col fixed inset-y-0 left-0 w-64 z-40 shadow-[1px_0_0_rgba(15,23,42,0.03)]">
+            <div class="flex items-center gap-2.5 px-5 h-16 border-b border-slate-200">
+                <div class="bg-gradient-to-br from-indigo-600 to-violet-600 w-9 h-9 rounded-xl text-white shadow-md shadow-indigo-500/30 flex items-center justify-center">
+                    <i class="fa-solid fa-server text-sm"></i>
                 </div>
-                <div class="flex items-center gap-2.5 bg-slate-950/60 border border-slate-800 rounded-2xl px-3 py-1.5">
-                    <div class="w-8 h-8 rounded-full bg-slate-700/40 border border-slate-600 flex items-center justify-center text-slate-300 text-xs font-bold flex-shrink-0" x-text="currentUser.name.charAt(0)"></div>
-                    <div class="hidden sm:block leading-tight">
-                        <p class="text-xs font-bold text-white" x-text="currentUser.name"></p>
+                <div class="leading-tight">
+                    <h1 class="font-extrabold text-sm text-slate-900">Asadiya <span class="text-indigo-600">PRO</span></h1>
+                    <p class="text-[10px] text-slate-400 font-medium">Console Plateforme</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 overflow-y-auto px-3 pb-4">
+                <p class="sidebar-group-label">Pilotage</p>
+                <div class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 font-semibold text-sm">
+                    <span class="nav-ico"><i class="fa-solid fa-chart-pie"></i></span>
+                    Vue d'ensemble
+                </div>
+                <p class="sidebar-group-label">Administration</p>
+                <div class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-sm font-medium transition cursor-pointer" @click="refreshSuperAdmin()">
+                    <span class="nav-ico"><i class="fa-solid fa-rotate"></i></span>
+                    Actualiser les données
+                </div>
+            </nav>
+
+            <div class="border-t border-slate-200 p-4">
+                <div class="flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-200 p-3">
+                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 border-2 border-white text-white flex items-center justify-center text-xs font-bold flex-shrink-0 shadow-sm" x-text="currentUser.name.charAt(0)"></div>
+                    <div class="leading-tight min-w-0 flex-1">
+                        <p class="text-xs font-bold text-slate-800 truncate" x-text="currentUser.name"></p>
                         <p class="text-[10px] text-slate-400">Super Administrateur</p>
                     </div>
-                    <button @click="logout()" title="Se déconnecter" class="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition">
+                    <button @click="logout()" title="Se déconnecter" class="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition">
                         <i class="fa-solid fa-arrow-right-from-bracket"></i>
                     </button>
                 </div>
             </div>
-        </header>
+        </aside>
 
-        <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
-            <div class="flex flex-wrap justify-between items-center gap-3">
-                <div>
-                    <h2 class="text-xl font-bold text-white">Vue d'ensemble plateforme</h2>
-                    <p class="text-xs text-slate-400">Performance globale, revenus et santé des flottes clients.</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button @click="refreshSuperAdmin()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold px-3.5 py-2.5 rounded-xl transition">
-                        <i class="fa-solid fa-rotate mr-1"></i> Actualiser
+        <!-- SIDEBAR SUPER ADMIN (mobile drawer) -->
+        <div x-show="sidebarOpen" class="fixed inset-0 z-50 lg:hidden" x-cloak>
+            <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="sidebarOpen = false"></div>
+            <div class="absolute inset-y-0 left-0 w-72 bg-white shadow-2xl flex flex-col animate-drawer">
+                <div class="flex items-center justify-between px-5 h-16 border-b border-slate-200">
+                    <div class="flex items-center gap-2.5">
+                        <div class="bg-gradient-to-br from-indigo-600 to-violet-600 w-9 h-9 rounded-xl text-white flex items-center justify-center">
+                            <i class="fa-solid fa-server text-sm"></i>
+                        </div>
+                        <span class="font-extrabold text-sm text-slate-900">Asadiya <span class="text-indigo-600">PRO</span></span>
+                    </div>
+                    <button @click="sidebarOpen = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100">
+                        <i class="fa-solid fa-xmark"></i>
                     </button>
-                    <button @click="openOrgModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-500/20 transition flex-shrink-0">
-                        + Nouveau Client
+                </div>
+                <div class="flex-1 overflow-y-auto px-3 py-4">
+                    <p class="sidebar-group-label">Pilotage</p>
+                    <div class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 font-semibold text-sm">
+                        <span class="nav-ico"><i class="fa-solid fa-chart-pie"></i></span>
+                        Vue d'ensemble
+                    </div>
+                    <div class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-sm font-medium transition cursor-pointer" @click="refreshSuperAdmin(); sidebarOpen = false">
+                        <span class="nav-ico"><i class="fa-solid fa-rotate"></i></span>
+                        Actualiser les données
+                    </div>
+                </div>
+                <div class="border-t border-slate-200 p-4">
+                    <button @click="logout()" class="btn btn-ghost w-full justify-start">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> Se déconnecter
                     </button>
                 </div>
             </div>
+        </div>
 
-            <div x-show="isLoadingSuperAdmin && !superadminStats" class="text-center text-slate-400 text-sm py-16">
-                <i class="fa-solid fa-spinner fa-spin text-2xl"></i>
-                <p class="mt-3">Analyse de la plateforme en cours...</p>
-            </div>
-
-            <template x-if="superadminStats">
-                <div class="space-y-6">
-                    <!-- KPI principaux -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 relative overflow-hidden">
-                            <div class="absolute top-0 right-0 w-20 h-20 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-                            <div class="flex items-center justify-between">
-                                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Clients actifs</p>
-                                <span class="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center"><i class="fa-solid fa-building"></i></span>
-                            </div>
-                            <p class="text-3xl font-extrabold text-white font-mono" x-text="fmtNum(superadminStats.kpi.totalOrganizations)"></p>
-                            <p class="text-[11px] text-slate-400">
-                                <span class="text-emerald-400 font-bold" x-text="'+' + fmtNum(superadminStats.kpi.newOrganizationsThisMonth) + ' ce mois'"></span>
-                            </p>
-                        </div>
-
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 relative overflow-hidden">
-                            <div class="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-                            <div class="flex items-center justify-between">
-                                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Revenu mensuel (MRR)</p>
-                                <span class="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center"><i class="fa-solid fa-money-bill-wave"></i></span>
-                            </div>
-                            <p class="text-3xl font-extrabold text-white font-mono" x-text="fmtMoney(superadminStats.kpi.mrr)"></p>
-                            <p class="text-[11px] text-slate-400" x-show="superadminStats.kpi.mrrDelta > 0">
-                                <span class="text-emerald-400 font-bold" x-text="'+' + fmtMoney(superadminStats.kpi.mrrDelta) + ' signé ce mois'"></span>
-                            </p>
-                        </div>
-
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 relative overflow-hidden">
-                            <div class="absolute top-0 right-0 w-20 h-20 bg-violet-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-                            <div class="flex items-center justify-between">
-                                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Véhicules suivis</p>
-                                <span class="w-9 h-9 rounded-xl bg-violet-500/15 text-violet-400 flex items-center justify-center"><i class="fa-solid fa-car"></i></span>
-                            </div>
-                            <p class="text-3xl font-extrabold text-white font-mono" x-text="fmtNum(superadminStats.kpi.totalVehicles)"></p>
-                            <p class="text-[11px] text-slate-400">à travers toutes les flottes</p>
-                        </div>
-
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 relative overflow-hidden">
-                            <div class="absolute top-0 right-0 w-20 h-20 bg-amber-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-                            <div class="flex items-center justify-between">
-                                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Conducteurs</p>
-                                <span class="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center"><i class="fa-solid fa-id-badge"></i></span>
-                            </div>
-                            <p class="text-3xl font-extrabold text-white font-mono" x-text="fmtNum(superadminStats.kpi.totalDrivers)"></p>
-                            <p class="text-[11px] text-slate-400">permis & scores suivis</p>
+        <!-- CONTENU -->
+        <div class="flex-1 flex flex-col min-h-screen lg:pl-64">
+            <header class="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-slate-200">
+                <div class="px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <button @click="sidebarOpen = true" class="lg:hidden text-slate-500 hover:text-slate-800 p-2 rounded-lg hover:bg-slate-100">
+                            <i class="fa-solid fa-bars"></i>
+                        </button>
+                        <div>
+                            <h1 class="font-extrabold text-lg tracking-tight text-slate-900 flex items-center gap-2">
+                                Asadiya Flotte <span class="text-indigo-600">PRO</span>
+                            </h1>
+                            <p class="text-[11px] text-slate-400 font-medium">Gestion des clients (organisations)</p>
                         </div>
                     </div>
-
-                    <!-- Graphiques -->
-                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                            <h3 class="text-sm font-bold text-white mb-1">Croissance des clients</h3>
-                            <p class="text-[11px] text-slate-500 mb-3">Nouveaux clients par mois (12 mois)</p>
-                            <div class="h-56"><canvas id="orgGrowthChart"></canvas></div>
-                        </div>
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                            <h3 class="text-sm font-bold text-white mb-1">Évolution du MRR</h3>
-                            <p class="text-[11px] text-slate-500 mb-3">Revenu récurrent mensuel (FCFA)</p>
-                            <div class="h-56"><canvas id="mrrChart"></canvas></div>
-                        </div>
-                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                            <h3 class="text-sm font-bold text-white mb-1">Flotte par client</h3>
-                            <p class="text-[11px] text-slate-500 mb-3">Taille des parcs (top 10)</p>
-                            <div class="h-56"><canvas id="fleetByOrgChart"></canvas></div>
-                        </div>
+                    <div class="flex items-center gap-2.5">
+                        <button @click="refreshSuperAdmin()" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-rotate mr-1"></i> Actualiser
+                        </button>
+                        <button @click="openOrgModal()" class="btn btn-primary btn-sm">
+                            + Nouveau Client
+                        </button>
                     </div>
+                </div>
+            </header>
 
-                    <!-- Coûts cumulés plateforme -->
-                    <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
-                        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center"><i class="fa-solid fa-wrench"></i></div>
-                            <div>
-                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Entretien cumulé</p>
-                                <p class="text-sm font-bold text-white font-mono" x-text="fmtMoney(superadminStats.kpi.totalMaintenanceCost)"></p>
-                            </div>
-                        </div>
-                        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center"><i class="fa-solid fa-gas-pump"></i></div>
-                            <div>
-                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Carburant cumulé</p>
-                                <p class="text-sm font-bold text-white font-mono" x-text="fmtMoney(superadminStats.kpi.totalFuelCost)"></p>
-                            </div>
-                        </div>
-                        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center"><i class="fa-solid fa-car-burst"></i></div>
-                            <div>
-                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Sinistres estimés</p>
-                                <p class="text-sm font-bold text-white font-mono" x-text="fmtMoney(superadminStats.kpi.totalAccidentCost)"></p>
-                            </div>
-                        </div>
-                        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                            <div>
-                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Événements</p>
-                                <p class="text-sm font-bold text-white font-mono" x-text="fmtNum(superadminStats.kpi.totalIncidents + superadminStats.kpi.totalAccidents)"></p>
-                            </div>
-                        </div>
+            <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+                <div class="flex flex-wrap justify-between items-center gap-3 animate-fade-up">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Vue d'ensemble plateforme</h2>
+                        <p class="text-xs text-slate-500">Performance globale, revenus et santé des flottes clients.</p>
                     </div>
+                </div>
 
-                    <!-- Table des clients -->
-                    <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                        <div class="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 pb-3">
-                            <div>
-                                <h3 class="text-sm font-bold text-white">Clients (Organisations)</h3>
-                                <p class="text-[11px] text-slate-500">Données totalement cloisonnées par client.</p>
+                <div x-show="isLoadingSuperAdmin && !superadminStats" class="text-center text-slate-500 text-sm py-16">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-500"></i>
+                    <p class="mt-3">Analyse de la plateforme en cours...</p>
+                </div>
+
+                <template x-if="superadminStats">
+                    <div class="space-y-6">
+                        <!-- KPI principaux -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                            <div class="card card-hover card-pad space-y-3 relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Clients actifs</p>
+                                    <span class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center"><i class="fa-solid fa-building"></i></span>
+                                </div>
+                                <p class="text-3xl font-extrabold text-slate-900 font-mono" x-text="fmtNum(superadminStats.kpi.totalOrganizations)"></p>
+                                <p class="text-[11px] text-slate-500">
+                                    <span class="inline-flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5" x-text="'+' + fmtNum(superadminStats.kpi.newOrganizationsThisMonth) + ' ce mois'"></span>
+                                </p>
                             </div>
-                            <input type="text" x-model="orgSearch" placeholder="Rechercher un client..." class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 w-full sm:w-64">
+
+                            <div class="card card-hover card-pad space-y-3 relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Revenu mensuel (MRR)</p>
+                                    <span class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center"><i class="fa-solid fa-money-bill-wave"></i></span>
+                                </div>
+                                <p class="text-3xl font-extrabold text-slate-900 font-mono" x-text="fmtMoney(superadminStats.kpi.mrr)"></p>
+                                <p class="text-[11px] text-slate-500" x-show="superadminStats.kpi.mrrDelta > 0">
+                                    <span class="inline-flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5" x-text="'+' + fmtMoney(superadminStats.kpi.mrrDelta) + ' signé ce mois'"></span>
+                                </p>
+                            </div>
+
+                            <div class="card card-hover card-pad space-y-3 relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-24 h-24 bg-violet-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Véhicules suivis</p>
+                                    <span class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 border border-violet-100 flex items-center justify-center"><i class="fa-solid fa-car"></i></span>
+                                </div>
+                                <p class="text-3xl font-extrabold text-slate-900 font-mono" x-text="fmtNum(superadminStats.kpi.totalVehicles)"></p>
+                                <p class="text-[11px] text-slate-500">à travers toutes les flottes</p>
+                            </div>
+
+                            <div class="card card-hover card-pad space-y-3 relative overflow-hidden">
+                                <div class="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                                <div class="flex items-center justify-between">
+                                    <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Conducteurs</p>
+                                    <span class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center"><i class="fa-solid fa-id-badge"></i></span>
+                                </div>
+                                <p class="text-3xl font-extrabold text-slate-900 font-mono" x-text="fmtNum(superadminStats.kpi.totalDrivers)"></p>
+                                <p class="text-[11px] text-slate-500">permis & scores suivis</p>
+                            </div>
                         </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-xs">
-                                <thead>
-                                    <tr class="text-slate-500 border-y border-slate-800 bg-slate-950/40">
-                                        <th class="px-5 py-3 font-semibold">Client</th>
-                                        <th class="px-3 py-3 font-semibold">Créé le</th>
-                                        <th class="px-3 py-3 font-semibold text-right">Véhicules</th>
-                                        <th class="px-3 py-3 font-semibold text-right">Conducteurs</th>
-                                        <th class="px-3 py-3 font-semibold text-right">MRR</th>
-                                        <th class="px-3 py-3 font-semibold text-right">Coût cumulé</th>
-                                        <th class="px-3 py-3 font-semibold">Santé flotte</th>
-                                        <th class="px-3 py-3 font-semibold">Offre</th>
-                                        <th class="px-5 py-3 font-semibold text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <template x-for="org in filteredOrganizations" :key="org.id">
-                                        <tr class="border-b border-slate-800/60 hover:bg-slate-800/30 transition">
-                                            <td class="px-5 py-3.5">
-                                                <div class="flex items-center gap-2.5">
-                                                    <div class="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center text-xs font-bold flex-shrink-0" x-text="(org.name || '?').charAt(0).toUpperCase()"></div>
-                                                    <div>
-                                                        <p class="font-bold text-white" x-text="org.name"></p>
-                                                        <p class="text-[10px] text-slate-500" x-text="fmtNum(org.userCount) + ' utilisateur(s)'"></p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="px-3 py-3.5 text-slate-400" x-text="new Date(org.createdAt).toLocaleDateString('fr-FR')"></td>
-                                            <td class="px-3 py-3.5 text-right font-mono font-bold text-white" x-text="fmtNum(org.vehicleCount)"></td>
-                                            <td class="px-3 py-3.5 text-right font-mono font-bold text-white" x-text="fmtNum(org.driverCount)"></td>
-                                            <td class="px-3 py-3.5 text-right font-mono font-bold text-emerald-400" x-text="fmtMoney(org.mrr)"></td>
-                                            <td class="px-3 py-3.5 text-right font-mono text-slate-300" x-text="fmtMoney(org.totalCost)"></td>
-                                            <td class="px-3 py-3.5">
-                                                <template x-if="org.health">
-                                                    <span class="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-bold" :class="healthBadge(org.health.total).cls">
-                                                        <span x-text="fmtNum(org.health.total) + '/100'"></span>
-                                                        <span x-text="healthBadge(org.health.total).label"></span>
-                                                    </span>
-                                                </template>
-                                                <template x-if="!org.health">
-                                                    <span class="text-[10px] text-slate-600">Aucune donnée</span>
-                                                </template>
-                                            </td>
-                                            <td class="px-3 py-3.5">
-                                                <span x-show="org.subscription" class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold bg-indigo-500/10 text-indigo-300" x-text="org.subscription?.plan"></span>
-                                                <span x-show="!org.subscription" class="text-[10px] text-slate-600">ESSENTIEL</span>
-                                            </td>
-                                            <td class="px-5 py-3.5">
-                                                <div class="flex items-center justify-end gap-1">
-                                                    <button @click="openOrgUsersModal(org)" title="Gérer les mots de passe" class="text-slate-500 hover:text-indigo-400 p-1.5 rounded hover:bg-indigo-500/10 transition">
-                                                        <i class="fa-solid fa-key text-xs"></i>
-                                                    </button>
-                                                    <button @click="deleteOrganization(org.id, org.name)" title="Supprimer ce client" class="text-slate-500 hover:text-rose-400 p-1.5 rounded hover:bg-rose-500/10 transition">
-                                                        <i class="fa-solid fa-trash-can text-xs"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
+
+                        <!-- Graphiques -->
+                        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                            <div class="card card-pad">
+                                <h3 class="text-sm font-bold text-slate-900 mb-1">Croissance des clients</h3>
+                                <p class="text-[11px] text-slate-500 mb-3">Nouveaux clients par mois (12 mois)</p>
+                                <div class="chart-shell h-56"><canvas id="orgGrowthChart"></canvas></div>
+                            </div>
+                            <div class="card card-pad">
+                                <h3 class="text-sm font-bold text-slate-900 mb-1">Évolution du MRR</h3>
+                                <p class="text-[11px] text-slate-500 mb-3">Revenu récurrent mensuel (FCFA)</p>
+                                <div class="chart-shell h-56"><canvas id="mrrChart"></canvas></div>
+                            </div>
+                            <div class="card card-pad">
+                                <h3 class="text-sm font-bold text-slate-900 mb-1">Flotte par client</h3>
+                                <p class="text-[11px] text-slate-500 mb-3">Taille des parcs (top 10)</p>
+                                <div class="chart-shell h-56"><canvas id="fleetByOrgChart"></canvas></div>
+                            </div>
+                        </div>
+
+                        <!-- Coûts cumulés plateforme -->
+                        <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
+                            <div class="card card-pad flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center"><i class="fa-solid fa-wrench"></i></div>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] text-slate-500 font-semibold uppercase">Entretien cumulé</p>
+                                    <p class="text-sm font-bold text-slate-900 font-mono truncate" x-text="fmtMoney(superadminStats.kpi.totalMaintenanceCost)"></p>
+                                </div>
+                            </div>
+                            <div class="card card-pad flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center"><i class="fa-solid fa-gas-pump"></i></div>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] text-slate-500 font-semibold uppercase">Carburant cumulé</p>
+                                    <p class="text-sm font-bold text-slate-900 font-mono truncate" x-text="fmtMoney(superadminStats.kpi.totalFuelCost)"></p>
+                                </div>
+                            </div>
+                            <div class="card card-pad flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center"><i class="fa-solid fa-car-burst"></i></div>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] text-slate-500 font-semibold uppercase">Sinistres estimés</p>
+                                    <p class="text-sm font-bold text-slate-900 font-mono truncate" x-text="fmtMoney(superadminStats.kpi.totalAccidentCost)"></p>
+                                </div>
+                            </div>
+                            <div class="card card-pad flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] text-slate-500 font-semibold uppercase">Événements</p>
+                                    <p class="text-sm font-bold text-slate-900 font-mono" x-text="fmtNum(superadminStats.kpi.totalIncidents + superadminStats.kpi.totalAccidents)"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Table des clients -->
+                        <div class="card overflow-hidden">
+                            <div class="flex flex-wrap items-center justify-between gap-3 px-5 pt-5 pb-3">
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-900">Clients (Organisations)</h3>
+                                    <p class="text-[11px] text-slate-500">Données totalement cloisonnées par client.</p>
+                                </div>
+                                <div class="relative w-full sm:w-64">
+                                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                    <input type="text" x-model="orgSearch" placeholder="Rechercher un client..." class="input pl-9">
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="app-table min-w-[880px]">
+                                    <thead>
+                                        <tr>
+                                            <th class="px-5">Client</th>
+                                            <th class="px-3">Créé le</th>
+                                            <th class="px-3 text-right">Véhicules</th>
+                                            <th class="px-3 text-right">Conducteurs</th>
+                                            <th class="px-3 text-right">MRR</th>
+                                            <th class="px-3 text-right">Coût cumulé</th>
+                                            <th class="px-3">Santé flotte</th>
+                                            <th class="px-3">Offre</th>
+                                            <th class="px-5 text-right">Actions</th>
                                         </tr>
-                                    </template>
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="org in filteredOrganizations" :key="org.id">
+                                            <tr>
+                                                <td class="px-5">
+                                                    <div class="flex items-center gap-2.5">
+                                                        <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center text-xs font-bold flex-shrink-0" x-text="(org.name || '?').charAt(0).toUpperCase()"></div>
+                                                        <div class="min-w-0">
+                                                            <p class="font-bold text-slate-900 truncate" x-text="org.name"></p>
+                                                            <p class="text-[10px] text-slate-500" x-text="fmtNum(org.userCount) + ' utilisateur(s)'"></p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 text-slate-500 whitespace-nowrap" x-text="new Date(org.createdAt).toLocaleDateString('fr-FR')"></td>
+                                                <td class="px-3 text-right font-mono font-bold text-slate-900" x-text="fmtNum(org.vehicleCount)"></td>
+                                                <td class="px-3 text-right font-mono font-bold text-slate-900" x-text="fmtNum(org.driverCount)"></td>
+                                                <td class="px-3 text-right font-mono font-bold text-emerald-600" x-text="fmtMoney(org.mrr)"></td>
+                                                <td class="px-3 text-right font-mono text-slate-600 whitespace-nowrap" x-text="fmtMoney(org.totalCost)"></td>
+                                                <td class="px-3">
+                                                    <template x-if="org.health">
+                                                        <span class="badge" :class="healthBadge(org.health.total).cls">
+                                                            <span x-text="fmtNum(org.health.total) + '/100'"></span>
+                                                            <span x-text="healthBadge(org.health.total).label"></span>
+                                                        </span>
+                                                    </template>
+                                                    <template x-if="!org.health">
+                                                        <span class="text-[10px] text-slate-400">Aucune donnée</span>
+                                                    </template>
+                                                </td>
+                                                <td class="px-3">
+                                                    <span x-show="org.subscription" class="badge badge-indigo" x-text="org.subscription?.plan"></span>
+                                                    <span x-show="!org.subscription" class="text-[10px] text-slate-400">ESSENTIEL</span>
+                                                </td>
+                                                <td class="px-5">
+                                                    <div class="flex items-center justify-end gap-1">
+                                                        <button @click="openOrgUsersModal(org)" title="Gérer les mots de passe" class="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition">
+                                                            <i class="fa-solid fa-key text-xs"></i>
+                                                        </button>
+                                                        <button @click="deleteOrganization(org.id, org.name)" title="Supprimer ce client" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition">
+                                                            <i class="fa-solid fa-trash-can text-xs"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p x-show="filteredOrganizations.length === 0" class="text-sm text-slate-500 text-center py-10">Aucun client pour l'instant. Créez-en un pour commencer.</p>
                         </div>
-                        <p x-show="filteredOrganizations.length === 0" class="text-sm text-slate-500 text-center py-10">Aucun client pour l'instant. Créez-en un pour commencer.</p>
                     </div>
-                </div>
-            </template>
-        </main>
+                </template>
+            </main>
+        </div>
 
         <!-- MODALE : NOUVEAU CLIENT (ORGANISATION) -->
-        <div x-show="showOrgModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-                <h3 class="text-lg font-bold text-white">Nouveau Client</h3>
+        <div x-show="showOrgModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900">Nouveau Client</h3>
+                    <button @click="showOrgModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
                 <div class="space-y-3 text-xs">
                     <div>
-                        <label class="block text-slate-400 mb-1">Nom de l'entreprise / du client</label>
-                        <input type="text" x-model="newOrg.name" placeholder="ex: Transport Ndiaye SARL" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <label class="label">Nom de l'entreprise / du client</label>
+                        <input type="text" x-model="newOrg.name" placeholder="ex: Transport Ndiaye SARL" class="input">
                     </div>
-                    <div class="pt-2 border-t border-slate-800">
-                        <p class="text-slate-400 mb-2 font-semibold">Premier compte Administrateur de ce client</p>
+                    <div class="pt-2 border-t border-slate-200">
+                        <p class="text-slate-700 mb-2 font-semibold">Premier compte Administrateur de ce client</p>
                     </div>
                     <div>
-                        <label class="block text-slate-400 mb-1">Nom complet</label>
-                        <input type="text" x-model="newOrg.adminName" placeholder="ex: Cheikh Ndiaye" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <label class="label">Nom complet</label>
+                        <input type="text" x-model="newOrg.adminName" placeholder="ex: Cheikh Ndiaye" class="input">
                     </div>
                     <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="block text-slate-400 mb-1">Identifiant</label>
-                            <input type="text" x-model="newOrg.adminUsername" placeholder="ex: ndiaye_admin" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            <label class="label">Identifiant</label>
+                            <input type="text" x-model="newOrg.adminUsername" placeholder="ex: ndiaye_admin" class="input">
                         </div>
                         <div>
-                            <label class="block text-slate-400 mb-1">Mot de passe</label>
-                            <input type="text" x-model="newOrg.adminPassword" placeholder="min. 6 caractères" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            <label class="label">Mot de passe</label>
+                            <input type="text" x-model="newOrg.adminPassword" placeholder="min. 6 caractères" class="input">
                         </div>
                     </div>
-                    <p x-show="orgError" x-text="orgError" class="text-rose-400 text-[11px] font-semibold"></p>
+                    <p x-show="orgError" x-text="orgError" class="text-rose-500 text-[11px] font-semibold"></p>
                 </div>
                 <div class="flex justify-end space-x-2 pt-2">
-                    <button @click="showOrgModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Annuler</button>
-                    <button @click="createOrganizationSubmit()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs hover:bg-indigo-500 font-bold">Créer le Client</button>
+                    <button @click="showOrgModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="createOrganizationSubmit()" class="btn btn-primary">Créer le Client</button>
                 </div>
             </div>
         </div>
 
         <!-- MODALE : GESTION DES MOTS DE PASSE D'UN CLIENT -->
-        <div x-show="showOrgUsersModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-lg space-y-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+        <div x-show="showOrgUsersModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 w-full max-w-lg space-y-4 max-h-[85vh] overflow-y-auto">
                 <div class="flex justify-between items-center">
-                    <h3 class="text-lg font-bold text-white">
+                    <h3 class="text-lg font-bold text-slate-900">
                         Utilisateurs — <span x-text="selectedOrgForUsers ? selectedOrgForUsers.name : ''"></span>
                     </h3>
-                    <button @click="showOrgUsersModal = false" class="text-slate-500 hover:text-white p-1.5 rounded hover:bg-slate-800 transition">
+                    <button @click="showOrgUsersModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
                         <i class="fa-solid fa-xmark"></i>
                     </button>
                 </div>
                 <p class="text-[11px] text-slate-500">Réinitialisez le mot de passe d'un utilisateur si ce client ne peut plus se connecter.</p>
 
-                <div x-show="isLoadingOrgUsersList" class="text-center text-slate-400 text-sm py-6">
+                <div x-show="isLoadingOrgUsersList" class="text-center text-slate-500 text-sm py-6">
                     <i class="fa-solid fa-spinner fa-spin"></i> Chargement...
                 </div>
 
                 <div class="space-y-2" x-show="!isLoadingOrgUsersList">
                     <template x-for="u in orgUsersList" :key="u.id">
-                        <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                        <div class="card p-3 space-y-2 bg-slate-50/60">
                             <div class="flex justify-between items-center">
                                 <div>
-                                    <p class="text-xs font-bold text-white" x-text="u.name"></p>
+                                    <p class="text-xs font-bold text-slate-900" x-text="u.name"></p>
                                     <p class="text-[10px] text-slate-500 font-mono" x-text="'@' + u.username + ' — ' + (u.role === 'ADMIN' ? 'Administrateur' : (u.role === 'MANAGER' ? 'Gestionnaire' : 'Conducteur'))"></p>
                                 </div>
-                                <button x-show="resetPasswordUserId !== u.id" @click="startResetPassword(u.id)" class="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 border border-indigo-500/30 rounded-lg px-2.5 py-1.5">
+                                <button x-show="resetPasswordUserId !== u.id" @click="startResetPassword(u.id)" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-500 border border-indigo-200 bg-indigo-50 rounded-lg px-2.5 py-1.5">
                                     <i class="fa-solid fa-key mr-1"></i>Réinitialiser
                                 </button>
                             </div>
-                            <div x-show="resetPasswordUserId === u.id" class="flex gap-2 items-start pt-1 border-t border-slate-800">
+                            <div x-show="resetPasswordUserId === u.id" class="flex gap-2 items-start pt-1 border-t border-slate-200">
                                 <div class="flex-1">
-                                    <input type="text" x-model="resetPasswordValue" placeholder="Nouveau mot de passe (min. 6 caractères)" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-[11px] text-slate-200 focus:outline-none focus:border-indigo-500">
-                                    <p x-show="resetPasswordError" x-text="resetPasswordError" class="text-rose-400 text-[10px] font-semibold mt-1"></p>
+                                    <input type="text" x-model="resetPasswordValue" placeholder="Nouveau mot de passe (min. 6 caractères)" class="input !text-[11px]">
+                                    <p x-show="resetPasswordError" x-text="resetPasswordError" class="text-rose-500 text-[10px] font-semibold mt-1"></p>
                                 </div>
-                                <button @click="confirmResetPassword(u.id, u.username)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold px-3 py-2 rounded-lg flex-shrink-0">Valider</button>
-                                <button @click="resetPasswordUserId = null" class="text-slate-500 hover:text-white text-[10px] px-2 py-2 flex-shrink-0">Annuler</button>
+                                <button @click="confirmResetPassword(u.id, u.username)" class="btn btn-primary btn-xs mt-0.5">Valider</button>
+                                <button @click="resetPasswordUserId = null" class="btn btn-ghost btn-xs mt-0.5">Annuler</button>
                             </div>
                         </div>
                     </template>
