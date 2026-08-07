@@ -2507,630 +2507,676 @@
 
             </main>
 
-    <!-- SECTION CONTACT SUPPORT (WHATSAPP & EMAIL) -->
-    <footer class="bg-slate-900 border-t border-slate-800 py-6 px-4 mt-auto">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-400">
-            <div>
-                <p class="font-bold text-white text-sm">Asadiya Flotte PRO © 2026</p>
-                <p>Solution professionnelle de gestion de parc automobile.</p>
-            </div>
-            <div class="flex items-center space-x-4">
-                <a href="https://wa.me/221770000000" target="_blank" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-4 py-2 rounded-xl transition flex items-center gap-2 font-semibold">
-                    <i class="fa-brands fa-whatsapp text-base"></i> Contact WhatsApp
-                </a>
-                <a href="mailto:support@asadiyaflotte.com" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 px-4 py-2 rounded-xl transition flex items-center gap-2 font-semibold">
-                    <i class="fa-solid fa-envelope text-base"></i> Envoyer un Email
-                </a>
+            <!-- SECTION CONTACT SUPPORT (WHATSAPP & EMAIL) -->
+            <footer class="bg-white border-t border-slate-200 py-6 px-4 mt-auto">
+                <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500">
+                    <div>
+                        <p class="font-bold text-slate-900 text-sm">Asadiya Flotte PRO © 2026</p>
+                        <p>Solution professionnelle de gestion de parc automobile.</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="https://wa.me/221770000000" target="_blank" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 px-4 py-2 rounded-xl transition flex items-center gap-2 font-semibold">
+                            <i class="fa-brands fa-whatsapp text-base"></i> Contact WhatsApp
+                        </a>
+                        <a href="mailto:support@asadiyaflotte.com" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 px-4 py-2 rounded-xl transition flex items-center gap-2 font-semibold">
+                            <i class="fa-solid fa-envelope text-base"></i> Envoyer un Email
+                        </a>
+                    </div>
+                </div>
+            </footer>
+        </div>
+
+        <!-- MODALE : ENREGISTRER UNE VIDANGE EFFECTUÉE -->
+        <div x-show="showOilChangeModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-oil-can text-amber-500"></i> Enregistrer une Vidange Effectuée
+                    </h3>
+                    <button @click="showOilChangeModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="label">Kilométrage Actuel de la Vidange</label>
+                        <input type="number" x-model="oilChangeData.currentKm" class="input font-mono">
+                    </div>
+                    <div>
+                        <label class="label">Coût de l'Intervention (FCFA)</label>
+                        <input type="number" x-model="oilChangeData.cost" class="input font-mono">
+                    </div>
+                    <div>
+                        <label class="label">Garage / Prestataire</label>
+                        <input type="text" x-model="oilChangeData.provider" class="input">
+                    </div>
+                    <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-100 text-indigo-700 text-[11px]">
+                        <i class="fa-solid fa-circle-info mr-1"></i> L'enregistrement réinitialise automatiquement le compteur de vidange pour les <strong>10 000 km suivants</strong>.
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showOilChangeModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="submitOilChange()" class="btn btn-success">Valider la Vidange</button>
+                </div>
             </div>
         </div>
-    </footer>
 
-    <!-- MODALE : ENREGISTRER UNE VIDANGE EFFECTUÉE -->
-    <div x-show="showOilChangeModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i class="fa-solid fa-oil-can text-amber-400"></i> Enregistrer une Vidange Effectuée
-            </h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Kilométrage Actuel de la Vidange</label>
-                    <input type="number" x-model="oilChangeData.currentKm" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+        <!-- MODALE : AJOUT D'UN PLEIN DE CARBURANT -->
+        <div x-show="showFuelModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-gas-pump text-emerald-500"></i> Ajouter un Plein de Carburant
+                    </h3>
+                    <button @click="showFuelModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Coût de l'Intervention (FCFA)</label>
-                    <input type="number" x-model="oilChangeData.cost" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Garage / Prestataire</label>
-                    <input type="text" x-model="oilChangeData.provider" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-                <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/20 text-indigo-300 text-[11px]">
-                    <i class="fa-solid fa-circle-info mr-1"></i> L'enregistrement réinitialise automatiquement le compteur de vidange pour les <strong>10 000 km suivants</strong>.
-                </div>
-            </div>
-
-            <div class="flex justify-end space-x-2 pt-2">
-                <button @click="showOilChangeModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Annuler</button>
-                <button @click="submitOilChange()" class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs hover:bg-emerald-500 font-bold">Valider la Vidange</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODALE : AJOUT D'UN PLEIN DE CARBURANT -->
-    <div x-show="showFuelModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i class="fa-solid fa-gas-pump text-emerald-400"></i> Ajouter un Plein de Carburant
-            </h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Véhicule</label>
-                    <select x-model="newFuelLog.vehicleId" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="">Sélectionner un véhicule...</option>
-                        <template x-for="v in vehicles" :key="v.id">
-                            <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ')'"></option>
-                        </template>
-                    </select>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="space-y-3 text-xs">
                     <div>
-                        <label class="block text-slate-400 mb-1">Date du Plein</label>
-                        <input type="date" x-model="newFuelLog.date" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <label class="label">Véhicule</label>
+                        <select x-model="newFuelLog.vehicleId" class="input">
+                            <option value="">Sélectionner un véhicule...</option>
+                            <template x-for="v in vehicles" :key="v.id">
+                                <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ')'"></option>
+                            </template>
+                        </select>
                     </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">Kilométrage (odomètre)</label>
-                        <input type="number" x-model="newFuelLog.mileage" placeholder="ex: 35200" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-slate-400 mb-1">Volume (Litres)</label>
-                        <input type="number" step="0.01" x-model="newFuelLog.liters" placeholder="ex: 42" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
-                    </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">Coût Total (FCFA)</label>
-                        <input type="number" x-model="newFuelLog.cost" placeholder="ex: 35000" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
-                    </div>
-                </div>
-                <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-500/20 text-indigo-300 text-[11px]">
-                    <i class="fa-solid fa-circle-info mr-1"></i> Le kilométrage du véhicule sera automatiquement mis à jour si ce plein est plus récent.
-                </div>
-            </div>
-
-            <div class="flex justify-end space-x-2 pt-2">
-                <button @click="showFuelModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Annuler</button>
-                <button @click="addFuelLogSubmit()" class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs hover:bg-emerald-500 font-bold">Enregistrer le Plein</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODALE : AJOUT VÉHICULE -->
-    <div x-show="showVehicleModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h3 class="text-lg font-bold text-white" x-text="editingVehicleId ? 'Modifier le Véhicule' : 'Ajouter un Véhicule Asadiya Flotte'"></h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Photo du Véhicule</label>
-                    <div class="flex items-center gap-3">
-                        <div class="w-16 h-16 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center flex-shrink-0">
-                            <img x-show="newVehicle.photo" :src="newVehicle.photo" class="w-full h-full object-cover">
-                            <i x-show="!newVehicle.photo" class="fa-solid fa-car text-slate-600 text-xl"></i>
-                        </div>
-                        <div class="flex-1 space-y-1">
-                            <input type="file" accept="image/*" @change="handlePhotoUpload($event, 'vehicle')" class="w-full text-[10px] text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:text-[10px] file:font-bold hover:file:bg-indigo-500 file:cursor-pointer cursor-pointer">
-                            <button x-show="newVehicle.photo" type="button" @click="removePhoto('vehicle')" class="text-[10px] text-rose-400 hover:text-rose-300">Retirer la photo</button>
-                        </div>
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Immatriculation</label>
-                    <input type="text" x-model="newVehicle.plate" placeholder="ex: DK-994-AZ" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-slate-400 mb-1">Marque</label>
-                        <input type="text" x-model="newVehicle.brand" placeholder="ex: Toyota" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">Modèle</label>
-                        <input type="text" x-model="newVehicle.model" placeholder="ex: Corolla" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                    </div>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block text-slate-400 mb-1">Année</label>
-                        <input type="number" x-model="newVehicle.year" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">Km Actuel</label>
-                        <input type="number" x-model="newVehicle.mileage" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">Km Dernier Vidange</label>
-                        <input type="number" x-model="newVehicle.lastOilChangeKm" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Type de Carburant</label>
-                    <select x-model="newVehicle.fuel" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="Essence">Essence</option>
-                        <option value="Diesel">Diesel</option>
-                        <option value="Électrique">Électrique</option>
-                        <option value="Hybride">Hybride</option>
-                    </select>
-                </div>
-
-                <div class="pt-2 border-t border-slate-800">
-                    <p class="font-semibold text-slate-300 mb-2 flex items-center gap-1.5">
-                        <i class="fa-solid fa-file-lines text-indigo-400"></i> Documents Administratifs
-                    </p>
-                    <div class="grid grid-cols-1 gap-2">
+                    <div class="grid grid-cols-2 gap-2">
                         <div>
-                            <label class="block text-slate-400 mb-1">Date d'Expiration Assurance</label>
-                            <input type="date" x-model="newVehicle.insuranceExpiry" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            <label class="label">Date du Plein</label>
+                            <input type="date" x-model="newFuelLog.date" class="input">
                         </div>
                         <div>
-                            <label class="block text-slate-400 mb-1">Date de Validité Carte Grise</label>
-                            <input type="date" x-model="newVehicle.registrationExpiry" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        </div>
-                        <div>
-                            <label class="block text-slate-400 mb-1">Date d'Expiration Contrôle Technique</label>
-                            <input type="date" x-model="newVehicle.technicalControlExpiry" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                            <label class="label">Kilométrage (odomètre)</label>
+                            <input type="number" x-model="newFuelLog.mileage" placeholder="ex: 35200" class="input font-mono">
                         </div>
                     </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="label">Volume (Litres)</label>
+                            <input type="number" step="0.01" x-model="newFuelLog.liters" placeholder="ex: 42" class="input font-mono">
+                        </div>
+                        <div>
+                            <label class="label">Coût Total (FCFA)</label>
+                            <input type="number" x-model="newFuelLog.cost" placeholder="ex: 35000" class="input font-mono">
+                        </div>
+                    </div>
+                    <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-100 text-indigo-700 text-[11px]">
+                        <i class="fa-solid fa-circle-info mr-1"></i> Le kilométrage du véhicule sera automatiquement mis à jour si ce plein est plus récent.
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showFuelModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="addFuelLogSubmit()" class="btn btn-success">Enregistrer le Plein</button>
                 </div>
             </div>
-
-            <div class="flex justify-end space-x-2 pt-2">
-                <button @click="showVehicleModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Annuler</button>
-                <button @click="addVehicleSubmit()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs hover:bg-indigo-500 font-bold" x-text="editingVehicleId ? 'Enregistrer les Modifications' : 'Enregistrer'"></button>
-            </div>
         </div>
-    </div>
 
-    <!-- MODALE : FICHE COMPLÈTE VÉHICULE (Historique regroupé) -->
-    <div x-show="showVehicleDetailModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto space-y-5 shadow-2xl" x-show="selectedVehicleDetail">
-            <template x-if="selectedVehicleDetail">
-                <div class="space-y-5">
-                    <!-- En-tête -->
-                    <div class="flex justify-between items-start border-b border-slate-800 pb-4">
-                        <div class="flex items-center gap-3 min-w-0">
-                            <div class="w-16 h-16 rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center flex-shrink-0">
-                                <img x-show="selectedVehicleDetail.photo" :src="selectedVehicleDetail.photo" class="w-full h-full object-cover">
-                                <i x-show="!selectedVehicleDetail.photo" class="fa-solid fa-car text-slate-600 text-2xl"></i>
+        <!-- MODALE : AJOUT VÉHICULE -->
+        <div x-show="showVehicleModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900" x-text="editingVehicleId ? 'Modifier le Véhicule' : 'Ajouter un Véhicule Asadiya Flotte'"></h3>
+                    <button @click="showVehicleModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="label">Photo du Véhicule</label>
+                        <div class="flex items-center gap-3">
+                            <div class="w-16 h-16 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                <img x-show="newVehicle.photo" :src="newVehicle.photo" class="w-full h-full object-cover">
+                                <i x-show="!newVehicle.photo" class="fa-solid fa-car text-slate-400 text-xl"></i>
                             </div>
-                            <div class="min-w-0">
-                                <h3 class="text-lg font-bold text-white truncate" x-text="selectedVehicleDetail.brand + ' ' + selectedVehicleDetail.model"></h3>
-                                <p class="text-xs text-slate-400 font-mono mt-1" x-text="selectedVehicleDetail.plate + ' — ' + selectedVehicleDetail.year + ' — ' + selectedVehicleDetail.mileage.toLocaleString() + ' km'"></p>
-                                <p class="text-xs text-slate-400 mt-0.5">Conducteur assigné : <span class="text-slate-200 font-medium" x-text="selectedVehicleDetail.driver"></span></p>
+                            <div class="flex-1 space-y-1">
+                                <input type="file" accept="image/*" @change="handlePhotoUpload($event, 'vehicle')" class="w-full text-[10px] text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:text-[10px] file:font-bold hover:file:bg-indigo-500 file:cursor-pointer cursor-pointer">
+                                <button x-show="newVehicle.photo" type="button" @click="removePhoto('vehicle')" class="text-[10px] text-rose-500 hover:text-rose-600">Retirer la photo</button>
                             </div>
                         </div>
-                        <button @click="showVehicleDetailModal = false" class="text-slate-500 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition">
-                            <i class="fa-solid fa-xmark text-lg"></i>
-                        </button>
                     </div>
-
-                    <!-- Statuts documents & vidange -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px]">
-                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                            <p class="text-slate-400 font-semibold mb-1"><i class="fa-solid fa-oil-can"></i> Vidange</p>
-                            <p :class="'text-' + getOilChangeStatus(selectedVehicleDetail).color + '-400'" class="font-mono font-bold" x-text="getOilChangeStatus(selectedVehicleDetail).label"></p>
+                    <div>
+                        <label class="label">Immatriculation</label>
+                        <input type="text" x-model="newVehicle.plate" placeholder="ex: DK-994-AZ" class="input">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="label">Marque</label>
+                            <input type="text" x-model="newVehicle.brand" placeholder="ex: Toyota" class="input">
                         </div>
-                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                            <p class="text-slate-400 font-semibold mb-1"><i class="fa-solid fa-shield-halved"></i> Assurance</p>
-                            <p :class="'text-' + getDocumentStatus(selectedVehicleDetail.insuranceExpiry).color + '-400'" class="font-mono font-bold" x-text="getDocumentStatus(selectedVehicleDetail.insuranceExpiry).label"></p>
-                        </div>
-                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                            <p class="text-slate-400 font-semibold mb-1"><i class="fa-solid fa-file-lines"></i> Carte Grise</p>
-                            <p :class="'text-' + getDocumentStatus(selectedVehicleDetail.registrationExpiry).color + '-400'" class="font-mono font-bold" x-text="getDocumentStatus(selectedVehicleDetail.registrationExpiry).label"></p>
-                        </div>
-                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-                            <p class="text-slate-400 font-semibold mb-1"><i class="fa-solid fa-clipboard-check"></i> Contrôle Tech.</p>
-                            <p :class="'text-' + getDocumentStatus(selectedVehicleDetail.technicalControlExpiry).color + '-400'" class="font-mono font-bold" x-text="getDocumentStatus(selectedVehicleDetail.technicalControlExpiry).label"></p>
+                        <div>
+                            <label class="label">Modèle</label>
+                            <input type="text" x-model="newVehicle.model" placeholder="ex: Corolla" class="input">
                         </div>
                     </div>
-
-                    <!-- Totaux des coûts -->
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-indigo-950/30 border border-indigo-500/20 p-3 rounded-xl text-center">
-                            <p class="text-[10px] text-indigo-300 font-semibold uppercase">Total Entretiens</p>
-                            <p class="text-sm font-bold text-white font-mono" x-text="vehicleDetailTotalMaintenanceCost.toLocaleString() + ' FCFA'"></p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="label">Année</label>
+                            <input type="number" x-model="newVehicle.year" class="input">
                         </div>
-                        <div class="bg-emerald-950/30 border border-emerald-500/20 p-3 rounded-xl text-center">
-                            <p class="text-[10px] text-emerald-300 font-semibold uppercase">Total Carburant</p>
-                            <p class="text-sm font-bold text-white font-mono" x-text="vehicleDetailTotalFuelCost.toLocaleString() + ' FCFA'"></p>
+                        <div>
+                            <label class="label">Km Actuel</label>
+                            <input type="number" x-model="newVehicle.mileage" placeholder="0" class="input">
                         </div>
-                        <div class="bg-rose-950/30 border border-rose-500/20 p-3 rounded-xl text-center">
-                            <p class="text-[10px] text-rose-300 font-semibold uppercase">Total Sinistres</p>
-                            <p class="text-sm font-bold text-white font-mono" x-text="vehicleDetailTotalAccidentCost.toLocaleString() + ' FCFA'"></p>
+                        <div>
+                            <label class="label">Km Dernier Vidange</label>
+                            <input type="number" x-model="newVehicle.lastOilChangeKm" placeholder="0" class="input">
                         </div>
                     </div>
-
-                    <!-- Historique Entretiens -->
-                    <div class="space-y-2">
-                        <h4 class="text-xs font-bold text-white flex items-center gap-2"><i class="fa-solid fa-screwdriver-wrench text-indigo-400"></i> Historique Entretiens (<span x-text="vehicleDetailMaintenances.length"></span>)</h4>
-                        <div class="space-y-1.5 max-h-40 overflow-y-auto">
-                            <template x-for="m in vehicleDetailMaintenances" :key="m.id">
-                                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
-                                    <div>
-                                        <p class="text-slate-200 font-medium" x-text="m.type"></p>
-                                        <p class="text-slate-500 font-mono" x-text="m.date + ' — ' + m.provider"></p>
-                                    </div>
-                                    <span class="text-indigo-400 font-mono font-bold" x-text="m.cost.toLocaleString() + ' FCFA'"></span>
-                                </div>
-                            </template>
-                            <p x-show="vehicleDetailMaintenances.length === 0" class="text-[11px] text-slate-500 text-center py-2">Aucun entretien enregistré.</p>
-                        </div>
+                    <div>
+                        <label class="label">Type de Carburant</label>
+                        <select x-model="newVehicle.fuel" class="input">
+                            <option value="Essence">Essence</option>
+                            <option value="Diesel">Diesel</option>
+                            <option value="Électrique">Électrique</option>
+                            <option value="Hybride">Hybride</option>
+                        </select>
                     </div>
 
-                    <!-- Historique Carburant -->
-                    <div class="space-y-2">
-                        <h4 class="text-xs font-bold text-white flex items-center gap-2"><i class="fa-solid fa-gas-pump text-emerald-400"></i> Historique Carburant (<span x-text="vehicleDetailFuelLogs.length"></span>)</h4>
-                        <div class="space-y-1.5 max-h-40 overflow-y-auto">
-                            <template x-for="f in vehicleDetailFuelLogs" :key="f.id">
-                                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
-                                    <div>
-                                        <p class="text-slate-200 font-medium" x-text="f.liters + ' Litres — ' + f.mileage.toLocaleString() + ' km'"></p>
-                                        <p class="text-slate-500 font-mono" x-text="f.date"></p>
-                                    </div>
-                                    <span class="text-emerald-400 font-mono font-bold" x-text="f.cost.toLocaleString() + ' FCFA'"></span>
-                                </div>
-                            </template>
-                            <p x-show="vehicleDetailFuelLogs.length === 0" class="text-[11px] text-slate-500 text-center py-2">Aucun plein enregistré.</p>
-                        </div>
-                    </div>
-
-                    <!-- Historique Signalements -->
-                    <div class="space-y-2">
-                        <h4 class="text-xs font-bold text-white flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Historique Signalements (<span x-text="vehicleDetailIncidents.length"></span>)</h4>
-                        <div class="space-y-1.5 max-h-40 overflow-y-auto">
-                            <template x-for="i in vehicleDetailIncidents" :key="i.id">
-                                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
-                                    <div>
-                                        <p class="text-slate-200 font-medium" x-text="i.title"></p>
-                                        <p class="text-slate-500 font-mono" x-text="i.date + ' — ' + i.driver"></p>
-                                    </div>
-                                    <span :class="{
-                                        'text-rose-400': i.status !== 'RÉSOLU',
-                                        'text-emerald-400': i.status === 'RÉSOLU'
-                                    }" class="font-bold" x-text="i.status"></span>
-                                </div>
-                            </template>
-                            <p x-show="vehicleDetailIncidents.length === 0" class="text-[11px] text-slate-500 text-center py-2">Aucun signalement enregistré.</p>
-                        </div>
-                    </div>
-
-                    <!-- Historique Accidents -->
-                    <div class="space-y-2">
-                        <h4 class="text-xs font-bold text-white flex items-center gap-2"><i class="fa-solid fa-car-burst text-rose-500"></i> Historique Accidents (<span x-text="vehicleDetailAccidents.length"></span>)</h4>
-                        <div class="space-y-1.5 max-h-40 overflow-y-auto">
-                            <template x-for="a in vehicleDetailAccidents" :key="a.id">
-                                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
-                                    <div>
-                                        <p class="text-slate-200 font-medium" x-text="a.location"></p>
-                                        <p class="text-slate-500 font-mono" x-text="a.date + ' — ' + a.driver"></p>
-                                    </div>
-                                    <span class="text-rose-400 font-mono font-bold" x-text="a.costEstimate.toLocaleString() + ' FCFA'"></span>
-                                </div>
-                            </template>
-                            <p x-show="vehicleDetailAccidents.length === 0" class="text-[11px] text-slate-500 text-center py-2">Aucun accident enregistré.</p>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end pt-2">
-                        <button @click="showVehicleDetailModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Fermer</button>
-                    </div>
-                </div>
-            </template>
-        </div>
-    </div>
-
-    <!-- MODALE : AJOUT CONDUCTEUR -->
-    <div x-show="showDriverModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-            <h3 class="text-lg font-bold text-white" x-text="editingDriverId ? 'Modifier le Conducteur' : 'Nouveau Conducteur'"></h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Photo du Conducteur</label>
-                    <div class="flex items-center gap-3">
-                        <div class="w-16 h-16 rounded-full bg-slate-950 border border-slate-800 overflow-hidden flex items-center justify-center flex-shrink-0">
-                            <img x-show="newDriver.photo" :src="newDriver.photo" class="w-full h-full object-cover">
-                            <i x-show="!newDriver.photo" class="fa-solid fa-user text-slate-600 text-xl"></i>
-                        </div>
-                        <div class="flex-1 space-y-1">
-                            <input type="file" accept="image/*" @change="handlePhotoUpload($event, 'driver')" class="w-full text-[10px] text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:text-[10px] file:font-bold hover:file:bg-indigo-500 file:cursor-pointer cursor-pointer">
-                            <button x-show="newDriver.photo" type="button" @click="removePhoto('driver')" class="text-[10px] text-rose-400 hover:text-rose-300">Retirer la photo</button>
+                    <div class="pt-2 border-t border-slate-200">
+                        <p class="font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-lines text-indigo-500"></i> Documents Administratifs
+                        </p>
+                        <div class="grid grid-cols-1 gap-2">
+                            <div>
+                                <label class="label">Date d'Expiration Assurance</label>
+                                <input type="date" x-model="newVehicle.insuranceExpiry" class="input">
+                            </div>
+                            <div>
+                                <label class="label">Date de Validité Carte Grise</label>
+                                <input type="date" x-model="newVehicle.registrationExpiry" class="input">
+                            </div>
+                            <div>
+                                <label class="label">Date d'Expiration Contrôle Technique</label>
+                                <input type="date" x-model="newVehicle.technicalControlExpiry" class="input">
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Nom Complet</label>
-                    <input type="text" x-model="newDriver.name" placeholder="ex: Ousmane Sow" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Adresse Email</label>
-                    <input type="email" x-model="newDriver.email" placeholder="ex: o.sow@asadiyaflotte.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Téléphone</label>
-                    <input type="text" x-model="newDriver.phone" placeholder="ex: +221 77 000 00 00" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Numéro de Permis de Conduire</label>
-                    <input type="text" x-model="newDriver.license" placeholder="ex: B-993021" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Date d'Expiration du Permis</label>
-                    <input type="date" x-model="newDriver.licenseExpiry" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-            </div>
 
-            <div class="flex justify-end space-x-2 pt-2">
-                <button @click="showDriverModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Annuler</button>
-                <button @click="addDriverSubmit()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs hover:bg-indigo-500 font-bold" x-text="editingDriverId ? 'Enregistrer les Modifications' : 'Ajouter le Conducteur'"></button>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showVehicleModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="addVehicleSubmit()" class="btn btn-primary" x-text="editingVehicleId ? 'Enregistrer les Modifications' : 'Enregistrer'"></button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODALE : PLANIFIER UN ENTRETIEN -->
-    <div x-show="showMaintenanceModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-            <h3 class="text-lg font-bold text-white" x-text="editingMaintenanceId ? 'Modifier l\'Entretien' : 'Planifier un Entretien'"></h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Véhicule</label>
-                    <select x-model="newMaintenance.vehicleId" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="">Sélectionner un véhicule...</option>
-                        <template x-for="v in vehicles" :key="v.id">
-                            <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ')'"></option>
-                        </template>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Type d'Intervention</label>
-                    <input type="text" x-model="newMaintenance.type" placeholder="ex: Vidange complète, Remplacement des freins" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-slate-400 mb-1">Date Prévue</label>
-                        <input type="date" x-model="newMaintenance.date" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">Coût Estimé (FCFA)</label>
-                        <input type="number" x-model="newMaintenance.cost" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Garage / Prestataire</label>
-                    <input type="text" x-model="newMaintenance.provider" placeholder="ex: Garage Central Dakar" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Priorité / Statut</label>
-                    <select x-model="newMaintenance.status" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="PLANIFIÉ">PLANIFIÉ</option>
-                        <option value="URGENT">URGENT (Immobilise le véhicule)</option>
-                    </select>
-                </div>
-            </div>
+        <!-- MODALE : FICHE COMPLÈTE VÉHICULE (Historique regroupé) -->
+        <div x-show="showVehicleDetailModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto space-y-5" x-show="selectedVehicleDetail">
+                <template x-if="selectedVehicleDetail">
+                    <div class="space-y-5">
+                        <!-- En-tête -->
+                        <div class="flex justify-between items-start border-b border-slate-200 pb-4">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                    <img x-show="selectedVehicleDetail.photo" :src="selectedVehicleDetail.photo" class="w-full h-full object-cover">
+                                    <i x-show="!selectedVehicleDetail.photo" class="fa-solid fa-car text-slate-400 text-2xl"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="text-lg font-bold text-slate-900 truncate" x-text="selectedVehicleDetail.brand + ' ' + selectedVehicleDetail.model"></h3>
+                                    <p class="text-xs text-slate-500 font-mono mt-1" x-text="selectedVehicleDetail.plate + ' — ' + selectedVehicleDetail.year + ' — ' + selectedVehicleDetail.mileage.toLocaleString() + ' km'"></p>
+                                    <p class="text-xs text-slate-500 mt-0.5">Conducteur assigné : <span class="text-slate-800 font-medium" x-text="selectedVehicleDetail.driver"></span></p>
+                                </div>
+                            </div>
+                            <button @click="showVehicleDetailModal = false" class="text-slate-400 hover:text-slate-700 p-2 rounded-xl hover:bg-slate-100 transition flex-shrink-0">
+                                <i class="fa-solid fa-xmark text-lg"></i>
+                            </button>
+                        </div>
 
-            <div class="flex justify-end space-x-2 pt-2">
-                <button @click="showMaintenanceModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Annuler</button>
-                <button @click="addMaintenanceSubmit()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs hover:bg-indigo-500 font-bold">Planifier</button>
+                        <!-- Statuts documents & vidange -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-[11px]">
+                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                <p class="text-slate-600 font-semibold mb-1"><i class="fa-solid fa-oil-can"></i> Vidange</p>
+                                <p :class="'text-' + getOilChangeStatus(selectedVehicleDetail).color + '-500'" class="font-mono font-bold" x-text="getOilChangeStatus(selectedVehicleDetail).label"></p>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                <p class="text-slate-600 font-semibold mb-1"><i class="fa-solid fa-shield-halved"></i> Assurance</p>
+                                <p :class="'text-' + getDocumentStatus(selectedVehicleDetail.insuranceExpiry).color + '-500'" class="font-mono font-bold" x-text="getDocumentStatus(selectedVehicleDetail.insuranceExpiry).label"></p>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                <p class="text-slate-600 font-semibold mb-1"><i class="fa-solid fa-file-lines"></i> Carte Grise</p>
+                                <p :class="'text-' + getDocumentStatus(selectedVehicleDetail.registrationExpiry).color + '-500'" class="font-mono font-bold" x-text="getDocumentStatus(selectedVehicleDetail.registrationExpiry).label"></p>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                <p class="text-slate-600 font-semibold mb-1"><i class="fa-solid fa-clipboard-check"></i> Contrôle Tech.</p>
+                                <p :class="'text-' + getDocumentStatus(selectedVehicleDetail.technicalControlExpiry).color + '-500'" class="font-mono font-bold" x-text="getDocumentStatus(selectedVehicleDetail.technicalControlExpiry).label"></p>
+                            </div>
+                        </div>
+
+                        <!-- Totaux des coûts -->
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-center">
+                                <p class="text-[10px] text-indigo-600 font-semibold uppercase">Total Entretiens</p>
+                                <p class="text-sm font-bold text-slate-900 font-mono" x-text="vehicleDetailTotalMaintenanceCost.toLocaleString() + ' FCFA'"></p>
+                            </div>
+                            <div class="bg-emerald-50 border border-emerald-100 p-3 rounded-xl text-center">
+                                <p class="text-[10px] text-emerald-600 font-semibold uppercase">Total Carburant</p>
+                                <p class="text-sm font-bold text-slate-900 font-mono" x-text="vehicleDetailTotalFuelCost.toLocaleString() + ' FCFA'"></p>
+                            </div>
+                            <div class="bg-rose-50 border border-rose-100 p-3 rounded-xl text-center">
+                                <p class="text-[10px] text-rose-600 font-semibold uppercase">Total Sinistres</p>
+                                <p class="text-sm font-bold text-slate-900 font-mono" x-text="vehicleDetailTotalAccidentCost.toLocaleString() + ' FCFA'"></p>
+                            </div>
+                        </div>
+
+                        <!-- Historique Entretiens -->
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-screwdriver-wrench text-indigo-500"></i> Historique Entretiens (<span x-text="vehicleDetailMaintenances.length"></span>)</h4>
+                            <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                <template x-for="m in vehicleDetailMaintenances" :key="m.id">
+                                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center text-[11px]">
+                                        <div class="min-w-0">
+                                            <p class="text-slate-800 font-medium" x-text="m.type"></p>
+                                            <p class="text-slate-500 font-mono" x-text="m.date + ' — ' + m.provider"></p>
+                                        </div>
+                                        <span class="text-indigo-600 font-mono font-bold flex-shrink-0" x-text="m.cost.toLocaleString() + ' FCFA'"></span>
+                                    </div>
+                                </template>
+                                <p x-show="vehicleDetailMaintenances.length === 0" class="text-[11px] text-slate-500 text-center py-2">Aucun entretien enregistré.</p>
+                            </div>
+                        </div>
+
+                        <!-- Historique Carburant -->
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-gas-pump text-emerald-500"></i> Historique Carburant (<span x-text="vehicleDetailFuelLogs.length"></span>)</h4>
+                            <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                <template x-for="f in vehicleDetailFuelLogs" :key="f.id">
+                                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center text-[11px]">
+                                        <div>
+                                            <p class="text-slate-800 font-medium" x-text="f.liters + ' Litres — ' + f.mileage.toLocaleString() + ' km'"></p>
+                                            <p class="text-slate-500 font-mono" x-text="f.date"></p>
+                                        </div>
+                                        <span class="text-emerald-600 font-mono font-bold" x-text="f.cost.toLocaleString() + ' FCFA'"></span>
+                                    </div>
+                                </template>
+                                <p x-show="vehicleDetailFuelLogs.length === 0" class="text-[11px] text-slate-500 text-center py-2">Aucun plein enregistré.</p>
+                            </div>
+                        </div>
+
+                        <!-- Historique Signalements -->
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-amber-500"></i> Historique Signalements (<span x-text="vehicleDetailIncidents.length"></span>)</h4>
+                            <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                <template x-for="i in vehicleDetailIncidents" :key="i.id">
+                                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center text-[11px]">
+                                        <div>
+                                            <p class="text-slate-800 font-medium" x-text="i.title"></p>
+                                            <p class="text-slate-500 font-mono" x-text="i.date + ' — ' + i.driver"></p>
+                                        </div>
+                                        <span :class="{
+                                            'text-rose-500': i.status !== 'RÉSOLU',
+                                            'text-emerald-600': i.status === 'RÉSOLU'
+                                        }" class="font-bold" x-text="i.status"></span>
+                                    </div>
+                                </template>
+                                <p x-show="vehicleDetailIncidents.length === 0" class="text-[11px] text-slate-500 text-center py-2">Aucun signalement enregistré.</p>
+                            </div>
+                        </div>
+
+                        <!-- Historique Accidents -->
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-car-burst text-rose-500"></i> Historique Accidents (<span x-text="vehicleDetailAccidents.length"></span>)</h4>
+                            <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                <template x-for="a in vehicleDetailAccidents" :key="a.id">
+                                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center text-[11px]">
+                                        <div>
+                                            <p class="text-slate-800 font-medium" x-text="a.location"></p>
+                                            <p class="text-slate-500 font-mono" x-text="a.date + ' — ' + a.driver"></p>
+                                        </div>
+                                        <span class="text-rose-500 font-mono font-bold" x-text="a.costEstimate.toLocaleString() + ' FCFA'"></span>
+                                    </div>
+                                </template>
+                                <p x-show="vehicleDetailAccidents.length === 0" class="text-[11px] text-slate-500 text-center py-2">Aucun accident enregistré.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-2">
+                            <button @click="showVehicleDetailModal = false" class="btn btn-secondary">Fermer</button>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
-    </div>
 
-    <!-- MODALE : SIGNALEMENT / DYSFONCTIONNEMENT -->
-    <div x-show="showIncidentModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-            <h3 class="text-lg font-bold text-white" x-text="editingIncidentId ? 'Modifier le Signalement' : 'Déclarer un Signalement'"></h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Véhicule Concerné</label>
-                    <select x-model="newIncident.vehicleId" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="">Sélectionner un véhicule...</option>
-                        <template x-for="v in vehicles" :key="v.id">
-                            <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ')'"></option>
-                        </template>
-                    </select>
+        <!-- MODALE : AJOUT CONDUCTEUR -->
+        <div x-show="showDriverModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900" x-text="editingDriverId ? 'Modifier le Conducteur' : 'Nouveau Conducteur'"></h3>
+                    <button @click="showDriverModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Conducteur Rapporteur</label>
-                    <select x-model="newIncident.driverId" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="">Sélectionner un conducteur...</option>
-                        <template x-for="d in drivers" :key="d.id">
-                            <option :value="d.id" x-text="d.name"></option>
-                        </template>
-                    </select>
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="label">Photo du Conducteur</label>
+                        <div class="flex items-center gap-3">
+                            <div class="w-16 h-16 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                <img x-show="newDriver.photo" :src="newDriver.photo" class="w-full h-full object-cover">
+                                <i x-show="!newDriver.photo" class="fa-solid fa-user text-slate-400 text-xl"></i>
+                            </div>
+                            <div class="flex-1 space-y-1">
+                                <input type="file" accept="image/*" @change="handlePhotoUpload($event, 'driver')" class="w-full text-[10px] text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:text-[10px] file:font-bold hover:file:bg-indigo-500 file:cursor-pointer cursor-pointer">
+                                <button x-show="newDriver.photo" type="button" @click="removePhoto('driver')" class="text-[10px] text-rose-500 hover:text-rose-600">Retirer la photo</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label">Nom Complet</label>
+                        <input type="text" x-model="newDriver.name" placeholder="ex: Ousmane Sow" class="input">
+                    </div>
+                    <div>
+                        <label class="label">Adresse Email</label>
+                        <input type="email" x-model="newDriver.email" placeholder="ex: o.sow@asadiyaflotte.com" class="input">
+                    </div>
+                    <div>
+                        <label class="label">Téléphone</label>
+                        <input type="text" x-model="newDriver.phone" placeholder="ex: +221 77 000 00 00" class="input">
+                    </div>
+                    <div>
+                        <label class="label">Numéro de Permis de Conduire</label>
+                        <input type="text" x-model="newDriver.license" placeholder="ex: B-993021" class="input">
+                    </div>
+                    <div>
+                        <label class="label">Date d'Expiration du Permis</label>
+                        <input type="date" x-model="newDriver.licenseExpiry" class="input">
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Objet du Signalement</label>
-                    <input type="text" x-model="newIncident.title" placeholder="ex: Voyant d'huile, bruit de courroie..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Priorité d'Urgence</label>
-                    <select x-model="newIncident.priority" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="BASSE">BASSE (À vérifier lors du prochain entretien)</option>
-                        <option value="MOYENNE">MOYENNE (Nécessite contrôle sous peu)</option>
-                        <option value="HAUTE">HAUTE (Nécessite intervention rapide)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Description détaillée</label>
-                    <textarea x-model="newIncident.description" rows="3" placeholder="Symptômes observés, circonstances..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
-                </div>
-            </div>
 
-            <div class="flex justify-end space-x-2 pt-2">
-                <button @click="showIncidentModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Annuler</button>
-                <button @click="addIncidentSubmit()" class="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs hover:bg-amber-500 font-bold">Enregistrer le Signalement</button>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showDriverModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="addDriverSubmit()" class="btn btn-primary" x-text="editingDriverId ? 'Enregistrer les Modifications' : 'Ajouter le Conducteur'"></button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODALE : DÉCLARATION D'ACCIDENT -->
-    <div x-show="showAccidentModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i class="fa-solid fa-car-burst text-rose-500"></i>
-                <span x-text="editingAccidentId ? 'Modifier le Dossier Accident' : 'Déclarer un Accident'"></span>
-            </h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Véhicule Impliqué</label>
-                    <select x-model="newAccident.vehicleId" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="">Sélectionner un véhicule...</option>
-                        <template x-for="v in vehicles" :key="v.id">
-                            <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ')'"></option>
-                        </template>
-                    </select>
+        <!-- MODALE : PLANIFIER UN ENTRETIEN -->
+        <div x-show="showMaintenanceModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900" x-text="editingMaintenanceId ? 'Modifier l\'Entretien' : 'Planifier un Entretien'"></h3>
+                    <button @click="showMaintenanceModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Conducteur au moment des faits</label>
-                    <select x-model="newAccident.driverId" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="">Sélectionner un conducteur...</option>
-                        <template x-for="d in drivers" :key="d.id">
-                            <option :value="d.id" x-text="d.name"></option>
-                        </template>
-                    </select>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="space-y-3 text-xs">
                     <div>
-                        <label class="block text-slate-400 mb-1">Date du Sinistre</label>
-                        <input type="date" x-model="newAccident.date" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">Lieu précis</label>
-                        <input type="text" x-model="newAccident.location" placeholder="ex: Intersection VDN" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Dégâts apparents</label>
-                    <textarea x-model="newAccident.damage" rows="2" placeholder="Description des dommages matériels..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-slate-400 mb-1">Tiers Impliqué ?</label>
-                        <select x-model="newAccident.thirdParty" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                            <option value="Oui">Oui</option>
-                            <option value="Non">Non (Seul en cause)</option>
+                        <label class="label">Véhicule</label>
+                        <select x-model="newMaintenance.vehicleId" class="input">
+                            <option value="">Sélectionner un véhicule...</option>
+                            <template x-for="v in vehicles" :key="v.id">
+                                <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ')'"></option>
+                            </template>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-slate-400 mb-1">Constat Amiable ?</label>
-                        <select x-model="newAccident.report" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                            <option value="Oui (Signé)">Oui (Signé)</option>
-                            <option value="En attente PV Police">En attente PV Police</option>
-                            <option value="Non">Non</option>
+                        <label class="label">Type d'Intervention</label>
+                        <input type="text" x-model="newMaintenance.type" placeholder="ex: Vidange complète, Remplacement des freins" class="input">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="label">Date Prévue</label>
+                            <input type="date" x-model="newMaintenance.date" class="input">
+                        </div>
+                        <div>
+                            <label class="label">Coût Estimé (FCFA)</label>
+                            <input type="number" x-model="newMaintenance.cost" placeholder="0" class="input">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label">Garage / Prestataire</label>
+                        <input type="text" x-model="newMaintenance.provider" placeholder="ex: Garage Central Dakar" class="input">
+                    </div>
+                    <div>
+                        <label class="label">Priorité / Statut</label>
+                        <select x-model="newMaintenance.status" class="input">
+                            <option value="PLANIFIÉ">PLANIFIÉ</option>
+                            <option value="URGENT">URGENT (Immobilise le véhicule)</option>
                         </select>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Estimation des Réparations (FCFA)</label>
-                    <input type="number" x-model="newAccident.costEstimate" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-            </div>
 
-            <div class="flex justify-end space-x-2 pt-2">
-                <button @click="showAccidentModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Annuler</button>
-                <button @click="addAccidentSubmit()" class="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs hover:bg-rose-500 font-bold" x-text="editingAccidentId ? 'Enregistrer les Modifications' : 'Enregistrer & Immobiliser Véhicule'"></button>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showMaintenanceModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="addMaintenanceSubmit()" class="btn btn-primary">Planifier</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- MODALE : DEMANDE DE RÉSERVATION -->
-    <div x-show="showReservationModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-            <h3 class="text-lg font-bold text-white" x-text="editingReservationId ? 'Modifier la Réservation' : 'Nouvelle Demande de Réservation'"></h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Véhicule</label>
-                    <select x-model="newReservation.vehicleId" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="">Sélectionner un véhicule...</option>
-                        <template x-for="v in vehicles" :key="v.id">
-                            <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ')'"></option>
-                        </template>
-                    </select>
+        <!-- MODALE : SIGNALEMENT / DYSFONCTIONNEMENT -->
+        <div x-show="showIncidentModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900" x-text="editingIncidentId ? 'Modifier le Signalement' : 'Déclarer un Signalement'"></h3>
+                    <button @click="showIncidentModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Conducteur</label>
-                    <select x-model="newReservation.driverId" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="">Sélectionner un conducteur...</option>
-                        <template x-for="d in drivers" :key="d.id">
-                            <option :value="d.id" x-text="d.name"></option>
-                        </template>
-                    </select>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="space-y-3 text-xs">
                     <div>
-                        <label class="block text-slate-400 mb-1">Date Début</label>
-                        <input type="datetime-local" x-model="newReservation.start" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <label class="label">Véhicule Concerné</label>
+                        <select x-model="newIncident.vehicleId" class="input">
+                            <option value="">Sélectionner un véhicule...</option>
+                            <template x-for="v in vehicles" :key="v.id">
+                                <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ')'"></option>
+                            </template>
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-slate-400 mb-1">Date Fin</label>
-                        <input type="datetime-local" x-model="newReservation.end" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <label class="label">Conducteur Rapporteur</label>
+                        <select x-model="newIncident.driverId" class="input">
+                            <option value="">Sélectionner un conducteur...</option>
+                            <template x-for="d in drivers" :key="d.id">
+                                <option :value="d.id" x-text="d.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label">Objet du Signalement</label>
+                        <input type="text" x-model="newIncident.title" placeholder="ex: Voyant d'huile, bruit de courroie..." class="input">
+                    </div>
+                    <div>
+                        <label class="label">Priorité d'Urgence</label>
+                        <select x-model="newIncident.priority" class="input">
+                            <option value="BASSE">BASSE (À vérifier lors du prochain entretien)</option>
+                            <option value="MOYENNE">MOYENNE (Nécessite contrôle sous peu)</option>
+                            <option value="HAUTE">HAUTE (Nécessite intervention rapide)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label">Description détaillée</label>
+                        <textarea x-model="newIncident.description" rows="3" placeholder="Symptômes observés, circonstances..." class="input"></textarea>
                     </div>
                 </div>
 
-                <div x-show="liveReservationConflict" class="p-3 bg-rose-950/40 rounded-xl border border-rose-500/30 text-rose-300 text-[11px] flex items-start gap-2">
-                    <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
-                    <span>
-                        Conflit de planning : ce véhicule est déjà réservé par
-                        <strong x-text="liveReservationConflict ? liveReservationConflict.driver : ''"></strong>
-                        du <span x-text="liveReservationConflict ? liveReservationConflict.start : ''"></span>
-                        au <span x-text="liveReservationConflict ? liveReservationConflict.end : ''"></span>.
-                    </span>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showIncidentModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="addIncidentSubmit()" class="btn btn-warning">Enregistrer le Signalement</button>
                 </div>
-
-                <div>
-                    <label class="block text-slate-400 mb-1">Motif de la Mission</label>
-                    <input type="text" x-model="newReservation.purpose" placeholder="ex: Visite de site client" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                </div>
-            </div>
-
-            <div class="flex justify-end space-x-2 pt-2">
-                <button @click="showReservationModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Annuler</button>
-                <button @click="addReservationSubmit()" :disabled="!!liveReservationConflict" :class="liveReservationConflict ? 'opacity-40 cursor-not-allowed' : 'hover:bg-indigo-500'" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold transition" x-text="editingReservationId ? 'Enregistrer les Modifications' : 'Soumettre'"></button>
             </div>
         </div>
-    </div>
 
-    <!-- MODALE : AJOUT / MODIFICATION UTILISATEUR -->
-    <div x-show="showUserModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" x-cloak>
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-            <h3 class="text-lg font-bold text-white" x-text="editingUserId ? 'Modifier l\'Utilisateur' : 'Ajouter un Utilisateur'"></h3>
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Nom complet</label>
-                    <input type="text" x-model="newUser.name" placeholder="ex: Ousmane Sow" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+        <!-- MODALE : DÉCLARATION D'ACCIDENT -->
+        <div x-show="showAccidentModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-car-burst text-rose-500"></i>
+                        <span x-text="editingAccidentId ? 'Modifier le Dossier Accident' : 'Déclarer un Accident'"></span>
+                    </h3>
+                    <button @click="showAccidentModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="space-y-3 text-xs">
                     <div>
-                        <label class="block text-slate-400 mb-1">Identifiant</label>
-                        <input type="text" x-model="newUser.username" placeholder="ex: o.sow" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <label class="label">Véhicule Impliqué</label>
+                        <select x-model="newAccident.vehicleId" class="input">
+                            <option value="">Sélectionner un véhicule...</option>
+                            <template x-for="v in vehicles" :key="v.id">
+                                <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ')'"></option>
+                            </template>
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-slate-400 mb-1" x-text="editingUserId ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe'"></label>
-                        <input type="text" x-model="newUser.password" placeholder="min. 6 caractères" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                        <label class="label">Conducteur au moment des faits</label>
+                        <select x-model="newAccident.driverId" class="input">
+                            <option value="">Sélectionner un conducteur...</option>
+                            <template x-for="d in drivers" :key="d.id">
+                                <option :value="d.id" x-text="d.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="label">Date du Sinistre</label>
+                            <input type="date" x-model="newAccident.date" class="input">
+                        </div>
+                        <div>
+                            <label class="label">Lieu précis</label>
+                            <input type="text" x-model="newAccident.location" placeholder="ex: Intersection VDN" class="input">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label">Dégâts apparents</label>
+                        <textarea x-model="newAccident.damage" rows="2" placeholder="Description des dommages matériels..." class="input"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="label">Tiers Impliqué ?</label>
+                            <select x-model="newAccident.thirdParty" class="input">
+                                <option value="Oui">Oui</option>
+                                <option value="Non">Non (Seul en cause)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label">Constat Amiable ?</label>
+                            <select x-model="newAccident.report" class="input">
+                                <option value="Oui (Signé)">Oui (Signé)</option>
+                                <option value="En attente PV Police">En attente PV Police</option>
+                                <option value="Non">Non</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label">Estimation des Réparations (FCFA)</label>
+                        <input type="number" x-model="newAccident.costEstimate" placeholder="0" class="input">
                     </div>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">Rôle</label>
-                    <select x-model="newUser.role" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 focus:outline-none focus:border-indigo-500">
-                        <option value="ADMIN">Administrateur</option>
-                        <option value="MANAGER">Gestionnaire de Flotte</option>
-                        <option value="DRIVER">Conducteur</option>
-                    </select>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showAccidentModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="addAccidentSubmit()" class="btn btn-danger" x-text="editingAccidentId ? 'Enregistrer les Modifications' : 'Enregistrer & Immobiliser Véhicule'"></button>
                 </div>
-                <p x-show="userError" x-text="userError" class="text-rose-400 text-[11px] font-semibold"></p>
-            </div>
-            <div class="flex justify-end space-x-2 pt-2">
-                <button @click="showUserModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs hover:bg-slate-700">Annuler</button>
-                <button @click="saveUserSubmit()" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs hover:bg-indigo-500 font-bold" x-text="editingUserId ? 'Enregistrer' : 'Créer le Compte'"></button>
             </div>
         </div>
-    </div>
+
+        <!-- MODALE : DEMANDE DE RÉSERVATION -->
+        <div x-show="showReservationModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900" x-text="editingReservationId ? 'Modifier la Réservation' : 'Nouvelle Demande de Réservation'"></h3>
+                    <button @click="showReservationModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="label">Véhicule</label>
+                        <select x-model="newReservation.vehicleId" class="input">
+                            <option value="">Sélectionner un véhicule...</option>
+                            <template x-for="v in vehicles" :key="v.id">
+                                <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ')'"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="label">Conducteur</label>
+                        <select x-model="newReservation.driverId" class="input">
+                            <option value="">Sélectionner un conducteur...</option>
+                            <template x-for="d in drivers" :key="d.id">
+                                <option :value="d.id" x-text="d.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="label">Date Début</label>
+                            <input type="datetime-local" x-model="newReservation.start" class="input">
+                        </div>
+                        <div>
+                            <label class="label">Date Fin</label>
+                            <input type="datetime-local" x-model="newReservation.end" class="input">
+                        </div>
+                    </div>
+
+                    <div x-show="liveReservationConflict" class="p-3 bg-rose-50 rounded-xl border border-rose-200 text-rose-700 text-[11px] flex items-start gap-2">
+                        <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                        <span>
+                            Conflit de planning : ce véhicule est déjà réservé par
+                            <strong x-text="liveReservationConflict ? liveReservationConflict.driver : ''"></strong>
+                            du <span x-text="liveReservationConflict ? liveReservationConflict.start : ''"></span>
+                            au <span x-text="liveReservationConflict ? liveReservationConflict.end : ''"></span>.
+                        </span>
+                    </div>
+
+                    <div>
+                        <label class="label">Motif de la Mission</label>
+                        <input type="text" x-model="newReservation.purpose" placeholder="ex: Visite de site client" class="input">
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showReservationModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="addReservationSubmit()" :disabled="!!liveReservationConflict" :class="liveReservationConflict ? 'opacity-40 cursor-not-allowed' : ''" class="btn btn-primary" x-text="editingReservationId ? 'Enregistrer les Modifications' : 'Soumettre'"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODALE : AJOUT / MODIFICATION UTILISATEUR -->
+        <div x-show="showUserModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900" x-text="editingUserId ? 'Modifier l\'Utilisateur' : 'Ajouter un Utilisateur'"></h3>
+                    <button @click="showUserModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="label">Nom complet</label>
+                        <input type="text" x-model="newUser.name" placeholder="ex: Ousmane Sow" class="input">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="label">Identifiant</label>
+                            <input type="text" x-model="newUser.username" placeholder="ex: o.sow" class="input">
+                        </div>
+                        <div>
+                            <label class="label" x-text="editingUserId ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe'"></label>
+                            <input type="text" x-model="newUser.password" placeholder="min. 6 caractères" class="input">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label">Rôle</label>
+                        <select x-model="newUser.role" class="input">
+                            <option value="ADMIN">Administrateur</option>
+                            <option value="MANAGER">Gestionnaire de Flotte</option>
+                            <option value="DRIVER">Conducteur</option>
+                        </select>
+                    </div>
+                    <p x-show="userError" x-text="userError" class="text-rose-500 text-[11px] font-semibold"></p>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showUserModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="saveUserSubmit()" class="btn btn-primary" x-text="editingUserId ? 'Enregistrer' : 'Créer le Compte'"></button>
+                </div>
+            </div>
+        </div>
 
     </div>
     </template>
