@@ -1,10 +1,30 @@
 const express = require('express');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { plans } = require('../db/subscriptions');
+const { createTtlCache } = require('../utils/ttlCache');
+const { config } = require('../config');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 
 const router = express.Router();
+
+// Cache TTL des plans actifs (Phase 6.3) : les plans sont quasi statiques et
+// l'endpoint /public est appelé sans authentification à chaque visite de la
+// page tarifs / du tunnel d'inscription. Invalidé explicitement à chaque
+// écriture (création, modification, suppression) par le SUPERADMIN.
+const plansCache = createTtlCache({ ttlMs: config.plansCacheTtlMs, maxEntries: 4 });
+const CACHE_KEY = 'plans:active';
+
+async function activePlansResponse(req, res) {
+    if (config.cacheEnabled) {
+        const cached = plansCache.get(CACHE_KEY);
+        if (cached !== undefined) return res.json(cached);
+        const list = await plans.findAllActive();
+        plansCache.set(CACHE_KEY, list);
+        return res.json(list);
+    }
+    res.json(await plans.findAllActive());
+}
 
 // Les plans peuvent être consultés par tout utilisateur authentifié (le
 // frontend client affiche le plan courant) ; la gestion est réservée au
@@ -12,14 +32,12 @@ const router = express.Router();
 
 // Plans publics (page tarifs / tunnel d'inscription, SANS authentification).
 // Doit être déclarée avant la route /:id.
-router.get('/public', asyncHandler(async (req, res) => {
-    res.json(await plans.findAllActive());
-}));
+router.get('/public', asyncHandler(activePlansResponse));
 
 router.get('/', requireAuth, asyncHandler(async (req, res) => {
     // Un compte client ne voit que les plans actifs ; le SUPERADMIN voit tout.
-    const list = req.user.role === 'SUPERADMIN' ? await plans.findAll() : await plans.findAllActive();
-    res.json(list);
+    if (req.user.role !== 'SUPERADMIN') return activePlansResponse(req, res);
+    res.json(await plans.findAll());
 }));
 
 router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
@@ -53,6 +71,7 @@ router.post('/', requireAuth, requireRole('SUPERADMIN'), asyncHandler(async (req
         features: Array.isArray(body.features) ? body.features : [],
         active: body.active !== false,
     });
+    plansCache.del(CACHE_KEY);
     res.status(201).json(plan);
 }));
 
@@ -82,7 +101,9 @@ router.put('/:id', requireAuth, requireRole('SUPERADMIN'), asyncHandler(async (r
     if (body.features !== undefined) changes.features = Array.isArray(body.features) ? body.features : [];
     if (body.active !== undefined) changes.active = !!body.active;
 
-    res.json(await plans.update(id, changes));
+    const updated = await plans.update(id, changes);
+    plansCache.del(CACHE_KEY);
+    res.json(updated);
 }));
 
 router.delete('/:id', requireAuth, requireRole('SUPERADMIN'), asyncHandler(async (req, res) => {
@@ -93,6 +114,7 @@ router.delete('/:id', requireAuth, requireRole('SUPERADMIN'), asyncHandler(async
         throw AppError.conflict('Ce plan est utilisé par des abonnements. Désactivez-le plutôt que de le supprimer.');
     }
     await plans.remove(id);
+    plansCache.del(CACHE_KEY);
     res.status(204).end();
 }));
 

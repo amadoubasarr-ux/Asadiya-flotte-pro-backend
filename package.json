@@ -6,7 +6,12 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test",
+    "test": "node --test tests/",
+    "test:ci": "node scripts/ci-test-summary.js",
+    "test:payments": "node --test tests/wave.test.js tests/orangeMoney.test.js tests/stripe.test.js tests/payments.test.js",
+    "lint": "eslint .",
+    "audit:ci": "node scripts/ci-audit-summary.js",
+    "pg:check": "node scripts/ci-pg-check.js",
     "migrate:json": "node scripts/migrate-from-json.js"
   },
   "keywords": [],
@@ -21,5 +26,10 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0",
+    "globals": "^17.9.0"
   }
 }

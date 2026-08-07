@@ -30,8 +30,10 @@ COPY --chown=appuser:appgroup package.json ./
 COPY --chown=appuser:appgroup server.js app.js index.html config.js ./
 COPY --chown=appuser:appgroup db ./db
 COPY --chown=appuser:appgroup middleware ./middleware
+COPY --chown=appuser:appgroup monitoring ./monitoring
 COPY --chown=appuser:appgroup routes ./routes
 COPY --chown=appuser:appgroup services ./services
+COPY --chown=appuser:appgroup providers ./providers
 COPY --chown=appuser:appgroup utils ./utils
 COPY --chown=appuser:appgroup scripts ./scripts
 
@@ -40,10 +42,12 @@ USER appuser
 
 EXPOSE 4000
 
-# HEALTHCHECK : GET /api/health via le runtime Node intégré (fetch).
+# HEALTHCHECK : GET /api/health/live via le runtime Node intégré (fetch).
+# Pure liveness (processus vivant + HTTP) : ne dépend PAS de PostgreSQL,
+# la readiness est exposée séparément via /api/health/ready.
 # Vérifie à la fois le code HTTP et le corps { status: "ok" }.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4000)+'/api/health').then(r=>{if(!r.ok)process.exit(1);return r.json()}).then(d=>process.exit(d&&d.status==='ok'?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4000)+'/api/health/live').then(r=>{if(!r.ok)process.exit(1);return r.json()}).then(d=>process.exit(d&&d.status==='ok'?0:1)).catch(()=>process.exit(1))"
 
 # Les migrations PostgreSQL s'exécutent automatiquement au démarrage (server.js).
 CMD ["node", "server.js"]

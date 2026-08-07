@@ -151,6 +151,22 @@ test('Configuration production : secret faible / CORS ouvert refusés au démarr
         CORS_ORIGIN: PROD_ORIGIN,
         DATABASE_URL: 'postgres://x',
     }), /OK/, 'Une configuration valide doit être acceptée.');
+
+    // 4. PORT invalide -> refusé (validation stricte des variables critiques).
+    assert.match(runConfigAssertion({
+        JWT_SECRET: STRONG_SECRET,
+        CORS_ORIGIN: PROD_ORIGIN,
+        DATABASE_URL: 'postgres://x',
+        PORT: 'not-a-port',
+    }), /THREW:/, 'PORT invalide doit être refusé en production.');
+
+    // 5. JSON_LIMIT invalide -> refusé.
+    assert.match(runConfigAssertion({
+        JWT_SECRET: STRONG_SECRET,
+        CORS_ORIGIN: PROD_ORIGIN,
+        DATABASE_URL: 'postgres://x',
+        JSON_LIMIT: 'huge',
+    }), /THREW:/, 'JSON_LIMIT invalide doit être refusé en production.');
 });
 
 // ============================================================
@@ -183,10 +199,13 @@ test('En-têtes de sécurité HTTP présents et corrects', async () => {
     const r = await api('GET', '/api/health');
     assert.equal(r.status, 200);
 
-    // Helmet : no-sniff, HSTS, Referrer-Policy, CSP (avec frame-ancestors 'none').
+    // Helmet : no-sniff, HSTS, Referrer-Policy, CSP (avec frame-ancestors 'none'),
+    // X-Frame-Options DENY (cohérent avec frame-ancestors 'none').
     assert.equal(r.headers.get('x-content-type-options'), 'nosniff');
     assert.ok(r.headers.get('strict-transport-security'), 'HSTS manquant');
+    assert.match(r.headers.get('strict-transport-security'), /max-age=\d+; includeSubDomains/, 'HSTS : max-age + includeSubDomains');
     assert.equal(r.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(r.headers.get('x-frame-options'), 'DENY');
     const csp = r.headers.get('content-security-policy') || '';
     assert.ok(csp.includes("default-src 'self'"), 'CSP : default-src manquant');
     assert.ok(csp.includes("frame-ancestors 'none'"), 'CSP : frame-ancestors manquant');
@@ -200,6 +219,64 @@ test('En-têtes de sécurité HTTP présents et corrects', async () => {
 });
 
 // ============================================================
+test('Limite de taille JSON : corps trop volumineux -> 413 (payload_too_large)', async () => {
+    const port = 4323;
+    const child413 = spawnServer(port, { JSON_LIMIT: '1kb' });
+    try {
+        await waitForServer(`http://localhost:${port}`);
+        const r = await api('POST', '/api/auth/login', {
+            base: `http://localhost:${port}`,
+            body: { photo: 'x'.repeat(8192) },
+        });
+        assert.equal(r.status, 413, `Corps trop volumineux attendu 413 (reçu ${r.status})`);
+        assert.equal(r.data.code, 'payload_too_large');
+    } finally {
+        child413.kill();
+        await sleep(500);
+    }
+});
+
+// ============================================================
+test('Journalisation production : sortie JSON structurée (démarrage + requêtes)', async () => {
+    const port = 4324;
+    const logs = [];
+    const prodChild = spawn(process.execPath, ['server.js'], {
+        cwd: ROOT,
+        env: {
+            ...process.env,
+            PORT: String(port),
+            NODE_ENV: 'production',
+            JWT_SECRET: STRONG_SECRET,
+            CORS_ORIGIN: PROD_ORIGIN,
+            DATABASE_URL: process.env.DATABASE_URL || 'postgres://postgres:amadou@localhost:5432/asadiya_flotte',
+            LOG_LEVEL: 'info',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    prodChild.stdout.on('data', (d) => logs.push(d.toString()));
+    prodChild.stderr.on('data', (d) => logs.push(d.toString()));
+    try {
+        await waitForServer(`http://localhost:${port}`);
+
+        // La sortie passe par un pipe : on attend que la requête de health
+        // soit réellement journalisée avant d'asserter.
+        const deadline = Date.now() + 3000;
+        while (Date.now() < deadline) {
+            if (logs.join('').includes('"msg":"http.request"')) break;
+            await sleep(100);
+        }
+
+        const out = logs.join('');
+        assert.match(out, /"level":"info"/, 'Les logs doivent être des lignes JSON en production');
+        assert.match(out, /"msg":"server\.started"/, 'Le log de démarrage doit être présent');
+        assert.match(out, /"msg":"http\.request"/, 'Les requêtes HTTP doivent être journalisées');
+    } finally {
+        prodChild.kill();
+        await sleep(500);
+    }
+});
+
+// ============================================================
 test('Chemins inconnus : réponse 404 propre (et non 500)', async () => {
     for (const p of ['/inconnu', '/foo/bar', '/api/routes/inconnue', '/%2e%2e/server.js']) {
         const r = await api('GET', p);
@@ -209,7 +286,8 @@ test('Chemins inconnus : réponse 404 propre (et non 500)', async () => {
 
 // ============================================================
 test('CORS restreint en production : origine non autorisée sans en-tête ACAO', async () => {
-    const prodPort = 4321;
+    // Port dédié (4321 peut être occupé par le serveur de développement).
+    const prodPort = 4322;
     const prodBase = `http://localhost:${prodPort}`;
     const prodChild = spawnServer(prodPort, {
         NODE_ENV: 'production',

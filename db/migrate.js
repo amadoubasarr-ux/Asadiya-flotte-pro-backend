@@ -1,5 +1,6 @@
 const { pool } = require('./pool');
 const { config } = require('../config');
+const logger = require('../utils/logger');
 
 // Schéma PostgreSQL normalisé.
 // Toutes les tables sont créées de façon idempotente (CREATE ... IF NOT EXISTS),
@@ -210,6 +211,102 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_organization        ON subscription
 CREATE INDEX IF NOT EXISTS idx_subscription_history_organization ON subscription_history(organization_id);
 CREATE INDEX IF NOT EXISTS idx_subscription_history_subscription ON subscription_history(subscription_id);
 CREATE INDEX IF NOT EXISTS idx_plans_active                      ON plans(active);
+
+-- ============================================================
+-- Paiements (Phase 5.1 — Architecture des paiements SaaS)
+-- ============================================================
+-- Une ligne = une tentative de paiement. Le fournisseur (provider) est
+-- indépendant : 'mock' (simulation locale), 'wave', 'orange_money', 'stripe'.
+-- Les changements de statut suivent une machine à états stricte :
+--   CREATED -> PENDING -> PROCESSING -> SUCCESS | FAILED | CANCELLED | EXPIRED
+--   (voir services/paymentStateMachine.js). Chaque transition est journalisée
+--   dans payment_events (audit trail complet).
+CREATE TABLE IF NOT EXISTS payment_transactions (
+    id                    SERIAL PRIMARY KEY,
+    organization_id       INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    subscription_id       INTEGER REFERENCES subscriptions(id) ON DELETE SET NULL,
+    invoice_id            TEXT,
+    provider              TEXT NOT NULL,
+    transaction_reference TEXT NOT NULL UNIQUE,
+    provider_reference    TEXT,
+    amount                NUMERIC(12, 0) NOT NULL,
+    currency              TEXT NOT NULL DEFAULT 'XOF',
+    status                TEXT NOT NULL DEFAULT 'CREATED'
+                          CHECK (status IN ('CREATED', 'PENDING', 'PROCESSING',
+                                           'SUCCESS', 'FAILED', 'CANCELLED',
+                                           'EXPIRED', 'REFUNDED')),
+    payment_method        TEXT,
+    initiated_at          TIMESTAMPTZ,
+    completed_at          TIMESTAMPTZ,
+    provider_response     JSONB NOT NULL DEFAULT '{}'::jsonb,
+    metadata              JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Historique (audit trail) : un événement par changement de statut et pour
+-- chaque webhook reçu. Jamais de suppression (traçabilité complète).
+CREATE TABLE IF NOT EXISTS payment_events (
+    id             SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL REFERENCES payment_transactions(id) ON DELETE CASCADE,
+    event          TEXT NOT NULL
+                   CHECK (event IN ('CREATED', 'PENDING', 'PROCESSING', 'SUCCESS',
+                                    'FAILED', 'CANCELLED', 'EXPIRED', 'REFUNDED')),
+    message        TEXT,
+    payload        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_organization ON payment_transactions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_subscription ON payment_transactions(subscription_id);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_status      ON payment_transactions(status);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_provider    ON payment_transactions(provider);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_reference   ON payment_transactions(transaction_reference);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_created     ON payment_transactions(created_at);
+CREATE INDEX IF NOT EXISTS idx_payment_events_transaction       ON payment_events(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_payment_events_created           ON payment_events(created_at);
+
+-- ============================================================
+-- Factures (Phase 5.2 — synchronisation SaaS après paiement)
+-- ============================================================
+-- Une facture est liée à un paiement via payment_transactions.invoice_id
+-- (numéro de facture). Lorsqu'un paiement passe à SUCCESS, la facture
+-- correspondante devient PAID automatiquement (services/paymentSync.js).
+-- Statuts : PENDING | PAID | FAILED | CANCELLED | REFUNDED.
+CREATE TABLE IF NOT EXISTS invoices (
+    id                     SERIAL PRIMARY KEY,
+    invoice_number         TEXT NOT NULL UNIQUE,
+    organization_id        INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    subscription_id        INTEGER REFERENCES subscriptions(id) ON DELETE SET NULL,
+    amount                 NUMERIC(12, 0) NOT NULL,
+    currency               TEXT NOT NULL DEFAULT 'XOF',
+    status                 TEXT NOT NULL DEFAULT 'PENDING'
+                           CHECK (status IN ('PENDING', 'PAID', 'FAILED', 'CANCELLED', 'REFUNDED')),
+    provider               TEXT,
+    payment_transaction_id INTEGER REFERENCES payment_transactions(id) ON DELETE SET NULL,
+    issued_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    paid_at                TIMESTAMPTZ,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_invoices_organization     ON invoices(organization_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_status           ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_invoice_number   ON invoices(invoice_number);
+`;
+
+// ============================================================
+// Migration des bases existantes (bases créées avant la Phase 5.2)
+// ============================================================
+
+// La table invoices peut pré-exister avec un schéma différent (bases
+// antérieures) : le CREATE TABLE IF NOT EXISTS du SCHEMA ne modifie pas une
+// table existante. Cette montée de version ajoute idempotemment les colonnes
+// manquantes (création de l'index de transaction dans le même lot).
+const UPGRADE_INVOICES_SQL = `
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS
+    payment_transaction_id INTEGER REFERENCES payment_transactions(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_invoices_transaction ON invoices(payment_transaction_id);
 `;
 
 // ============================================================
@@ -350,7 +447,7 @@ async function seedDefaultPlans() {
          ON CONFLICT (code) DO NOTHING`,
         params
     );
-    console.log(`[db] ${DEFAULT_PLANS.length} plans d'abonnement par défaut créés.`);
+    logger.info('db.plans_seeded', { count: DEFAULT_PLANS.length });
 }
 
 /** Adapte les bases préexistantes au schéma SaaS (Phase 3). */
@@ -362,6 +459,7 @@ async function upgradeExistingSubscriptions() {
 /** Crée les tables si elles n'existent pas encore. Idempotent. */
 async function migrate() {
     await pool.query(SCHEMA);
+    await pool.query(UPGRADE_INVOICES_SQL);
     await upgradeExistingSubscriptions();
     await seedDefaultPlans();
 }

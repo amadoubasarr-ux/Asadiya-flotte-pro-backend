@@ -9,6 +9,7 @@ const { requireAuth, JWT_SECRET } = require('../middleware/auth');
 const { config } = require('../config');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -28,14 +29,17 @@ async function safeUser(u) {
 router.post('/login', asyncHandler(async (req, res) => {
     const { username, password } = req.body || {};
     if (!username || !password) {
+        logger.warn('auth.login.failed', { reason: 'missing_credentials', username: username || '', ip: req.ip });
         throw AppError.badRequest('Identifiant et mot de passe requis.');
     }
     const user = await users.findByUsername(username);
     if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+        logger.warn('auth.login.failed', { reason: 'invalid_credentials', username, ip: req.ip });
         throw AppError.unauthorized('Identifiants incorrects.');
     }
     const payload = await safeUser(user);
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: config.jwtExpiresIn });
+    logger.info('auth.login.success', { username, userId: user.id, role: user.role, ip: req.ip });
     res.json({ token, user: payload });
 }));
 
@@ -73,6 +77,8 @@ router.post('/signup', asyncHandler(async (req, res) => {
         adminPasswordHash: bcrypt.hashSync(data.adminPassword, 10),
         planId,
     });
+
+    logger.info('auth.signup', { username: data.adminUsername, organization: data.name, ip: req.ip });
 
     res.status(201).json({
         success: true,

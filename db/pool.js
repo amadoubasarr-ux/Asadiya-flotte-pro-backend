@@ -1,6 +1,8 @@
 const pg = require('pg');
 const { Pool } = require('pg');
 const { config } = require('../config');
+const logger = require('../utils/logger');
+const metrics = require('../monitoring/metrics');
 
 // Keep the original string of dates/times returned by PostgreSQL.
 // Otherwise node-postgres converts them to JS Date objects then ISO-8601 UTC
@@ -22,16 +24,28 @@ const pool = new Pool({
 
 // Prevent the process from crashing when an idle client receives an error (e.g. DB restarted)
 pool.on('error', (err) => {
-    console.error('[db] Error on idle PostgreSQL client:', err.message);
+    logger.error('db.pool_idle_error', { message: err.message });
 });
 
 /**
  * Run a simple query on the pool.
+ * Mesure la durée d'exécution (métriques de performance Phase 6.2) :
+ * la télémétrie ne doit JAMAIS altérer le comportement de la requête.
  * @param {string} text  Parameterized SQL
  * @param {Array} params
  */
 async function query(text, params) {
-    return pool.query(text, params);
+    const startedAt = process.hrtime.bigint();
+    try {
+        return await pool.query(text, params);
+    } finally {
+        const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+        try {
+            metrics.recordSql(durationMs);
+        } catch (e) {
+            logger.error('metrics.sql_record_failed', { message: String((e && e.message) || e) });
+        }
+    }
 }
 
 /**
@@ -52,7 +66,7 @@ async function withTransaction(fn) {
         try {
             await client.query('ROLLBACK');
         } catch (rollbackErr) {
-            console.error('[db] ROLLBACK failed:', rollbackErr.message);
+            logger.error('db.rollback_failed', { message: rollbackErr.message });
         }
         throw err;
     } finally {

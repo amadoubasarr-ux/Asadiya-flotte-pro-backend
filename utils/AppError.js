@@ -37,6 +37,10 @@ class AppError extends Error {
         return new AppError(409, message, { conflict: conflictData });
     }
 
+    static serviceUnavailable(message, options) {
+        return new AppError(503, message || 'Service indisponible.', options);
+    }
+
     static internal(message) {
         return new AppError(500, message || 'Erreur serveur interne.');
     }

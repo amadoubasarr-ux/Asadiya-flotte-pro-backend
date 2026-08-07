@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -12,10 +12,32 @@ const { requireAuth } = require('./middleware/auth');
 const { subscriptionGuard } = require('./middleware/subscriptionGuard');
 const { apiLimiter, loginLimiter } = require('./middleware/rateLimit');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { requestContext } = require('./middleware/requestContext');
+const monitoringRouter = require('./routes/monitoring');
+const { startPerformanceReporter } = require('./monitoring/performance');
+const logger = require('./utils/logger');
 
 assertProductionConfig();
 
 const app = express();
+
+// ===== Erreurs fatales du processus =====
+// Une exception non interceptée ou une promesse non gérée laisse le
+// processus dans un état inconnu : on journalise puis on quitte (fail fast),
+// pour que l'orchestrateur (Docker, systemd) redémarre un processus sain.
+process.on('uncaughtException', (err) => {
+    logger.error('process.uncaught_exception', {
+        message: err && err.message ? err.message : String(err),
+        stack: err && err.stack ? err.stack : undefined,
+    });
+    process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+    logger.error('process.unhandled_rejection', {
+        message: reason && reason.message ? reason.message : String(reason),
+    });
+    process.exit(1);
+});
 
 // Adresse IP réelle du client derrière un reverse proxy (nginx/Caddy).
 // Requis pour que le rate limiting compte correctement par IP.
@@ -24,7 +46,13 @@ app.set('trust proxy', config.trustProxy);
 // Ne jamais divulguer la technologie du serveur.
 app.disable('x-powered-by');
 
-// En-têtes de sécurité (HSTS, X-Content-Type-Options, CSP, ...)
+// ===== En-têtes de sécurité (Helmet, Phase 4.3) =====
+// HSTS : HTTPS obligatoire pendant 2 ans, y compris les sous-domaines.
+//   ⚠️ À activer uniquement quand le TLS est effectivement en place derrière
+//   le reverse proxy ; « preload » nécessite une soumission au registre HSTS.
+// X-Frame-Options DENY (cohérent avec frame-ancestors 'none' : aucun iframe).
+// Cross-Origin-Embedder-Policy désactivé : requis pour que le Play CDN de
+//   Tailwind et les autres CDN continuent de se charger côté navigateur.
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -64,6 +92,19 @@ app.use(helmet({
             'upgrade-insecure-requests': null,
         },
     },
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: 'same-origin' },
+    crossOriginResourcePolicy: { policy: 'same-origin' },
+    hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+    referrerPolicy: { policy: 'no-referrer' },
+    xFrameOptions: { action: 'DENY' },
+    hidePoweredBy: true,
+    noSniff: true,
+    dnsPrefetchControl: { allow: false },
+    ieNoOpen: true,
+    originAgentCluster: true,
+    permittedCrossDomainPolicies: { permittedPolicies: 'none' },
+    xssFilter: true,
 }));
 
 // Permissions-Policy : aucune API navigateur sensible n'est nécessaire
@@ -75,6 +116,15 @@ app.use((req, res, next) => {
     );
     next();
 });
+
+// Contexte de requête (Phase 6.2) : requestId / correlationId attribués à
+// CHAQUE requête (y compris statiques), exposés via l'en-tête X-Request-Id.
+// Doit être enregistré avant la journalisation des requêtes.
+app.use(requestContext);
+
+// Journal d'accès HTTP : une ligne structurée par requête (méthode, statut,
+// durée, IP, requestId, correlationId, utilisateur, organisation).
+app.use(logger.requestLogger);
 
 // CORS : en production, uniquement les origines listées dans CORS_ORIGIN.
 // En développement, l'origine est réfléchie (tout est autorisé).
@@ -93,7 +143,14 @@ app.use(cors({
 }));
 
 // Augmenté pour accepter les photos encodées en base64 dans les payloads JSON
-app.use(express.json({ limit: config.jsonLimit }));
+app.use(express.json({
+    limit: config.jsonLimit,
+    // Capture le corps BRUT (Buffer) : requis pour vérifier la signature
+    // HMAC-SHA256 des webhooks Wave (calculée sur la chaîne exacte reçue).
+    verify(req, res, buf) {
+        req.rawBody = buf;
+    },
+}));
 
 // ===== PROTECTION (Phase 4.1) =====
 // Limite globale anti-DoS sur toute l'API (compteur par IP).
@@ -104,7 +161,7 @@ app.use('/api/auth/signup', loginLimiter);
 
 // ===== ROUTES API =====
 app.use('/api/auth', require('./routes/auth'));
-// Ressources client : authentification puis contrôle d'abonnement.
+// Ressource client : authentification puis contrôle d'abonnement.
 // Les lectures restent autorisées ; les écritures sont bloquées si
 // l'abonnement est EXPIRED / CANCELLED (voir middleware/subscriptionGuard).
 app.use('/api/vehicles', requireAuth, subscriptionGuard, require('./routes/vehicles'));
@@ -119,10 +176,14 @@ app.use('/api/organizations', require('./routes/organizations'));
 app.use('/api/plans', require('./routes/plans'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/analytics', require('./routes/analytics'));
+// Paiements (Phase 5.1) : simulation locale, aucun appel externe. Les
+// webhooks fournisseurs sont publics ; le reste exige une authentification.
+app.use('/api/payments', require('./routes/paymentsGateway'));
 
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', time: new Date().toISOString() });
-});
+// Supervision (Phase 6.2) : health checks avancés + métriques JSON.
+// /api/health (léger), /api/health/live, /api/health/ready,
+// /api/health/details et /api/metrics — aucune donnée confidentielle.
+app.use('/api', monitoringRouter);
 
 // Route API inconnue -> 404 JSON (plutôt qu'un fallback HTML)
 app.use('/api', notFoundHandler);
@@ -160,9 +221,9 @@ const EXPIRY_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 async function refreshExpiredSubscriptions() {
     try {
         const count = await subscriptions.markExpired();
-        if (count > 0) console.log(`[abonnements] ${count} abonnement(s) passé(s) en EXPIRED.`);
+        if (count > 0) logger.info('subscriptions.marked_expired', { count });
     } catch (err) {
-        console.error('[abonnements] Erreur lors du contrôle des expirations:', err.message);
+        logger.error('subscriptions.expiry_check_failed', { message: err.message });
     }
 }
 
@@ -170,18 +231,32 @@ async function start() {
     try {
         // Crée automatiquement les tables au démarrage (idempotent)
         await migrate();
-        console.log('[db] Schéma PostgreSQL prêt.');
+        logger.info('db.migrated');
 
         // Contrôle des abonnements expirés au démarrage puis périodiquement.
         await refreshExpiredSubscriptions();
         setInterval(refreshExpiredSubscriptions, EXPIRY_CHECK_INTERVAL_MS);
 
+        // Rapport de performance périodique (Phase 6.2). Actif par défaut en
+        // production (15 min), configurable via PERF_REPORT_INTERVAL_MS (0 = off).
+        const perfIntervalRaw = process.env.PERF_REPORT_INTERVAL_MS;
+        const perfIntervalMs = perfIntervalRaw
+            ? parseInt(perfIntervalRaw, 10) || 0
+            : config.nodeEnv === 'production'
+                ? 15 * 60 * 1000
+                : 0;
+        startPerformanceReporter({ intervalMs: perfIntervalMs });
+
         const server = app.listen(config.port, () => {
-            console.log(`✅ Asadiya Flotte PRO — API démarrée sur http://localhost:${config.port}`);
+            logger.info('server.started', {
+                port: config.port,
+                env: config.nodeEnv,
+                url: `http://localhost:${config.port}`,
+            });
         });
 
         const shutdown = (signal) => {
-            console.log(`\n[server] ${signal} reçu, arrêt propre...`);
+            logger.info('server.shutdown', { signal });
             server.close(async () => {
                 await pool.end().catch(() => {});
                 process.exit(0);
@@ -190,8 +265,10 @@ async function start() {
         process.on('SIGINT', () => shutdown('SIGINT'));
         process.on('SIGTERM', () => shutdown('SIGTERM'));
     } catch (err) {
-        console.error('[db] Impossible de se connecter à PostgreSQL. Vérifiez DATABASE_URL.');
-        console.error(err.message);
+        logger.error('server.startup_failed', {
+            message: err.message,
+            hint: 'Vérifiez DATABASE_URL et la disponibilité de PostgreSQL.',
+        });
         process.exit(1);
     }
 }

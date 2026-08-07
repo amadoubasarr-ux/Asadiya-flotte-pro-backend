@@ -1,0 +1,125 @@
+# ============================================================
+# Asadiya Flotte PRO — CI/CD (Phase 6.4)
+#
+# Déclencheurs : push et pull_request sur main, master et develop.
+#
+# Deux jobs :
+#   1. quality  — lint ESLint, npm audit (critique/importante/modérée),
+#                 validation PostgreSQL (migrations idempotentes,
+#                 tables + index, non destructif), suite node --test
+#                 (77+ tests, résumé), tests paiements (mock, sans réseau).
+#   2. docker   — validation Docker Compose (config, build, up), santé
+#                 des conteneurs, validation des endpoints publics.
+#
+# Aucun secret réel n'est requis : les secrets de paiement (Wave,
+# Orange, Stripe) restent vides, le fournisseur est 'mock'.
+# ============================================================
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Qualité & tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: asadiya
+          POSTGRES_PASSWORD: asadiya_ci_password
+          POSTGRES_DB: asadiya_flotte_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U asadiya -d asadiya_flotte_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://asadiya:asadiya_ci_password@localhost:5432/asadiya_flotte_test
+      NODE_ENV: test
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installer les dépendances (verrouillées)
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Audit des dépendances (npm audit)
+        run: npm run audit:ci
+
+      - name: Validation PostgreSQL (non destructive)
+        run: npm run pg:check
+
+      - name: Suite de tests (résumé)
+        run: npm run test:ci
+
+      - name: Tests paiements (mock, sans réseau)
+        run: npm run test:payments
+
+  docker:
+    name: Docker & endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: quality
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Préparer l'environnement Docker (aucun secret)
+        run: cp .env.docker.example .env.docker
+
+      - name: Valider la configuration Compose
+        run: docker compose config --quiet
+
+      - name: Construire l'image
+        run: docker compose build
+
+      - name: Démarrer la stack
+        run: docker compose up -d
+
+      - name: Vérifier l'état des conteneurs
+        run: docker compose ps
+
+      - name: Attendre que l'API soit prête
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:4000/api/health/live >/dev/null 2>&1; then
+              echo "API prête après ${i} essais."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "L'API n'a pas démarré dans le délai imparti."
+          docker compose logs --tail=100 app
+          exit 1
+
+      - name: Valider les endpoints
+        run: bash deploy/ci-endpoints.sh http://localhost:4000
+
+      - name: Journaliser les logs (diagnostic)
+        if: always()
+        run: docker compose logs --tail=50

@@ -1,8 +1,20 @@
-require('dotenv').config();
+// quiet: true — supprime les messages "injected env ..." de dotenv v17
+// (le chargement du .env doit rester silencieux au démarrage).
+require('dotenv').config({ quiet: true });
 
 function parseIntEnv(name, fallback) {
     const value = parseInt(process.env[name], 10);
     return Number.isNaN(value) ? fallback : value;
+}
+
+// Parse souple des booléens d'environnement (true/false, 1/0, yes/no, on/off).
+function parseBoolEnv(name, fallback) {
+    const raw = process.env[name];
+    if (raw === undefined || raw === null || raw === '') return fallback;
+    const v = String(raw).trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(v)) return true;
+    if (['false', '0', 'no', 'off'].includes(v)) return false;
+    return fallback;
 }
 
 // Secrets connus qui ne doivent JAMAIS être utilisés en production.
@@ -37,7 +49,7 @@ const config = {
 
     // PostgreSQL
     databaseUrl: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/asadiya_flotte',
-    dbSsl: process.env.DB_SSL === 'true',
+    dbSsl: parseBoolEnv('DB_SSL', false),
     dbConnectionTimeoutMs: parseIntEnv('DB_CONNECTION_TIMEOUT_MS', 10000),
     dbIdleTimeoutMs: parseIntEnv('DB_IDLE_TIMEOUT_MS', 30000),
 
@@ -64,6 +76,16 @@ const config = {
     // Limite stricte sur la connexion / l'inscription (échecs uniquement).
     loginRateLimitWindowMs: parseIntEnv('LOGIN_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000),
     loginRateLimitMax: parseIntEnv('LOGIN_RATE_LIMIT_MAX', 20),
+
+    // Cache TTL en mémoire (Phase 6.3) : réduit les requêtes SQL et les calculs
+    // lourds répétés (plans publics, vues analytics). Aucune dépendance externe.
+    // Activé par défaut sauf en environnement de test (fraîcheur garantie pour
+    // la suite de tests). CACHE_TTL_MS=0 ou CACHE_ENABLED=false le désactive.
+    cacheEnabled: parseBoolEnv('CACHE_ENABLED', (process.env.NODE_ENV || 'development') !== 'test'),
+    // Durée de vie par défaut des vues analytics (ms).
+    cacheTtlMs: parseIntEnv('CACHE_TTL_MS', 30000),
+    // Durée de vie des plans publics (ms) — données quasi statiques.
+    plansCacheTtlMs: parseIntEnv('PLANS_CACHE_TTL_MS', 60000),
 
     // Revenu récurrent estimé (MRR) : prix mensuel par véhicule utilisé comme
     // fallback quand un client n'a pas encore d'abonnement explicite.
@@ -93,12 +115,97 @@ const config = {
             pricePrefix: process.env.STRIPE_PRICE_PREFIX || 'asadiya_',
         },
     },
+
+    // Paiement (Phase 5.1 — architecture ; Phase 5.2 — Wave connecté).
+    payment: {
+        // Fournisseur actif : 'mock' (simulation locale, défaut sûr).
+        // 'wave' est implémenté (Phase 5.2) ; 'orange_money' et 'stripe'
+        // lèvent encore "Provider not implemented".
+        provider: process.env.PAYMENT_PROVIDER || 'mock',
+        // Délai maximal (ms) accordé à un paiement avant passage en EXPIRED.
+        timeoutMs: parseIntEnv('PAYMENT_TIMEOUT', 120000),
+        // Secret partagé vérifié sur les webhooks entrants (x-webhook-secret).
+        // Requis en production dès qu'un fournisseur réel est activé.
+        webhookSecret: process.env.PAYMENT_WEBHOOK_SECRET || '',
+        // Activation des fournisseurs réels (désactivés par défaut).
+        enabled: {
+            wave: parseBoolEnv('WAVE_ENABLED', false),
+            orangeMoney: parseBoolEnv('ORANGE_ENABLED', false),
+            stripe: parseBoolEnv('STRIPE_ENABLED', false),
+        },
+        // Configuration Wave Money (Phase 5.2).
+        wave: {
+            // URL de base de l'API Wave (production : https://api.wave.com).
+            apiUrl: process.env.WAVE_API_URL || 'https://api.wave.com',
+            // Clé API (Authorization: Bearer wave_sn_...).
+            apiKey: process.env.WAVE_API_KEY || '',
+            // Secret de signature des requêtes (optionnel, si le request
+            // signing est activé sur la clé API : wave_sn_AKS_...).
+            apiSecret: process.env.WAVE_API_SECRET || '',
+            // Secret de vérification des webhooks (fourni par Wave à
+            // l'enregistrement de l'URL : wave_sn_WHS_...). Indispensable
+            // pour valider les signatures HMAC-SHA256 (Wave-Signature).
+            webhookSecret: process.env.WAVE_WEBHOOK_SECRET || '',
+            // Délai maximal (ms) pour une requête HTTP vers l'API Wave.
+            timeoutMs: parseIntEnv('WAVE_TIMEOUT', 30000),
+            // URL de redirection (optionnel) après succès / échec côté Wave.
+            successUrl: process.env.WAVE_SUCCESS_URL || '',
+            errorUrl: process.env.WAVE_ERROR_URL || '',
+        },
+        // Configuration Stripe (Phase 5.4).
+        stripe: {
+            // URL de base de l'API Stripe. Laisser la valeur par défaut en
+            // production ; utile uniquement pour les tests ou un proxy.
+            apiUrl: process.env.STRIPE_API_URL || 'https://api.stripe.com',
+            // Clé secrète (Authorization: Bearer sk_...). Jamais exposée au
+            // navigateur, jamais journalisée.
+            secretKey: process.env.STRIPE_SECRET_KEY || '',
+            // Clé publique (pk_...) : conçue par Stripe pour être livrée au
+            // navigateur (chargement de Stripe.js par le frontend).
+            publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+            // Secret de vérification des signatures de webhooks (whsec_...).
+            // Obligatoire dès que STRIPE_ENABLED=true : tout webhook sans
+            // signature valide est refusé (401).
+            webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+            // Version de l'API Stripe envoyée dans l'en-tête Stripe-Version.
+            apiVersion: process.env.STRIPE_API_VERSION || '2024-06-20',
+            // Délai maximal (ms) pour une requête HTTP vers l'API Stripe.
+            timeoutMs: parseIntEnv('STRIPE_TIMEOUT', 30000),
+        },
+        // Configuration Orange Money (Phase 5.3).
+        orangeMoney: {
+            // URL de base de l'API Orange Money (production : https://api.orange.com).
+            apiUrl: process.env.ORANGE_API_URL || 'https://api.orange.com',
+            // Identifiants OAuth2 client_credentials (portail Orange Developer).
+            clientId: process.env.ORANGE_CLIENT_ID || '',
+            clientSecret: process.env.ORANGE_CLIENT_SECRET || '',
+            // Identifiant marchand envoyé dans le corps de l'initiation (merchant_key).
+            merchantId: process.env.ORANGE_MERCHANT_ID || '',
+            // Secret de vérification des signatures HMAC-SHA256 des webhooks.
+            webhookSecret: process.env.ORANGE_WEBHOOK_SECRET || '',
+            // Chemins d'endpoints. Les valeurs par défaut reflètent la sandbox
+            // « dev » documentée ; en production, le segment de chemin dépend du
+            // pays (ex: /orange-money-webpay/sn/v1/webpayment pour le Sénégal).
+            tokenPath: process.env.ORANGE_TOKEN_PATH || '/oauth/v3/token',
+            webPaymentPath: process.env.ORANGE_WEBPAYMENT_PATH || '/orange-money-webpay/dev/v1/webpayment',
+            transactionStatusPath: process.env.ORANGE_TRANSACTION_STATUS_PATH || '/orange-money-webpay/dev/v1/transactionstatus',
+            // URL publique de réception des notifications Orange (notif_url) —
+            // l'endpoint webhook de cette application.
+            notifUrl: process.env.ORANGE_NOTIF_URL || '',
+            // URL de redirection (optionnel) après succès / échec / annulation.
+            successUrl: process.env.ORANGE_SUCCESS_URL || '',
+            errorUrl: process.env.ORANGE_ERROR_URL || '',
+            // Délai maximal (ms) pour une requête HTTP vers l'API Orange Money.
+            timeoutMs: parseIntEnv('ORANGE_TIMEOUT', 30000),
+        },
+    },
 };
 
 /**
  * Vérifie que la configuration est sûre pour la production.
  * À appeler au démarrage, avant de lancer le serveur.
- * Refuse de démarrer si une valeur critique est absente, trop faible ou connue.
+ * Refuse de démarrer si une valeur critique est absente, trop faible ou connue,
+ * avec un message d'erreur explicite pour chaque variable fautive.
  */
 function assertProductionConfig() {
     if (config.nodeEnv !== 'production') return;
@@ -123,6 +230,138 @@ function assertProductionConfig() {
     // Base de données : pas de valeur par défaut locale en production.
     if (!process.env.DATABASE_URL) {
         failures.push('DATABASE_URL est obligatoire en production (pas de valeur par défaut).');
+    }
+
+    // Port HTTP.
+    if (process.env.PORT !== undefined && !/^\d+$/.test(String(process.env.PORT).trim())) {
+        failures.push(`PORT="${process.env.PORT}" n'est pas un numéro de port valide.`);
+    } else if (config.port < 1 || config.port > 65535) {
+        failures.push(`PORT=${config.port} est hors de la plage autorisée (1-65535).`);
+    }
+
+    // Durée des jetons JWT (jsonwebtoken : "7d", "24h", "3600", "900s", ...).
+    if (!/^\d+(\.\d+)?\s*(ms|s|m|h|d|w|y)?$/i.test(String(config.jwtExpiresIn).trim())) {
+        failures.push(`JWT_EXPIRES_IN="${process.env.JWT_EXPIRES_IN}" est invalide (ex: "7d", "24h", "3600").`);
+    }
+
+    // Coût bcrypt.
+    const rounds = parseInt(config.bcryptRounds, 10);
+    if (Number.isNaN(rounds) || rounds < 4 || rounds > 20) {
+        failures.push(`BCRYPT_ROUNDS="${process.env.BCRYPT_ROUNDS}" doit être un entier entre 4 et 20.`);
+    }
+
+    // Taille maximale des corps JSON (body-parser).
+    if (!/^\d+(\.\d+)?\s*(b|kb|mb|gb)?$/i.test(String(config.jsonLimit).trim())) {
+        failures.push(`JSON_LIMIT="${process.env.JSON_LIMIT}" est invalide (ex: "15mb", "1048576").`);
+    }
+
+    // Durée de la période d'essai.
+    const trialDays = parseInt(config.trialDays, 10);
+    if (Number.isNaN(trialDays) || trialDays < 1) {
+        failures.push(`TRIAL_DAYS="${process.env.TRIAL_DAYS}" doit être un entier positif.`);
+    }
+
+    // Reverse proxy : 0..10 sauts de confiance.
+    if (config.trustProxy < 0 || config.trustProxy > 10) {
+        failures.push(`TRUST_PROXY=${config.trustProxy} est hors de la plage autorisée (0-10).`);
+    }
+
+    // Fenêtres et limites de rate limiting (anti-DoS / anti force brute).
+    const integerChecks = [
+        ['RATE_LIMIT_WINDOW_MS', config.rateLimitWindowMs],
+        ['RATE_LIMIT_MAX', config.rateLimitMax],
+        ['LOGIN_RATE_LIMIT_WINDOW_MS', config.loginRateLimitWindowMs],
+        ['LOGIN_RATE_LIMIT_MAX', config.loginRateLimitMax],
+        ['DB_CONNECTION_TIMEOUT_MS', config.dbConnectionTimeoutMs],
+        ['DB_IDLE_TIMEOUT_MS', config.dbIdleTimeoutMs],
+    ];
+    for (const [name, value] of integerChecks) {
+        if (!Number.isInteger(value) || value < 1) {
+            failures.push(`${name}="${process.env[name]}" doit être un entier positif.`);
+        }
+    }
+
+    // Cache TTL (Phase 6.3) : entiers >= 0 (0 = cache désactivé).
+    const cacheChecks = [
+        ['CACHE_TTL_MS', config.cacheTtlMs],
+        ['PLANS_CACHE_TTL_MS', config.plansCacheTtlMs],
+    ];
+    for (const [name, value] of cacheChecks) {
+        if (!Number.isInteger(value) || value < 0) {
+            failures.push(`${name}="${process.env[name]}" doit être un entier >= 0 (0 = désactivé).`);
+        }
+    }
+
+    // Fournisseur de facturation : uniquement les fournisseurs préparés.
+    const BILLING_PROVIDERS = ['none', 'wave', 'orange_money', 'stripe'];
+    if (process.env.BILLING_PROVIDER && !BILLING_PROVIDERS.includes(config.billing.provider)) {
+        failures.push(`BILLING_PROVIDER="${process.env.BILLING_PROVIDER}" est inconnu (attendu : ${BILLING_PROVIDERS.join(', ')}).`);
+    }
+
+    // Paiements (Phase 5.1).
+    const PAYMENT_PROVIDERS = ['mock', 'wave', 'orange_money', 'stripe'];
+    if (process.env.PAYMENT_PROVIDER && !PAYMENT_PROVIDERS.includes(config.payment.provider)) {
+        failures.push(`PAYMENT_PROVIDER="${process.env.PAYMENT_PROVIDER}" est inconnu (attendu : ${PAYMENT_PROVIDERS.join(', ')}).`);
+    }
+    if (process.env.PAYMENT_TIMEOUT !== undefined && !/^\d+$/.test(String(process.env.PAYMENT_TIMEOUT).trim())) {
+        failures.push(`PAYMENT_TIMEOUT="${process.env.PAYMENT_TIMEOUT}" doit être un entier positif (ms).`);
+    } else if (config.payment.timeoutMs < 1000) {
+        failures.push(`PAYMENT_TIMEOUT=${config.payment.timeoutMs} doit être au moins 1000 (ms).`);
+    }
+    // Un fournisseur réel exige un secret de webhook solide en production.
+    if (config.payment.provider !== 'mock' && String(config.payment.webhookSecret).length < 16) {
+        failures.push('PAYMENT_WEBHOOK_SECRET doit contenir au moins 16 caractères en production quand un fournisseur réel (wave, orange_money, stripe) est activé.');
+    }
+
+    // Wave (Phase 5.2) : identifiants obligatoires quand le fournisseur est activé.
+    if (config.payment.enabled.wave) {
+        if (!process.env.WAVE_API_URL) {
+            failures.push('WAVE_API_URL est obligatoire en production quand WAVE_ENABLED=true (ex: https://api.wave.com).');
+        }
+        if (!process.env.WAVE_API_KEY) {
+            failures.push('WAVE_API_KEY est obligatoire en production quand WAVE_ENABLED=true.');
+        }
+        if (!process.env.WAVE_API_SECRET) {
+            failures.push('WAVE_API_SECRET est obligatoire en production quand WAVE_ENABLED=true (secret de signature des requêtes).');
+        }
+        if (String(config.payment.wave.webhookSecret).length < 16) {
+            failures.push('WAVE_WEBHOOK_SECRET doit contenir au moins 16 caractères en production quand WAVE_ENABLED=true (vérification des signatures de webhook).');
+        }
+    }
+
+    // Orange Money (Phase 5.3) : identifiants obligatoires quand le fournisseur est activé.
+    if (config.payment.enabled.orangeMoney) {
+        if (!process.env.ORANGE_API_URL) {
+            failures.push('ORANGE_API_URL est obligatoire en production quand ORANGE_ENABLED=true (ex: https://api.orange.com).');
+        }
+        if (!process.env.ORANGE_CLIENT_ID) {
+            failures.push('ORANGE_CLIENT_ID est obligatoire en production quand ORANGE_ENABLED=true.');
+        }
+        if (!process.env.ORANGE_CLIENT_SECRET) {
+            failures.push('ORANGE_CLIENT_SECRET est obligatoire en production quand ORANGE_ENABLED=true.');
+        }
+        if (!process.env.ORANGE_MERCHANT_ID) {
+            failures.push('ORANGE_MERCHANT_ID est obligatoire en production quand ORANGE_ENABLED=true (merchant_key).');
+        }
+        if (String(config.payment.orangeMoney.webhookSecret).length < 16) {
+            failures.push('ORANGE_WEBHOOK_SECRET doit contenir au moins 16 caractères en production quand ORANGE_ENABLED=true (vérification des signatures de webhook).');
+        }
+        if (!process.env.ORANGE_NOTIF_URL) {
+            failures.push('ORANGE_NOTIF_URL est obligatoire en production quand ORANGE_ENABLED=true (URL publique de réception des notifications Orange Money).');
+        }
+    }
+
+    // Stripe (Phase 5.4) : identifiants obligatoires quand le fournisseur est activé.
+    if (config.payment.enabled.stripe) {
+        if (!process.env.STRIPE_SECRET_KEY) {
+            failures.push('STRIPE_SECRET_KEY est obligatoire en production quand STRIPE_ENABLED=true (clé secrète, jamais exposée au navigateur).');
+        }
+        if (!process.env.STRIPE_PUBLISHABLE_KEY) {
+            failures.push('STRIPE_PUBLISHABLE_KEY est obligatoire en production quand STRIPE_ENABLED=true (clé publique livrée au navigateur via Stripe.js).');
+        }
+        if (String(config.payment.stripe.webhookSecret).length < 16) {
+            failures.push('STRIPE_WEBHOOK_SECRET doit contenir au moins 16 caractères en production quand STRIPE_ENABLED=true (vérification des signatures de webhook).');
+        }
     }
 
     if (failures.length > 0) {

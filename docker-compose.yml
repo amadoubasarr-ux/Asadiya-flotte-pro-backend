@@ -41,6 +41,11 @@ services:
     build: .
     image: asadiya-flotte-pro-backend:latest
     restart: unless-stopped
+    # Tini comme PID 1 : signaux correctement transmis à Node (arrêt propre)
+    # et récolte des processus zombies.
+    init: true
+    # Délai laissé au serveur pour fermer proprement les connexions (SIGTERM).
+    stop_grace_period: 20s
     depends_on:
       db:
         # L'application ne démarre qu'une fois PostgreSQL prêt
@@ -49,7 +54,9 @@ services:
     env_file:
       - .env.docker
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
+      # Par défaut production, cohérent avec le Dockerfile : jamais laisser
+      # une instance de production démarrer en mode développement par oubli.
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: ${PORT:-4000}
       # Pointe vers le service db du réseau dédié (remplace toute valeur
       # DATABASE_URL locale éventuelle du fichier .env.docker).
@@ -58,6 +65,42 @@ services:
       DB_SSL: "false"
       # 1 seul saut de proxy : l'IP réelle du client est lue derrière nginx.
       TRUST_PROXY: ${TRUST_PROXY:-1}
+      # Paiements (Phase 5.1 → 5.4) : simulation locale par défaut, aucun
+      # fournisseur réel activé (aucun appel réseau, aucune clé API requise).
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-mock}
+      PAYMENT_TIMEOUT: ${PAYMENT_TIMEOUT:-120000}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-}
+      WAVE_ENABLED: ${WAVE_ENABLED:-false}
+      ORANGE_ENABLED: ${ORANGE_ENABLED:-false}
+      STRIPE_ENABLED: ${STRIPE_ENABLED:-false}
+      # Wave Money (Phase 5.2) — injectés seulement s'ils sont définis.
+      WAVE_API_URL: ${WAVE_API_URL:-https://api.wave.com}
+      WAVE_API_KEY: ${WAVE_API_KEY:-}
+      WAVE_API_SECRET: ${WAVE_API_SECRET:-}
+      WAVE_WEBHOOK_SECRET: ${WAVE_WEBHOOK_SECRET:-}
+      WAVE_TIMEOUT: ${WAVE_TIMEOUT:-30000}
+      WAVE_SUCCESS_URL: ${WAVE_SUCCESS_URL:-}
+      WAVE_ERROR_URL: ${WAVE_ERROR_URL:-}
+      # Orange Money (Phase 5.3) — injectés seulement s'ils sont définis.
+      ORANGE_API_URL: ${ORANGE_API_URL:-https://api.orange.com}
+      ORANGE_CLIENT_ID: ${ORANGE_CLIENT_ID:-}
+      ORANGE_CLIENT_SECRET: ${ORANGE_CLIENT_SECRET:-}
+      ORANGE_MERCHANT_ID: ${ORANGE_MERCHANT_ID:-}
+      ORANGE_WEBHOOK_SECRET: ${ORANGE_WEBHOOK_SECRET:-}
+      ORANGE_TOKEN_PATH: ${ORANGE_TOKEN_PATH:-/oauth/v3/token}
+      ORANGE_WEBPAYMENT_PATH: ${ORANGE_WEBPAYMENT_PATH:-/orange-money-webpay/dev/v1/webpayment}
+      ORANGE_TRANSACTION_STATUS_PATH: ${ORANGE_TRANSACTION_STATUS_PATH:-/orange-money-webpay/dev/v1/transactionstatus}
+      ORANGE_NOTIF_URL: ${ORANGE_NOTIF_URL:-}
+      ORANGE_SUCCESS_URL: ${ORANGE_SUCCESS_URL:-}
+      ORANGE_ERROR_URL: ${ORANGE_ERROR_URL:-}
+      ORANGE_TIMEOUT: ${ORANGE_TIMEOUT:-30000}
+      # Stripe (Phase 5.4) — injectés seulement s'ils sont définis.
+      STRIPE_API_URL: ${STRIPE_API_URL:-https://api.stripe.com}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_API_VERSION: ${STRIPE_API_VERSION:-2024-06-20}
+      STRIPE_TIMEOUT: ${STRIPE_TIMEOUT:-30000}
     ports:
       # Exposé vers l'hôte (nginx sur le même hôte, ou accès direct).
       - "${APP_PORT:-4000}:${PORT:-4000}"
