@@ -29,19 +29,19 @@
            Refonte visuelle premium (thème clair)
            ========================================================== */
         :root {
-            --primary: #4f46e5;
-            --primary-strong: #4338ca;
-            --primary-soft: #eef2ff;
-            --bg: #f5f7fb;
+            --primary: #2563eb;
+            --primary-strong: #1d4ed8;
+            --primary-soft: #eff6ff;
+            --bg: #f8fafc;
             --surface: #ffffff;
-            --border: #e5eaf2;
+            --border: #e2e8f0;
             --text: #0f172a;
-            --text-soft: #64748b;
-            --text-muted: #94a3b8;
-            --success: #059669;
-            --warning: #d97706;
-            --danger: #e11d48;
-            --ring: rgba(99, 102, 241, 0.18);
+            --text-soft: #475569;
+            --text-muted: #64748b;
+            --success: #16a34a;
+            --warning: #f59e0b;
+            --danger: #dc2626;
+            --ring: rgba(37, 99, 235, 0.22);
         }
 
         html { scroll-behavior: smooth; }
@@ -54,7 +54,7 @@
         }
         [x-cloak] { display: none !important; }
 
-        ::selection { background: rgba(99, 102, 241, 0.18); }
+        ::selection { background: rgba(37, 99, 235, 0.18); }
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
@@ -115,7 +115,7 @@
         .card-hover { transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease; }
         .card-hover:hover {
             box-shadow: 0 8px 28px -8px rgba(15,23,42,.12);
-            border-color: #d6dce8;
+            border-color: #cbd5e1;
             transform: translateY(-2px);
         }
         .card-pad { padding: 1.25rem; }
@@ -128,18 +128,18 @@
             border: 1px solid transparent; cursor: pointer; white-space: nowrap;
             transition: all .18s ease; user-select: none;
         }
-        .btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
+        .btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
         .btn:disabled { opacity: .5; cursor: not-allowed; }
-        .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(79,70,229,.45); }
-        .btn-primary:hover:not(:disabled) { background: var(--primary-strong); transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(79,70,229,.5); }
-        .btn-secondary { background: #fff; color: #334155; border-color: #d9e0ea; box-shadow: 0 1px 2px rgba(15,23,42,.05); }
-        .btn-secondary:hover:not(:disabled) { background: #f8fafc; border-color: #c3ccd9; }
-        .btn-success { background: var(--success); color: #fff; box-shadow: 0 1px 2px rgba(5,150,105,.45); }
-        .btn-success:hover:not(:disabled) { background: #047857; transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(5,150,105,.5); }
-        .btn-danger { background: var(--danger); color: #fff; box-shadow: 0 1px 2px rgba(225,29,72,.45); }
-        .btn-danger:hover:not(:disabled) { background: #be123c; transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(225,29,72,.5); }
-        .btn-warning { background: var(--warning); color: #fff; box-shadow: 0 1px 2px rgba(217,119,6,.45); }
-        .btn-warning:hover:not(:disabled) { background: #b45309; transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(217,119,6,.5); }
+        .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(37,99,235,.35); }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-strong); transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(37,99,235,.45); }
+        .btn-secondary { background: #fff; color: #334155; border-color: #cbd5e1; box-shadow: 0 1px 2px rgba(15,23,42,.05); }
+        .btn-secondary:hover:not(:disabled) { background: #f8fafc; border-color: #94a3b8; }
+        .btn-success { background: #15803d; color: #fff; box-shadow: 0 1px 2px rgba(22,163,74,.4); }
+        .btn-success:hover:not(:disabled) { background: #166534; transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(22,163,74,.45); }
+        .btn-danger { background: var(--danger); color: #fff; box-shadow: 0 1px 2px rgba(220,38,38,.35); }
+        .btn-danger:hover:not(:disabled) { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(220,38,38,.45); }
+        .btn-warning { background: #b45309; color: #fff; box-shadow: 0 1px 2px rgba(180,83,9,.35); }
+        .btn-warning:hover:not(:disabled) { background: #92400e; transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(180,83,9,.45); }
         .btn-ghost { background: transparent; color: #475569; border-color: transparent; }
         .btn-ghost:hover:not(:disabled) { background: #f1f5f9; }
         .btn-sm { padding: .42rem .75rem; font-size: .7rem; border-radius: .6rem; }
@@ -148,17 +148,17 @@
         /* ---------- Formulaires ---------- */
         .label { display: block; font-size: .7rem; font-weight: 600; color: #475569; margin-bottom: .35rem; }
         .input {
-            width: 100%; background: #fff; border: 1px solid #d7dee8; border-radius: .7rem;
+            width: 100%; background: #fff; border: 1px solid #cbd5e1; border-radius: .7rem;
             padding: .55rem .8rem; font-size: .78rem; color: #0f172a;
             transition: border-color .15s ease, box-shadow .15s ease;
         }
-        .input::placeholder { color: #a6b0c0; }
-        .input:hover { border-color: #c0c9d6; }
+        .input::placeholder { color: #94a3b8; }
+        .input:hover { border-color: #94a3b8; }
         .input:focus {
-            outline: none; border-color: #818cf8;
+            outline: none; border-color: #2563eb;
             box-shadow: 0 0 0 3px var(--ring);
         }
-        select.input { cursor: pointer; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3e%3cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3e%3c/svg%3e");
+        select.input { cursor: pointer; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23475569'%3e%3cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3e%3c/svg%3e");
             background-repeat: no-repeat; background-position: right .7rem center; background-size: 1rem;
             padding-right: 2.2rem; appearance: none; -webkit-appearance: none; }
         .input[type="date"]::-webkit-calendar-picker-indicator { opacity: .55; cursor: pointer; }
@@ -173,7 +173,7 @@
         .badge-red { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
         .badge-amber { background: #fffbeb; color: #b45309; border-color: #fde68a; }
         .badge-blue { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-        .badge-indigo { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; }
+        .badge-indigo { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
         .badge-slate { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
 
         /* ---------- Tableaux ---------- */
@@ -184,8 +184,8 @@
         .app-table { width: 100%; border-collapse: collapse; }
         .app-table thead th {
             text-align: left; font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-            color: #64748b; background: #f8fafc; padding: .8rem 1rem;
-            border-bottom: 1px solid #e8ecf3; white-space: nowrap;
+            color: #475569; background: #f8fafc; padding: .8rem 1rem;
+            border-bottom: 1px solid #e2e8f0; white-space: nowrap;
         }
         .app-table tbody td { padding: .85rem 1rem; font-size: .78rem; color: #334155; border-bottom: 1px solid #f1f5f9; }
         .app-table tbody tr { transition: background .12s ease; }
@@ -202,17 +202,17 @@
             animation: fade-in .18s ease both;
         }
         .modal-card {
-            background: #fff; border: 1px solid #e5eaf2; border-radius: 1.1rem;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 1.1rem;
             box-shadow: 0 24px 60px -12px rgba(15,23,42,.3);
             animation: modal-in .24s cubic-bezier(.2,.9,.3,1.2) both;
             max-width: 32rem; width: 100%; max-height: 90vh; overflow-y: auto;
         }
 
         /* ---------- Sidebar ---------- */
-        .sidebar { background: #fff; border-right: 1px solid #e9edf4; }
+        .sidebar { background: #fff; border-right: 1px solid #e2e8f0; }
         .sidebar-group-label {
             font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
-            color: #94a3b8; padding: 1.1rem 1rem .4rem;
+            color: #64748b; padding: 1.1rem 1rem .4rem;
         }
         .sidebar-item {
             position: relative; display: flex; align-items: center; gap: .75rem;
@@ -221,39 +221,80 @@
             transition: background .15s ease, color .15s ease;
         }
         .sidebar-item:hover { background: #f1f5f9; color: #0f172a; }
-        .sidebar-item.active { background: #eef2ff; color: #4338ca; font-weight: 600; }
+        .sidebar-item.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
         .sidebar-item .nav-ico { width: 1.35rem; text-align: center; font-size: .85rem; opacity: .85; }
 
-        /* ---------- Contraste (classes générées dynamiquement) ---------- */
-        .text-slate-300 { color: #475569 !important; }
-        .text-slate-400 { color: #64748b !important; }
-        .text-slate-500 { color: #64748b !important; }
-        .text-indigo-300 { color: #6366f1 !important; }
-        .text-indigo-400 { color: #6366f1 !important; }
+        /* ==========================================================
+           Accessibilité & contraste (WCAG AA)
+           Classes dynamiques (générées par app.js) ou utilitaires
+           Tailwind trop claires sur fond blanc : forcées vers des
+           teintes lisibles. Le lecteur vidéo (.video-player) est un
+           îlot sombre : son texte clair est restauré via les règles
+           scopées ci-dessous.
+           ========================================================== */
+
+        /* Gris : aucune teinte claire illisible sur fond blanc */
+        .text-slate-300 { color: #334155 !important; }
+        .text-slate-400 { color: #475569 !important; }
+        .text-slate-500 { color: #475569 !important; }
+        .bg-slate-800.text-slate-400 { color: #94a3b8 !important; }
+
+        /* Palette primaire indigo -> bleu (#2563EB) */
+        .text-indigo-100 { color: #eff6ff !important; }
+        .text-indigo-300 { color: #4338ca !important; }
+        .text-indigo-500 { color: #2563eb !important; }
+        .text-indigo-600 { color: #1d4ed8 !important; }
+        .text-indigo-700 { color: #1e40af !important; }
+        .bg-indigo-500 { background-color: #2563eb !important; }
+        .bg-indigo-600 { background-color: #2563eb !important; }
+        .bg-indigo-700 { background-color: #1d4ed8 !important; }
+        .border-indigo-500 { border-color: #2563eb !important; }
+        .ring-indigo-500 { --tw-ring-color: #2563eb !important; }
+        .from-indigo-500, .from-indigo-600, .from-indigo-700 { --tw-gradient-from: #2563eb !important; }
+        .via-indigo-500, .via-indigo-600, .via-indigo-700 { --tw-gradient-via: #2563eb !important; }
+        .to-indigo-500, .to-indigo-600, .to-indigo-700 { --tw-gradient-to: #2563eb !important; }
+        .hover\:bg-indigo-500:hover { background-color: #1d4ed8 !important; }
+        .hover\:text-indigo-500:hover { color: #1d4ed8 !important; }
+        .hover\:text-indigo-600:hover { color: #1d4ed8 !important; }
+
+        /* Accents : teintes trop claires sur fond blanc */
         .text-blue-400 { color: #2563eb !important; }
         .text-sky-400 { color: #0284c7 !important; }
         .text-violet-400 { color: #7c3aed !important; }
         .text-orange-400 { color: #ea580c !important; }
-        .text-emerald-300 { color: #059669 !important; }
-        .text-emerald-400 { color: #059669 !important; }
-        .text-rose-300 { color: #e11d48 !important; }
-        .text-rose-400 { color: #e11d48 !important; }
-        .text-amber-300 { color: #b45309 !important; }
-        .text-amber-400 { color: #b45309 !important; }
-        .bg-slate-800 { background-color: #e2e8f0 !important; }
+        .text-emerald-300, .text-emerald-400 { color: #047857 !important; }
+        .text-emerald-500, .text-emerald-600 { color: #047857 !important; }
+        .text-rose-300, .text-rose-400 { color: #dc2626 !important; }
+        .text-rose-500, .text-rose-600 { color: #dc2626 !important; }
+        .text-amber-300, .text-amber-400 { color: #b45309 !important; }
+        .text-amber-500, .text-amber-600 { color: #b45309 !important; }
+
+        /* Lecteur vidéo : îlot sombre -> texte clair restauré */
+        .video-player .text-slate-200 { color: #e2e8f0 !important; }
+        .video-player .text-slate-300 { color: #cbd5e1 !important; }
+        .video-player .text-slate-400 { color: #94a3b8 !important; }
+        .video-player .text-slate-500 { color: #94a3b8 !important; }
+        .video-player .text-indigo-400 { color: #818cf8 !important; }
+        .video-player .text-emerald-400 { color: #34d399 !important; }
+        .video-player .text-rose-400 { color: #fb7185 !important; }
+        .video-player .text-amber-400 { color: #fbbf24 !important; }
+        .video-player .bg-slate-800 { background-color: #1e293b !important; }
+        .video-player .bg-indigo-500 { background-color: #2563eb !important; }
+        .video-player .bg-indigo-600 { background-color: #2563eb !important; }
+        .video-player .hover\:bg-indigo-500:hover { background-color: #1d4ed8 !important; }
 
         /* Ajustements chart.js : rendu net sur fond clair */
         .chart-shell { position: relative; height: 100%; min-height: 12rem; }
     </style>
 </head>
-<body class="bg-[#f5f7fb] text-slate-900 min-h-screen flex flex-col antialiased">
+<body class="bg-[#f8fafc] text-slate-900 min-h-screen flex flex-col antialiased">
 
     <!-- ========================================== -->
     <!-- ESPACE PUBLIC (landing / tarifs / connexion /
     <!--                    inscription)            -->
     <!-- ========================================== -->
     <template x-if="!currentUser">
-    <div class="min-h-screen flex flex-col bg-[#f5f7fb] text-slate-900">
+    <div class="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900">
 
         <!-- NAVIGATION PUBLIQUE -->
         <header class="sticky top-0 z-50 border-b border-slate-200 bg-white/85 backdrop-blur-md">
@@ -611,7 +652,7 @@
     <!-- ESPACE SUPER ADMIN (gestion des clients)   -->
     <!-- ========================================== -->
     <template x-if="currentUser && isSuperAdmin">
-    <div class="min-h-screen flex w-full bg-[#f5f7fb] text-slate-900" x-data="{ sidebarOpen: false }">
+    <div class="min-h-screen flex w-full bg-[#f8fafc] text-slate-900" x-data="{ sidebarOpen: false }">
 
         <!-- SIDEBAR SUPER ADMIN (desktop) -->
         <aside class="sidebar hidden lg:flex flex-col fixed inset-y-0 left-0 w-64 z-40 shadow-[1px_0_0_rgba(15,23,42,0.03)]">
@@ -996,7 +1037,7 @@
     <!-- ESPACE CLIENT (flotte)                     -->
     <!-- ========================================== -->
     <template x-if="currentUser && !isSuperAdmin">
-    <div class="min-h-screen flex w-full bg-[#f5f7fb] text-slate-900" x-data="{ sidebarOpen: false }">
+    <div class="min-h-screen flex w-full bg-[#f8fafc] text-slate-900" x-data="{ sidebarOpen: false }">
 
         <!-- SIDEBAR (desktop) -->
         <aside class="sidebar hidden lg:flex flex-col fixed inset-y-0 left-0 w-64 z-40 shadow-[1px_0_0_rgba(15,23,42,0.03)]">
@@ -1206,7 +1247,7 @@
                             <button @click="notifOpen = !notifOpen" class="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition" title="Alertes">
                                 <i class="fa-solid fa-bell"></i>
                                 <span x-show="getVehiclesNeedingOilChange().length + vehiclesWithDocumentAlerts.length + driversWithLicenseAlerts.length > 0"
-                                      class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-sm"
+                                      class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center shadow-sm"
                                       x-text="getVehiclesNeedingOilChange().length + vehiclesWithDocumentAlerts.length + driversWithLicenseAlerts.length"></span>
                             </button>
 
@@ -2280,7 +2321,7 @@
                     <!-- ONGLET VIDÉO PLAYER -->
                     <div x-show="videoTab === 'player'" class="space-y-6">
                         <!-- Écran de Vidéo Synthetique (écran sombre, style lecteur vidéo) -->
-                        <div class="relative bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden aspect-video max-w-5xl mx-auto flex flex-col justify-between select-none">
+                        <div class="video-player relative bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl overflow-hidden aspect-video max-w-5xl mx-auto flex flex-col justify-between select-none">
 
                             <!-- Filigrane & Badge -->
                             <div class="absolute top-4 left-4 right-4 z-20 flex justify-between items-center pointer-events-none">
