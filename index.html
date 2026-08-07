@@ -4,22 +4,74 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asadiya Flotte PRO - Gestion de Flotte & Alertes Vidanges</title>
-    <!-- Thème clair/sombre : appliqué AVANT le premier rendu (aucun flash / FOUC).
-         Priorité au choix mémorisé, sinon au réglage système (prefers-color-scheme). -->
+    <!-- Thème clair/sombre/auto : appliqué AVANT le premier rendu (aucun flash / FOUC).
+         Priorité au choix mémorisé ('light' | 'dark' | 'auto'), sinon au réglage
+         système (prefers-color-scheme) via le mode 'auto'. -->
     <script>
         (function () {
-            var t;
-            try { t = localStorage.getItem('asadiya-theme'); } catch (e) {}
-            if (t !== 'light' && t !== 'dark') {
-                t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
-            }
-            document.documentElement.setAttribute('data-theme', t);
-            window.toggleTheme = function () {
-                var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-theme', next);
-                try { localStorage.setItem('asadiya-theme', next); } catch (e) {}
-                if (window.__onThemeChange) window.__onThemeChange(next);
+            var KEY = 'asadiya-theme';
+            function read(mode) { try { return localStorage.getItem(mode); } catch (e) { return null; } }
+            function write(mode, v) { try { localStorage.setItem(mode, v); } catch (e) {} }
+            function systemDark() { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+
+            // Mode mémorisé : 'light' | 'dark' | 'auto' (défaut 'auto' => suit le système).
+            window.getThemeMode = function () {
+                var m = read(KEY);
+                return (m === 'light' || m === 'dark' || m === 'auto') ? m : 'auto';
             };
+
+            // Thème effectivement appliqué (résolution du mode 'auto').
+            window.getEffectiveTheme = function () {
+                var m = window.getThemeMode();
+                return m === 'auto' ? (systemDark() ? 'dark' : 'light') : m;
+            };
+
+            // Applique le thème et notifie (bascule header, icônes, etc.).
+            window.applyTheme = function (m) {
+                var eff = (m === 'light' || m === 'dark') ? m : window.getEffectiveTheme();
+                document.documentElement.setAttribute('data-theme', eff);
+                if (window.__onThemeChange) window.__onThemeChange(eff);
+            };
+
+            // Choix explicite depuis les Paramètres : mémorise + applique.
+            window.setTheme = function (m) {
+                m = (m === 'light' || m === 'dark' || m === 'auto') ? m : 'auto';
+                write(KEY, m);
+                window.applyTheme(m);
+            };
+
+            // Bascule clair <-> sombre depuis les boutons du header.
+            window.toggleTheme = function () {
+                var eff = window.getEffectiveTheme();
+                var next = eff === 'dark' ? 'light' : 'dark';
+                write(KEY, next);
+                window.applyTheme(next);
+                console.log('[THEME] bascule :', eff, '->', next, '(mode mémorisé :', window.getThemeMode() + ')');
+            };
+
+            // Mode auto : réagit en direct au changement du réglage système.
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').addEventListener) {
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+                    if (window.getThemeMode() === 'auto') window.applyTheme('auto');
+                });
+            }
+
+            // Application immédiate (avant rendu, pas de flash).
+            window.applyTheme(window.getThemeMode());
+
+            // ===== Densité d'affichage : 'comfortable' (défaut) | 'compact' =====
+            var DKEY = 'asadiya-density';
+            window.getDensity = function () {
+                var d = read(DKEY);
+                return d === 'compact' ? 'compact' : 'comfortable';
+            };
+            window.setDensity = function (d) {
+                d = d === 'compact' ? 'compact' : 'comfortable';
+                write(DKEY, d);
+                document.documentElement.setAttribute('data-density', d);
+                if (window.__onDensityChange) window.__onDensityChange(d);
+            };
+            document.documentElement.setAttribute('data-density', window.getDensity());
         })();
     </script>
     <!-- Tailwind CSS CDN -->
@@ -322,6 +374,14 @@
             --danger: #f87171;
             --ring: rgba(59, 130, 246, .35);
             color-scheme: dark;
+            /* Le fond du canvas provient de la couleur de <html> dès que celle-ci
+               n'est pas transparente. On force la racine ET le <body> (qui garde
+               sa classe bg-[#f8fafc]) pour qu'aucun reliquat clair ne subsiste,
+               même pendant la transition de thème. */
+            background-color: var(--bg) !important;
+        }
+        html[data-theme="dark"] body {
+            background-color: var(--bg) !important;
         }
 
         /* --- Raccourcis : transition douce au changement de thème --- */
@@ -493,7 +553,35 @@
         html:not([data-theme="dark"]) .theme-toggle .theme-ico-moon { display: inline-flex; }
 
         /* Ajustements chart.js : rendu net sur fond clair */
-        .chart-shell { position: relative; height: 100%; min-height: 12rem; }
+        .chart-shell { position: relative; height: 100%; min-height: 12rem; min-width: 0; overflow: hidden; }
+        /* Empêche un canvas chart.js de gonfler la largeur de son conteneur
+           (le style inline px posé par chart.js peut sinon agrandir les
+           pistes d'une grille CSS et créer un débordement horizontal). */
+        .chart-shell canvas { display: block; max-width: 100%; }
+
+        /* ---------- Interrupteurs (Paramètres) ---------- */
+        .switch { position: relative; display: inline-flex; width: 36px; height: 20px; flex-shrink: 0; cursor: pointer; }
+        .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .switch-track { position: absolute; inset: 0; background: #cbd5e1; border-radius: 9999px; transition: background .18s ease; }
+        .switch-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #fff; border-radius: 9999px; transition: transform .18s ease; box-shadow: 0 1px 2px rgba(15,23,42,.25); }
+        .switch input:checked + .switch-track { background: #4f46e5; }
+        .switch input:checked + .switch-track + .switch-knob { transform: translateX(16px); }
+        html[data-theme="dark"] .switch-track { background: #334155; }
+        html[data-theme="dark"] .switch input:checked + .switch-track { background: #6366f1; }
+
+        /* ---------- Densité compacte (Paramètres > Affichage) ---------- */
+        html[data-density="compact"] .card-pad { padding: .8rem; }
+        html[data-density="compact"] .sidebar-item { padding: .45rem .7rem; }
+        html[data-density="compact"] .sidebar-group-label { padding: .8rem 1rem .3rem; }
+        html[data-density="compact"] .btn { padding: .45rem .8rem; }
+        html[data-density="compact"] .input { padding: .42rem .7rem; }
+        html[data-density="compact"] .label { margin-bottom: .25rem; }
+
+        /* ---------- Paramètres : cartes de thème & micro-éléments ---------- */
+        .theme-card-preview { display: flex; flex-direction: column; height: 2.75rem; border-radius: .5rem; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: .5rem; }
+        .theme-card-preview .p-sidebar { width: 28%; height: 100%; }
+        .theme-card-preview .p-main { flex: 1; }
+        .theme-card-preview .p-acc { height: 34%; background: #4f46e5; }
     </style>
 </head>
 <body class="bg-[#f8fafc] text-slate-900 min-h-screen flex flex-col antialiased">
@@ -941,7 +1029,7 @@
         </div>
 
         <!-- CONTENU -->
-        <div class="flex-1 flex flex-col min-h-screen lg:pl-64">
+        <div class="flex-1 flex flex-col min-h-screen lg:pl-64 min-w-0">
             <header class="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-slate-200">
                 <div class="px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
@@ -970,7 +1058,7 @@
                 </div>
             </header>
 
-            <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+            <main class="flex-grow w-full p-4 md:p-6 space-y-6">
                 <div class="flex flex-wrap justify-between items-center gap-3 animate-fade-up">
                     <div>
                         <h2 class="text-xl font-bold text-slate-900">Vue d'ensemble plateforme</h2>
@@ -1346,6 +1434,15 @@
                     <span class="nav-ico text-rose-500"><i class="fa-solid fa-car-burst"></i></span>
                     Accidents
                 </button>
+
+                <p class="sidebar-group-label">Système</p>
+                <button id="navSettings" @click="mainTab = 'settings'"
+                        :class="mainTab === 'settings' ? 'active' : ''"
+                        class="sidebar-item mb-0.5">
+                    <span x-show="mainTab === 'settings'" class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-indigo-600"></span>
+                    <span class="nav-ico"><i class="fa-solid fa-gear"></i></span>
+                    Paramètres
+                </button>
             </nav>
 
             <div class="border-t border-slate-200 p-4">
@@ -1415,6 +1512,10 @@
                     <button @click="mainTab = 'accidents'; sidebarOpen = false" :class="mainTab === 'accidents' ? 'active' : ''" class="sidebar-item mb-0.5">
                         <span class="nav-ico text-rose-500"><i class="fa-solid fa-car-burst"></i></span> Accidents
                     </button>
+                    <p class="sidebar-group-label">Système</p>
+                    <button @click="mainTab = 'settings'; sidebarOpen = false" :class="mainTab === 'settings' ? 'active' : ''" class="sidebar-item mb-0.5">
+                        <span class="nav-ico"><i class="fa-solid fa-gear"></i></span> Paramètres
+                    </button>
                 </div>
                 <div class="border-t border-slate-200 p-4">
                     <div class="flex items-center gap-3 mb-2">
@@ -1432,18 +1533,18 @@
         </div>
 
         <!-- CONTENU PRINCIPAL -->
-        <div class="flex-1 flex flex-col min-h-screen lg:pl-64">
+        <div class="flex-1 flex flex-col min-h-screen lg:pl-64 min-w-0">
 
             <!-- EN-TÊTE -->
             <header class="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-slate-200">
-                <div class="px-4 md:px-6 py-2.5 flex items-center justify-between gap-3">
+                <div class="px-4 md:px-6 py-3 flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3 min-w-0">
                         <button @click="sidebarOpen = true" class="lg:hidden text-slate-500 hover:text-slate-800 p-2 rounded-lg hover:bg-slate-100">
                             <i class="fa-solid fa-bars"></i>
                         </button>
                         <div class="min-w-0">
                             <h1 class="text-sm md:text-base font-bold text-slate-900 truncate"
-                                x-text="({ dashboard: 'Tableau de Bord', vehicles: 'Parc Automobile', drivers: 'Conducteurs', users: 'Utilisateurs', reservations: 'Planning des Missions', maintenance: 'Entretien & Vidanges', fuel: 'Carburant', incidents: 'Signalements', accidents: 'Sinistres & Accidents', video: 'Vidéo & Script' })[mainTab] || 'Tableau de Bord'"></h1>
+                                x-text="({ dashboard: 'Tableau de Bord', vehicles: 'Parc Automobile', drivers: 'Conducteurs', users: 'Utilisateurs', reservations: 'Planning des Missions', maintenance: 'Entretien & Vidanges', fuel: 'Carburant', incidents: 'Signalements', accidents: 'Sinistres & Accidents', video: 'Vidéo & Script', settings: 'Paramètres' })[mainTab] || 'Tableau de Bord'"></h1>
                             <p class="text-[11px] text-slate-400 font-medium truncate" x-text="currentUser.organizationName || 'Gestion Intelligente de Flotte Automobile'"></p>
                         </div>
                     </div>
@@ -1538,7 +1639,7 @@
             </div>
 
             <!-- BANDEAU ABONNEMENT (Phase 3.5) -->
-            <div x-show="clientSubscription" class="max-w-7xl w-full mx-auto px-4 pt-4">
+            <div x-show="clientSubscription" class="w-full px-4 md:px-6 pt-4">
                 <div class="rounded-2xl border p-4 flex flex-wrap items-center justify-between gap-4 transition"
                      :class="subscriptionInactive ? 'bg-rose-50 border-rose-200' : 'card card-pad'">
                     <div class="flex flex-wrap items-center gap-3">
@@ -1598,7 +1699,7 @@
             </div>
 
             <!-- CONTENU DE L'APPLICATION -->
-            <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+            <main class="flex-grow w-full p-4 md:p-6 space-y-6">
 
                 <!-- Bandeau : erreur de connexion à l'API backend -->
                 <div x-show="apiConnectionError" class="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-up">
@@ -2769,6 +2870,351 @@
 
                 </div>
 
+                <!-- ============ ONGLET PARAMÈTRES ============ -->
+                <div x-show="mainTab === 'settings'" class="space-y-6" x-cloak>
+
+                    <div class="flex justify-between items-center border-b border-slate-200 pb-4 flex-wrap gap-3 animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-sliders text-indigo-600"></i> Paramètres
+                                <span class="badge badge-indigo">Préférences</span>
+                            </h2>
+                            <p class="text-xs text-slate-500">Personnalisez l'application : apparence, notifications, profil et sécurité.</p>
+                        </div>
+                    </div>
+
+                    <div id="settingsRoot" x-data="settingsState()" x-init="__onThemeChange = function(){ themeMode = window.getThemeMode(); }" class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+
+                        <!-- A. APPARENCE -->
+                        <section class="card card-pad space-y-4">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-palette text-sm"></i></div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-900">Apparence</h3>
+                                    <p class="text-[11px] text-slate-500">Thème de l'interface et densité.</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p class="label">Mode d'affichage</p>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button type="button" id="setThemeLight" @click="setThemeMode('light')"
+                                            :class="themeMode === 'light' ? 'ring-2 ring-indigo-600 border-indigo-600' : 'border-slate-200 hover:border-indigo-300'"
+                                            class="rounded-xl border bg-white p-2 text-left transition">
+                                        <div class="theme-card-preview">
+                                            <div class="flex h-full">
+                                                <div class="p-sidebar" style="background:#eef2f7;border-right:1px solid #e2e8f0"><div style="background:#4f46e5;height:24%;margin:4px;border-radius:3px"></div></div>
+                                                <div class="p-main" style="background:#ffffff"><div style="height:34%;background:#f1f5f9;border-bottom:1px solid #e2e8f0"></div></div>
+                                            </div>
+                                        </div>
+                                        <p class="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+                                            Clair
+                                            <i class="fa-solid fa-circle-check text-[10px]" :class="themeMode === 'light' ? 'text-indigo-600' : 'text-slate-200'"></i>
+                                        </p>
+                                    </button>
+
+                                    <button type="button" id="setThemeDark" @click="setThemeMode('dark')"
+                                            :class="themeMode === 'dark' ? 'ring-2 ring-indigo-600 border-indigo-600' : 'border-slate-200 hover:border-indigo-300'"
+                                            class="rounded-xl border bg-white p-2 text-left transition">
+                                        <div class="theme-card-preview">
+                                            <div class="flex h-full">
+                                                <div class="p-sidebar" style="background:#0d1526;border-right:1px solid #1e2a44"><div style="background:#6366f1;height:24%;margin:4px;border-radius:3px"></div></div>
+                                                <div class="p-main" style="background:#0b1120"><div style="height:34%;background:#131c31;border-bottom:1px solid #1e2a44"></div></div>
+                                            </div>
+                                        </div>
+                                        <p class="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+                                            Sombre
+                                            <i class="fa-solid fa-circle-check text-[10px]" :class="themeMode === 'dark' ? 'text-indigo-600' : 'text-slate-200'"></i>
+                                        </p>
+                                    </button>
+
+                                    <button type="button" id="setThemeAuto" @click="setThemeMode('auto')"
+                                            :class="themeMode === 'auto' ? 'ring-2 ring-indigo-600 border-indigo-600' : 'border-slate-200 hover:border-indigo-300'"
+                                            class="rounded-xl border bg-white p-2 text-left transition">
+                                        <div class="theme-card-preview">
+                                            <div class="flex h-full">
+                                                <div class="p-sidebar" style="background:linear-gradient(180deg,#ffffff 50%,#0d1526 50%);border-right:1px solid #e2e8f0"><div style="background:#4f46e5;height:24%;margin:4px;border-radius:3px"></div></div>
+                                                <div class="p-main" style="background:linear-gradient(180deg,#ffffff 50%,#0b1120 50%)"><div style="height:34%;background:#f1f5f9;border-bottom:1px solid #e2e8f0"></div></div>
+                                            </div>
+                                        </div>
+                                        <p class="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+                                            Auto
+                                            <i class="fa-solid fa-circle-check text-[10px]" :class="themeMode === 'auto' ? 'text-indigo-600' : 'text-slate-200'"></i>
+                                        </p>
+                                    </button>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-2" x-text="themeMode === 'auto' ? 'Auto : le thème suit automatiquement le réglage de votre système.' : (themeMode === 'dark' ? 'Sombre : interface sombre permanente, idéale le soir.' : 'Clair : interface lumineuse permanente.')"></p>
+                            </div>
+
+                            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Aperçu de la densité</p>
+                                <div class="space-y-1.5">
+                                    <div class="rounded-lg bg-white border border-slate-200 px-3 flex items-center gap-2" :class="density === 'compact' ? 'py-1.5' : 'py-2.5'">
+                                        <span class="w-5 h-5 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-car text-[8px]"></i></span>
+                                        <span class="flex-1 h-2 rounded-full bg-slate-200"></span>
+                                        <span class="w-8 h-2 rounded-full bg-emerald-100"></span>
+                                    </div>
+                                    <div class="rounded-lg bg-white border border-slate-200 px-3 flex items-center gap-2" :class="density === 'compact' ? 'py-1.5' : 'py-2.5'">
+                                        <span class="w-5 h-5 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-car text-[8px]"></i></span>
+                                        <span class="flex-1 h-2 rounded-full bg-slate-200"></span>
+                                        <span class="w-8 h-2 rounded-full bg-emerald-100"></span>
+                                    </div>
+                                </div>
+                                <p class="text-[10px] text-slate-400" x-text="density === 'compact' ? 'Mode compact : contenu resserré, plus d\'éléments à l\'écran.' : 'Mode confortable : espacement aéré, idéal pour la lecture.'"></p>
+                            </div>
+                        </section>
+
+                        <!-- B. PROFIL -->
+                        <section class="card card-pad space-y-4">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-user text-sm"></i></div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-900">Profil</h3>
+                                    <p class="text-[11px] text-slate-500">Informations de votre compte.</p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-3">
+                                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white flex items-center justify-center text-xl font-bold shadow-md shadow-indigo-500/20 flex-shrink-0" x-text="currentUser.name.charAt(0)"></div>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-bold text-slate-900 truncate" x-text="currentUser.name"></p>
+                                    <p class="text-[11px] text-slate-500 truncate" x-text="currentUser.title || '—'"></p>
+                                    <span class="badge badge-indigo mt-1"><i class="fa-solid fa-shield-halved mr-1"></i><span x-text="({ SUPERADMIN: 'Super Administrateur', ADMIN: 'Administrateur', MANAGER: 'Gestionnaire de Flotte', DRIVER: 'Conducteur' })[currentUser.role] || currentUser.role"></span></span>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-2 text-xs">
+                                <div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                    <span class="text-slate-500 flex items-center gap-2"><i class="fa-solid fa-user text-indigo-500 text-[10px]"></i> Identifiant</span>
+                                    <span class="font-semibold text-slate-800 truncate" x-text="currentUser.username"></span>
+                                </div>
+                                <div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                    <span class="text-slate-500 flex items-center gap-2"><i class="fa-solid fa-building text-indigo-500 text-[10px]"></i> Organisation</span>
+                                    <span class="font-semibold text-slate-800 truncate" x-text="currentUser.organizationName || '—'"></span>
+                                </div>
+                                <div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                    <span class="text-slate-500 flex items-center gap-2"><i class="fa-solid fa-envelope text-indigo-500 text-[10px]"></i> Email</span>
+                                    <span class="font-semibold text-slate-800 truncate text-slate-400">—</span>
+                                </div>
+                                <div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                    <span class="text-slate-500 flex items-center gap-2"><i class="fa-solid fa-phone text-indigo-500 text-[10px]"></i> Téléphone</span>
+                                    <span class="font-semibold text-slate-800 truncate text-slate-400">—</span>
+                                </div>
+                            </div>
+
+                            <p class="rounded-xl bg-amber-50 border border-amber-200 text-amber-600 text-[11px] p-3 flex items-start gap-2">
+                                <i class="fa-solid fa-circle-info mt-0.5 flex-shrink-0"></i>
+                                <span>L'édition du profil (email, téléphone, photo) nécessite un endpoint backend dédié — à prévoir (voir rapport).</span>
+                            </p>
+                        </section>
+
+                        <!-- C. NOTIFICATIONS -->
+                        <section class="card card-pad space-y-4">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-bell text-sm"></i></div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-900">Notifications</h3>
+                                    <p class="text-[11px] text-slate-500">Alertes à recevoir sur les événements.</p>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1">
+                                <label class="flex items-center justify-between gap-3 rounded-xl hover:bg-slate-50 px-2 py-2 transition cursor-pointer">
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-semibold text-slate-800">Alertes générales</span>
+                                        <span class="block text-[11px] text-slate-500">Mises à jour et informations</span>
+                                    </span>
+                                    <span class="switch">
+                                        <input type="checkbox" :checked="notif.general" @change="toggleNotif('general')">
+                                        <span class="switch-track"></span>
+                                        <span class="switch-knob"></span>
+                                    </span>
+                                </label>
+                                <label id="notifMaintenance" class="flex items-center justify-between gap-3 rounded-xl hover:bg-slate-50 px-2 py-2 transition cursor-pointer">
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-semibold text-slate-800">Entretien & vidanges</span>
+                                        <span class="block text-[11px] text-slate-500">Rappels de révision et seuils</span>
+                                    </span>
+                                    <span class="switch">
+                                        <input type="checkbox" :checked="notif.maintenance" @change="toggleNotif('maintenance')">
+                                        <span class="switch-track"></span>
+                                        <span class="switch-knob"></span>
+                                    </span>
+                                </label>
+                                <label class="flex items-center justify-between gap-3 rounded-xl hover:bg-slate-50 px-2 py-2 transition cursor-pointer">
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-semibold text-slate-800">Événements véhicules</span>
+                                        <span class="block text-[11px] text-slate-500">Ajout, modification, retrait</span>
+                                    </span>
+                                    <span class="switch">
+                                        <input type="checkbox" :checked="notif.vehicle" @change="toggleNotif('vehicle')">
+                                        <span class="switch-track"></span>
+                                        <span class="switch-knob"></span>
+                                    </span>
+                                </label>
+                                <label class="flex items-center justify-between gap-3 rounded-xl hover:bg-slate-50 px-2 py-2 transition cursor-pointer">
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-semibold text-slate-800">Documents & licences</span>
+                                        <span class="block text-[11px] text-slate-500">Expirations et renouvellements</span>
+                                    </span>
+                                    <span class="switch">
+                                        <input type="checkbox" :checked="notif.documents" @change="toggleNotif('documents')">
+                                        <span class="switch-track"></span>
+                                        <span class="switch-knob"></span>
+                                    </span>
+                                </label>
+                                <label class="flex items-center justify-between gap-3 rounded-xl hover:bg-slate-50 px-2 py-2 transition cursor-pointer">
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-semibold text-slate-800">Abonnement & facturation</span>
+                                        <span class="block text-[11px] text-slate-500">Échéances et paiements</span>
+                                    </span>
+                                    <span class="switch">
+                                        <input type="checkbox" :checked="notif.subscription" @change="toggleNotif('subscription')">
+                                        <span class="switch-track"></span>
+                                        <span class="switch-knob"></span>
+                                    </span>
+                                </label>
+                                <label class="flex items-center justify-between gap-3 rounded-xl px-2 py-2 cursor-not-allowed opacity-80">
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-semibold text-slate-800 flex items-center gap-1.5">Messages importants <i class="fa-solid fa-lock text-[10px] text-slate-400"></i></span>
+                                        <span class="block text-[11px] text-slate-500">Toujours notifié — verrouillé</span>
+                                    </span>
+                                    <span class="switch">
+                                        <input type="checkbox" checked disabled>
+                                        <span class="switch-track"></span>
+                                        <span class="switch-knob"></span>
+                                    </span>
+                                </label>
+                            </div>
+
+                            <p class="rounded-xl bg-amber-50 border border-amber-200 text-amber-600 text-[11px] p-3 flex items-start gap-2">
+                                <i class="fa-solid fa-circle-info mt-0.5 flex-shrink-0"></i>
+                                <span>Préférences enregistrées sur cet appareil. Envoi réel (email/WhatsApp) à brancher sur un service backend de notifications.</span>
+                            </p>
+                        </section>
+
+                        <!-- D. AFFICHAGE -->
+                        <section class="card card-pad space-y-4">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-display text-sm"></i></div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-900">Affichage</h3>
+                                    <p class="text-[11px] text-slate-500">Densité et taille des listes.</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p class="label">Densité de l'interface</p>
+                                <div class="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200">
+                                    <button type="button" id="setDensityComfortable" @click="setDensity('comfortable')" :class="density === 'comfortable' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="rounded-lg px-3 py-1.5 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                                        <i class="fa-solid fa-bars-staggered text-[10px]"></i> Confortable
+                                    </button>
+                                    <button type="button" id="setDensityCompact" @click="setDensity('compact')" :class="density === 'compact' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="rounded-lg px-3 py-1.5 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                                        <i class="fa-solid fa-bars text-[10px]"></i> Compact
+                                    </button>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-2" x-text="density === 'compact' ? 'Compact : cartes, boutons et champs resserrés pour afficher plus de données.' : 'Confortable : espacement généreux, lecture facilitée.'"></p>
+                            </div>
+
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="text-xs font-semibold text-slate-800">Lignes par tableau</p>
+                                    <p class="text-[11px] text-slate-500">Nombre d'éléments affichés par page dans les listes.</p>
+                                </div>
+                                <select id="rowsPerTable" x-model="rowsPerTable" @change="setRows(rowsPerTable)" class="input !w-auto !py-1.5 !px-2 text-xs flex-shrink-0">
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+
+                            <p class="rounded-xl bg-amber-50 border border-amber-200 text-amber-600 text-[11px] p-3 flex items-start gap-2">
+                                <i class="fa-solid fa-circle-info mt-0.5 flex-shrink-0"></i>
+                                <span>La pagination des tableaux (vehicules, conducteurs, missions…) sera reliée à ce réglage dans une prochaine itération.</span>
+                            </p>
+                        </section>
+
+                        <!-- E. SÉCURITÉ -->
+                        <section class="card card-pad space-y-4">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-shield-halved text-sm"></i></div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-900">Sécurité</h3>
+                                    <p class="text-[11px] text-slate-500">Mot de passe et sessions.</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p class="label">Mot de passe actuel</p>
+                                <input type="password" x-model="pw.current" class="input" placeholder="••••••••">
+                            </div>
+                            <div>
+                                <p class="label">Nouveau mot de passe</p>
+                                <input type="password" x-model="pw.next" class="input" placeholder="6 caractères minimum">
+                            </div>
+                            <div>
+                                <p class="label">Confirmer le nouveau mot de passe</p>
+                                <input type="password" x-model="pw.confirm" class="input" placeholder="Répéter le mot de passe">
+                            </div>
+
+                            <p x-show="pwError" x-cloak class="text-rose-600 text-[11px] font-semibold" x-text="pwError"></p>
+                            <p x-show="pwOk" x-cloak class="text-emerald-600 text-[11px] font-semibold"><i class="fa-solid fa-circle-check mr-1"></i>Vérification réussie. Envoi au backend à brancher (endpoint à créer).</p>
+
+                            <button @click="changePassword()" class="btn btn-primary btn-sm w-full">
+                                <i class="fa-solid fa-lock"></i> Mettre à jour le mot de passe
+                            </button>
+
+                            <div class="pt-3 border-t border-slate-200 space-y-2">
+                                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Sessions actives</p>
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                                    <span class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-desktop text-xs"></i></span>
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block text-xs font-semibold text-slate-800">Cet appareil</span>
+                                        <span class="block text-[11px] text-slate-500">Session actuelle — navigateur</span>
+                                    </span>
+                                    <span class="badge badge-green">En ligne</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 flex items-start gap-1.5">
+                                    <i class="fa-solid fa-circle-info mt-0.5 text-indigo-500 flex-shrink-0"></i>
+                                    <span>La gestion multi-sessions (déconnexion à distance) sera disponible avec un endpoint backend dédié.</span>
+                                </p>
+                            </div>
+                        </section>
+
+                        <!-- F. LANGUE -->
+                        <section class="card card-pad space-y-4">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-language text-sm"></i></div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-900">Langue</h3>
+                                    <p class="text-[11px] text-slate-500">Langue de l'interface.</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" id="setLangFr" @click="setLang('fr')" :class="lang === 'fr' ? 'ring-2 ring-indigo-600 border-indigo-600 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300'" class="rounded-xl border bg-white p-3 text-left transition">
+                                    <span class="text-xl">🇫🇷</span>
+                                    <p class="text-xs font-bold text-slate-800 mt-1">Français</p>
+                                    <p class="text-[10px] text-slate-500">Langue par défaut</p>
+                                </button>
+                                <button type="button" id="setLangEn" @click="setLang('en')" :class="lang === 'en' ? 'ring-2 ring-indigo-600 border-indigo-600 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300'" class="rounded-xl border bg-white p-3 text-left transition">
+                                    <span class="text-xl">🇬🇧</span>
+                                    <p class="text-xs font-bold text-slate-800 mt-1">English</p>
+                                    <p class="text-[10px] text-slate-500">Bientôt disponible</p>
+                                </button>
+                            </div>
+
+                            <p x-show="lang === 'en'" x-cloak class="rounded-xl bg-amber-50 border border-amber-200 text-amber-600 text-[11px] p-3 flex items-start gap-2">
+                                <i class="fa-solid fa-circle-info mt-0.5 flex-shrink-0"></i>
+                                <span>La traduction complète de l'interface (i18n) sera ajoutée dans une prochaine version.</span>
+                            </p>
+                        </section>
+
+                    </div>
+                </div>
+
             </main>
 
             <!-- SECTION CONTACT SUPPORT (WHATSAPP & EMAIL) -->
@@ -3444,6 +3890,55 @@
 
     </div>
     </template>
+
+    <!-- Paramètres : état local + préférences persistées (localStorage).
+         Aucune modification de app.js : les réglages sont autonomes. -->
+    <script>
+        function settingsState() {
+            function get(k, d) { try { var v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }
+            function set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+            function notifDef() {
+                return {
+                    general: get('asadiya-notif-general', '1') === '1',
+                    maintenance: get('asadiya-notif-maintenance', '1') === '1',
+                    vehicle: get('asadiya-notif-vehicle', '1') === '1',
+                    documents: get('asadiya-notif-documents', '1') === '1',
+                    subscription: get('asadiya-notif-subscription', '1') === '1',
+                    important: true
+                };
+            }
+            return {
+                themeMode: window.getThemeMode(),
+                density: window.getDensity(),
+                notif: notifDef(),
+                rowsPerTable: get('asadiya-rows-per-table', '10'),
+                lang: get('asadiya-lang', 'fr'),
+                pw: { current: '', next: '', confirm: '' },
+                pwError: '',
+                pwOk: false,
+
+                setThemeMode(m) { window.setTheme(m); this.themeMode = m; },
+                setDensity(d) { window.setDensity(d); this.density = d; },
+                toggleNotif(k) {
+                    this.notif[k] = !this.notif[k];
+                    set('asadiya-notif-' + k, this.notif[k] ? '1' : '0');
+                },
+                setRows(v) { this.rowsPerTable = v; set('asadiya-rows-per-table', v); },
+                setLang(l) { this.lang = l; set('asadiya-lang', l); },
+
+                changePassword() {
+                    this.pwError = '';
+                    this.pwOk = false;
+                    if (!this.pw.current) { this.pwError = 'Veuillez renseigner votre mot de passe actuel.'; return; }
+                    if (this.pw.next.length < 6) { this.pwError = 'Le nouveau mot de passe doit contenir au moins 6 caractères.'; return; }
+                    if (this.pw.next !== this.pw.confirm) { this.pwError = 'Les deux mots de passe ne correspondent pas.'; return; }
+                    if (this.pw.next === this.pw.current) { this.pwError = 'Le nouveau mot de passe doit être différent du mot de passe actuel.'; return; }
+                    this.pwOk = true;
+                    this.pw = { current: '', next: '', confirm: '' };
+                }
+            };
+        }
+    </script>
 
 </body>
 </html>
