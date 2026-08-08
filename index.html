@@ -3621,7 +3621,7 @@
             </div>
         </div>
 
-        <!-- MODALE : PAIEMENT DE L'ABONNEMENT (initiation — Commit 2) -->
+        <!-- MODALE : PAIEMENT DE L'ABONNEMENT (initiation + suivi — Commit 3) -->
         <div x-show="showPaymentModal" class="modal-backdrop" x-cloak>
             <div class="modal-card p-6 space-y-4">
                 <div class="flex items-center justify-between">
@@ -3634,7 +3634,7 @@
                 </div>
 
                 <!-- Écran 1 : récapitulatif + choix du moyen de paiement -->
-                <template x-if="!paymentCreated">
+                <template x-if="paymentFlow.step === 'ready'">
                     <div class="space-y-4">
                         <!-- Récapitulatif du plan -->
                         <div class="rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs overflow-hidden">
@@ -3723,39 +3723,87 @@
                     </div>
                 </template>
 
-                <!-- Écran 2 : paiement créé (suivi ajouté au Commit 3) -->
-                <template x-if="paymentCreated">
+                <!-- Écran 2 : suivi de la transaction (polling GET /api/payments/:id/check) -->
+                <template x-if="paymentFlow.step === 'tracking'">
                     <div class="space-y-4">
-                        <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3 flex items-start gap-2 text-[11px]">
-                            <i class="fa-solid fa-circle-check text-emerald-600 mt-0.5 flex-shrink-0"></i>
-                            <div>
-                                <p class="font-bold text-emerald-600">Paiement initié avec succès.</p>
-                                <p class="text-emerald-600 mt-0.5">Le suivi de la transaction (PENDING → SUCCESS / FAILED / CANCELLED) sera ajouté à l'étape suivante.</p>
+                        <!-- États en cours : PENDING / PROCESSING -->
+                        <div class="flex flex-col items-center text-center py-4 space-y-2"
+                             x-show="['PENDING','PROCESSING'].includes(paymentFlow.status)">
+                            <div class="w-14 h-14 rounded-full bg-indigo-50 flex items-center justify-center">
+                                <i class="fa-solid fa-circle-notch fa-spin text-xl"
+                                   :class="paymentFlow.status === 'PROCESSING' ? 'text-indigo-500' : 'text-amber-500'"></i>
                             </div>
+                            <p class="text-sm font-bold text-slate-900" x-text="paymentStatusTitle(paymentFlow.status)"></p>
+                            <p class="text-xs text-slate-500"
+                               x-text="paymentFlow.status === 'PROCESSING' ? 'Vérification du statut auprès du fournisseur...' : 'En attente de confirmation du paiement...'"></p>
                         </div>
 
-                        <div class="rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs overflow-hidden">
+                        <!-- SUCCESS : affichage minimal (le renouvellement SaaS est fait par le backend) -->
+                        <div class="flex flex-col items-center text-center py-4 space-y-2" x-show="paymentFlow.status === 'SUCCESS'">
+                            <div class="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
+                                <i class="fa-solid fa-check text-emerald-600 text-xl"></i>
+                            </div>
+                            <p class="text-sm font-bold text-emerald-600">Paiement réussi. Votre abonnement sera mis à jour.</p>
+                        </div>
+
+                        <!-- États terminaux non réussis : FAILED / CANCELLED / EXPIRED / REFUNDED -->
+                        <div class="flex flex-col items-center text-center py-4 space-y-2"
+                             x-show="['FAILED','CANCELLED','EXPIRED','REFUNDED'].includes(paymentFlow.status)">
+                            <div class="w-14 h-14 rounded-full flex items-center justify-center"
+                                 :class="paymentFlow.status === 'REFUNDED' ? 'bg-sky-50' : 'bg-rose-50'">
+                                <i class="fa-solid text-xl"
+                                   :class="{
+                                       'fa-xmark text-rose-600': paymentFlow.status === 'FAILED',
+                                       'fa-ban text-rose-600': paymentFlow.status === 'CANCELLED',
+                                       'fa-clock text-amber-600': paymentFlow.status === 'EXPIRED',
+                                       'fa-rotate-left text-sky-600': paymentFlow.status === 'REFUNDED'
+                                   }"></i>
+                            </div>
+                            <p class="text-sm font-bold text-slate-900" x-text="paymentStatusTitle(paymentFlow.status)"></p>
+                        </div>
+
+                        <!-- Détails de la transaction (cachés sur SUCCESS : affichage minimal) -->
+                        <div class="rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs overflow-hidden"
+                             x-show="paymentFlow.status !== 'SUCCESS'">
                             <div class="flex items-center justify-between px-3 py-2">
                                 <span class="text-slate-500">Référence de transaction</span>
-                                <span class="font-mono font-bold text-slate-900 text-[11px]" x-text="paymentCreated.transactionReference"></span>
+                                <span class="font-mono font-bold text-slate-900 text-[11px]" x-text="paymentFlow.txn.transactionReference"></span>
                             </div>
                             <div class="flex items-center justify-between px-3 py-2">
                                 <span class="text-slate-500">Fournisseur</span>
-                                <span class="font-bold text-slate-900" x-text="paymentProviderLabel(paymentCreated.provider)"></span>
+                                <span class="font-bold text-slate-900" x-text="paymentProviderLabel(paymentFlow.txn.provider)"></span>
                             </div>
                             <div class="flex items-center justify-between px-3 py-2">
                                 <span class="text-slate-500">Montant</span>
-                                <span class="font-bold text-slate-900" x-text="fmtPrice(paymentCreated.amount) + ' ' + (paymentCreated.currency || 'XOF')"></span>
+                                <span class="font-bold text-slate-900" x-text="fmtPrice(paymentFlow.txn.amount) + ' ' + (paymentFlow.txn.currency || 'XOF')"></span>
                             </div>
                             <div class="flex items-center justify-between px-3 py-2">
                                 <span class="text-slate-500">Statut</span>
-                                <span class="badge" :class="paymentStatusBadgeClass(paymentCreated.status)">
-                                    <span x-text="paymentCreated.status"></span>
+                                <span class="badge" :class="paymentStatusBadgeClass(paymentFlow.status)">
+                                    <span x-text="paymentFlow.status"></span>
                                 </span>
                             </div>
                         </div>
 
-                        <div class="flex justify-end pt-1">
+                        <!-- Erreur rencontrée pendant le suivi ou l'annulation -->
+                        <p x-show="paymentError" class="text-[11px] text-rose-600 flex items-start gap-1.5 rounded-lg bg-rose-50 border border-rose-200 p-2.5">
+                            <i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i><span x-text="paymentError"></span>
+                        </p>
+
+                        <!-- Actions -->
+                        <div class="flex justify-end space-x-2 pt-1">
+                            <!-- Annuler le paiement (PENDING / PROCESSING uniquement) -->
+                            <button x-show="['PENDING','PROCESSING'].includes(paymentFlow.status)"
+                                    @click="cancelPayment()" :disabled="paymentFlow.canceling"
+                                    class="btn btn-secondary">
+                                <i class="fa-solid fa-circle-notch fa-spin mr-1" x-show="paymentFlow.canceling"></i>
+                                <span x-text="paymentFlow.canceling ? 'Annulation...' : 'Annuler le paiement'"></span>
+                            </button>
+                            <!-- Réessayer (FAILED / CANCELLED / EXPIRED) : retour au choix du fournisseur -->
+                            <button x-show="['FAILED','CANCELLED','EXPIRED'].includes(paymentFlow.status)"
+                                    @click="retryPayment()" class="btn btn-secondary">
+                                <i class="fa-solid fa-rotate-right mr-1"></i> Réessayer
+                            </button>
                             <button @click="closePaymentModal()" class="btn btn-primary">
                                 <i class="fa-solid fa-check mr-1"></i> Fermer
                             </button>

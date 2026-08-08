@@ -84,13 +84,16 @@
                 publicPlansLoading: false,
                 publicPlansError: '',
                 // Parcours de paiement (préparation uniquement — activé dans une étape ultérieure)
-                paymentFlow: { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF' },
+                paymentFlow: { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF', txn: null, status: null, canceling: false },
                 // Modale d'initiation de paiement (Commit 2)
                 showPaymentModal: false,
                 paymentProvider: null,      // 'mock' | 'wave' | 'orange_money' | 'stripe' | null
                 paymentSubmitting: false,
                 paymentError: '',
                 paymentCreated: null,       // transaction renvoyée par POST /api/payments/create
+                // Suivi du paiement (Commit 3) : polling GET /api/payments/:id/check (~4 s)
+                pollTimer: null,
+                pollInFlight: false,
                 signupForm: { name: '', adminName: '', adminUsername: '', adminPassword: '', planCode: 'STARTER' },
                 signupError: '',
                 isSigningUp: false,
@@ -251,6 +254,12 @@
                 },
 
                 preparePaymentPlan(planCode) {
+                    if (!this.canManageFleet) return;
+                    // Protection : aucun changement de plan pendant un paiement en cours.
+                    if (this.paymentInProgress) {
+                        this.openPaymentModal(); // reprend le suivi du paiement actif
+                        return;
+                    }
                     const cur = this.clientSubscription && this.clientSubscription.plan;
                     const p = (this.publicPlans || []).find((x) => x.code === planCode);
                     const plan = p || cur || null;
@@ -272,6 +281,19 @@
 
                 openPaymentModal() {
                     if (!this.canManageFleet) return;
+                    // Réouverture pendant un paiement actif : on reprend le suivi
+                    // (et le polling) au lieu de repartir du choix du fournisseur.
+                    if (this.paymentFlow && this.paymentFlow.step === 'tracking') {
+                        if (this.paymentInProgress) {
+                            this.startPaymentPolling();
+                        }
+                        this.paymentProvider = null;
+                        this.paymentSubmitting = false;
+                        this.paymentError = '';
+                        this.paymentCreated = null;
+                        this.showPaymentModal = true;
+                        return;
+                    }
                     if (!this.paymentFlow || this.paymentFlow.step !== 'ready') {
                         const cur = this.clientSubscription && this.clientSubscription.plan;
                         if (cur) {
@@ -292,12 +314,15 @@
                 },
 
                 closePaymentModal() {
+                    // Nettoyage obligatoire : aucun timer ni polling ne doit survivre
+                    // à la fermeture. Le suivi (txn/status) est conservé pour pouvoir
+                    // reprendre proprement à la réouverture.
+                    this.stopPaymentPolling();
                     this.showPaymentModal = false;
                     this.paymentProvider = null;
                     this.paymentSubmitting = false;
                     this.paymentError = '';
                     this.paymentCreated = null;
-                    this.paymentFlow = { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF' };
                 },
 
                 resetPaymentFlow() {
@@ -333,6 +358,8 @@
                         SUCCESS: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
                         FAILED: 'bg-rose-500/15 text-rose-600 border-rose-500/30',
                         CANCELLED: 'bg-slate-500/15 text-slate-600 border-slate-500/30',
+                        EXPIRED: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
+                        REFUNDED: 'bg-sky-500/15 text-sky-600 border-sky-500/30',
                         CREATED: 'bg-slate-500/15 text-slate-600 border-slate-500/30',
                     };
                     return colors[status] || 'bg-slate-500/15 text-slate-600 border-slate-500/30';
@@ -367,11 +394,145 @@
                             })
                         });
                         this.paymentCreated = txn;
+                        // Entre en suivi automatique : statut initial + polling.
+                        this.paymentFlow.step = 'tracking';
+                        this.paymentFlow.txn = txn;
+                        this.paymentFlow.status = txn.status || 'PENDING';
+                        this.paymentFlow.canceling = false;
+                        this.startPaymentPolling();
                     } catch (e) {
                         this.paymentError = this.formatPaymentError(e);
                     } finally {
                         this.paymentSubmitting = false;
                     }
+                },
+
+                // ===== SUIVI DU PAIEMENT (Commit 3) : polling + états =====
+                // États terminaux : plus aucun tick de polling, plus aucun appel réseau.
+                get paymentTerminal() {
+                    const s = this.paymentFlow && this.paymentFlow.status;
+                    return ['SUCCESS', 'FAILED', 'CANCELLED', 'EXPIRED', 'REFUNDED'].indexOf(s) !== -1;
+                },
+
+                // Un paiement actif existe : en suivi, non terminal, avec une transaction.
+                get paymentInProgress() {
+                    const f = this.paymentFlow;
+                    return !!(f && f.step === 'tracking' && f.txn && f.txn.id && f.status && !this.paymentTerminal);
+                },
+
+                paymentStatusTitle(status) {
+                    const labels = {
+                        PENDING: 'Paiement en attente...',
+                        PROCESSING: 'Paiement en cours de traitement...',
+                        SUCCESS: 'Paiement réussi',
+                        FAILED: 'Paiement échoué',
+                        CANCELLED: 'Paiement annulé',
+                        EXPIRED: 'Paiement expiré',
+                        REFUNDED: 'Paiement remboursé',
+                    };
+                    return labels[status] || status;
+                },
+
+                // Démarre le polling toutes les ~4 s. Protégé contre le double
+                // timer et le double polling (pollTimer + pollInFlight).
+                startPaymentPolling() {
+                    if (this.pollTimer) return;
+                    const txn = this.paymentFlow && this.paymentFlow.txn;
+                    if (!txn || !txn.id) return;
+                    if (this.paymentTerminal) return;
+                    this.pollPaymentStatus(); // premier contrôle immédiat
+                    this.pollTimer = setInterval(() => this.pollPaymentStatus(), 4000);
+                },
+
+                stopPaymentPolling() {
+                    if (this.pollTimer) {
+                        clearInterval(this.pollTimer);
+                        this.pollTimer = null;
+                    }
+                },
+
+                async pollPaymentStatus() {
+                    if (!this.paymentInProgress) return;
+                    if (this.pollInFlight) return; // pas de chevauchement de requêtes
+                    const txnId = this.paymentFlow.txn.id;
+                    this.pollInFlight = true;
+                    try {
+                        const data = await this.apiFetch('/api/payments/' + txnId + '/check');
+                        this.applyPaymentStatus(data);
+                    } catch (e) {
+                        if (e && e.status === 409) {
+                            // Conflit de transition (ex : MOCK passé à PROCESSING par
+                            // webhook alors que checkPayment renvoie PENDING) : l'état
+                            // autoritaire est relu via le détail de la transaction.
+                            try {
+                                const detail = await this.apiFetch('/api/payments/' + txnId);
+                                this.applyPaymentStatus(detail);
+                            } catch (e2) {
+                                /* transitoire : on retentera au prochain tick */
+                            }
+                        } else if (e && (e.status === 401 || e.status === 403 || e.status === 404)) {
+                            // Erreur définitive : arrêt du suivi + message.
+                            this.stopPaymentPolling();
+                            this.paymentError = this.formatPaymentError(e);
+                        }
+                        // Erreurs transitoires (réseau / 5xx) : état conservé, prochain tick.
+                    } finally {
+                        this.pollInFlight = false;
+                    }
+                },
+
+                applyPaymentStatus(data) {
+                    if (!data || !data.id) return;
+                    this.paymentFlow.txn = data;
+                    this.paymentFlow.status = data.status || this.paymentFlow.status;
+                    if (this.paymentTerminal) {
+                        this.stopPaymentPolling(); // arrêt immédiat sur état terminal
+                    }
+                },
+
+                // Annulation demandée par l'utilisateur (PENDING / PROCESSING).
+                async cancelPayment() {
+                    if (!this.canManageFleet) return;
+                    if (!this.paymentInProgress || this.paymentFlow.canceling) return;
+                    this.paymentFlow.canceling = true;
+                    try {
+                        const data = await this.apiFetch('/api/payments/' + this.paymentFlow.txn.id + '/cancel', { method: 'POST' });
+                        this.applyPaymentStatus(data);
+                    } catch (e) {
+                        if (e && e.status === 409) {
+                            // Déjà terminal (webhook arrivé avant l'annulation) : relecture.
+                            try {
+                                const detail = await this.apiFetch('/api/payments/' + this.paymentFlow.txn.id);
+                                this.applyPaymentStatus(detail);
+                            } catch (e2) {
+                                this.paymentError = this.formatPaymentError(e);
+                            }
+                        } else {
+                            this.paymentError = this.formatPaymentError(e);
+                        }
+                    } finally {
+                        this.paymentFlow.canceling = false;
+                    }
+                },
+
+                // « Réessayer » après FAILED / CANCELLED / EXPIRED : retour au choix du
+                // fournisseur, sans créer automatiquement un nouveau paiement.
+                retryPayment() {
+                    if (!this.canManageFleet) return;
+                    this.stopPaymentPolling();
+                    const plan = this.paymentFlow && this.paymentFlow.planCode;
+                    const cur = this.clientSubscription && this.clientSubscription.plan;
+                    const p = (this.publicPlans || []).find((x) => x.code === plan);
+                    const target = p || cur;
+                    this.paymentFlow = {
+                        step: 'ready',
+                        planCode: target ? target.code : null,
+                        planName: target ? target.name : null,
+                        amount: target ? this.paymentPlanAmount(target.code) : null,
+                        currency: 'XOF',
+                    };
+                    this.paymentProvider = null;
+                    this.paymentError = '';
                 },
                 // ===== FIN ABONNEMENT : ESPACE CLIENT =====
 
