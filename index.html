@@ -2487,6 +2487,40 @@
                         </div>
                     </div>
 
+                    <!-- Anomalies carburant détectées (source officielle /api/fuel-logs/stats) -->
+                    <div class="card card-pad space-y-3">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i> Anomalies Détectées
+                            </h3>
+                            <span x-show="!fuelStatsLoading && fuelAnomalies.length > 0" class="badge" :class="fuelAnomalyBadgeClass" x-text="fuelAnomalies.length + ' anomalie(s)'"></span>
+                        </div>
+                        <div x-show="!fuelStatsLoading && fuelAnomalies.length === 0" class="text-xs text-slate-500 flex items-center gap-2 py-2">
+                            <i class="fa-solid fa-circle-check text-emerald-500"></i> Aucune anomalie détectée sur la période.
+                        </div>
+                        <div x-show="fuelStatsLoading" class="text-xs text-slate-400 py-2">
+                            <i class="fa-solid fa-spinner fa-spin mr-1"></i> Analyse des pleins...
+                        </div>
+                        <div class="space-y-2" x-show="fuelAnomalies.length > 0">
+                            <template x-for="an in fuelAnomalies" :key="an.id + '-' + an.type">
+                                <div class="card p-3 flex flex-col sm:flex-row justify-between gap-2 bg-slate-50/60 border-slate-200">
+                                    <div class="min-w-0">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="badge" :class="anomalySeverityMeta(an.severity).cls" x-text="anomalySeverityMeta(an.severity).label"></span>
+                                            <h4 class="font-bold text-xs text-slate-900 truncate" x-text="an.vehicle"></h4>
+                                            <span class="text-[10px] text-slate-400 font-mono" x-text="an.date"></span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-600 mt-1" x-text="an.reason"></p>
+                                    </div>
+                                    <div class="text-right sm:flex-shrink-0">
+                                        <p class="font-mono text-xs font-bold text-amber-600" x-text="an.value"></p>
+                                        <p class="text-[10px] text-slate-400" x-text="anomalyTypeLabel(an.type)"></p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
                     <!-- Filtre par véhicule (historique) + résumé de la période -->
                     <div class="card card-pad flex items-center gap-3 flex-wrap">
                         <label class="text-xs text-slate-600 font-semibold"><i class="fa-solid fa-filter mr-1 text-indigo-500"></i>Filtrer par véhicule :</label>

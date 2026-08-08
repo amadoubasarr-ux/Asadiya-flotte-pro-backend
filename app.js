@@ -952,6 +952,15 @@
                     return (this.fuelStats && Array.isArray(this.fuelStats.anomalies)) ? this.fuelStats.anomalies : [];
                 },
 
+                // Badge global des anomalies : rouge si une anomalie critique existe,
+                // ambre si au moins une moyenne, sinon gris (anomalies faibles seules).
+                get fuelAnomalyBadgeClass() {
+                    const list = this.fuelAnomalies;
+                    if (list.some(a => a.severity === 'ÉLEVÉE')) return 'badge-red';
+                    if (list.some(a => a.severity === 'MOYENNE')) return 'badge-amber';
+                    return 'badge-slate';
+                },
+
                 get fuelBudget() {
                     return (this.fuelStats && this.fuelStats.budget) ? this.fuelStats.budget : null;
                 },
