@@ -304,6 +304,36 @@ CREATE TABLE IF NOT EXISTS invoices (
 CREATE INDEX IF NOT EXISTS idx_invoices_organization     ON invoices(organization_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_status           ON invoices(status);
 CREATE INDEX IF NOT EXISTS idx_invoices_invoice_number   ON invoices(invoice_number);
+
+-- ============================================================
+-- Documents (module documentation) — une ligne = un document rattaché à un
+-- véhicule OU à un conducteur de l'organisation. Le fichier n'est jamais
+-- stocké : seules ses métadonnées (nom, chemin, type MIME, taille) sont
+-- conservées. Types : Assurance, Carte Grise, Contrôle Technique, Permis,
+-- Vignette, Autorisation, Autre. Le statut (OK / SOON / EXPIRED / UNKNOWN)
+-- est dérivé de la date d'expiration, jamais stocké.
+CREATE TABLE IF NOT EXISTS documents (
+    id              SERIAL PRIMARY KEY,
+    vehicle_id      INTEGER REFERENCES vehicles(id) ON DELETE CASCADE,
+    driver_id       INTEGER REFERENCES drivers(id) ON DELETE CASCADE,
+    document_type   TEXT NOT NULL,
+    document_number TEXT,
+    issue_date      DATE,
+    expiry_date     DATE,
+    notes           TEXT,
+    file_name       TEXT,
+    file_path       TEXT,
+    mime_type       TEXT,
+    file_size       INTEGER CHECK (file_size IS NULL OR file_size >= 0),
+    organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT documents_single_owner CHECK (num_nonnulls(vehicle_id, driver_id) = 1)
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_organization ON documents(organization_id);
+CREATE INDEX IF NOT EXISTS idx_documents_vehicle      ON documents(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_documents_driver       ON documents(driver_id);
+CREATE INDEX IF NOT EXISTS idx_documents_expiry       ON documents(expiry_date);
 `;
 
 // ============================================================

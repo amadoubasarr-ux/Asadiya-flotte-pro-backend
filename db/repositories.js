@@ -111,6 +111,19 @@ const FIELD_MAPS = {
         receiptNumber: 'receipt_number',
         notes: 'notes',
     },
+    documents: {
+        vehicleId: 'vehicle_id',
+        driverId: 'driver_id',
+        documentType: 'document_type',
+        documentNumber: 'document_number',
+        issueDate: 'issue_date',
+        expiryDate: 'expiry_date',
+        notes: 'notes',
+        fileName: 'file_name',
+        filePath: 'file_path',
+        mimeType: 'mime_type',
+        fileSize: 'file_size',
+    },
 };
 
 // Colonnes référençant d'autres tables métier (à vérifier qu'elles appartiennent
@@ -121,6 +134,7 @@ const CHILD_REFS = {
     accidents: ['vehicleId', 'driverId'],
     fuel_logs: ['vehicleId', 'driverId'],
     reservations: ['vehicleId', 'driverId'],
+    documents: ['vehicleId', 'driverId'],
 };
 
 /** Vérifie qu'une ligne appartient bien à l'organisation (lutte anti fuite inter-tenant). */
@@ -255,6 +269,43 @@ const maintenances = makeCrudRepo('maintenances', FIELD_MAPS.maintenances);
 const incidents = makeCrudRepo('incidents', FIELD_MAPS.incidents);
 const accidents = makeCrudRepo('accidents', FIELD_MAPS.accidents);
 const fuelLogs = makeCrudRepo('fuel_logs', FIELD_MAPS.fuelLogs);
+
+// ============================================================
+// Documents (module documentation)
+// ============================================================
+// CRUD cloisonné par organisation : la création / modification vérifie que
+// le véhicule ou le conducteur référencé appartient bien à l'organisation
+// (CHILD_REFS). La liste filtrée applique les filtres SQL (véhicule,
+// conducteur, type, recherche, plage d'expiration) ; le statut (dérivé de la
+// date d'expiration), le tri et la pagination sont calculés côté route.
+const documents = makeCrudRepo('documents', FIELD_MAPS.documents);
+
+documents.findAllByOrg = async function findAllByOrg(orgId, filters = {}) {
+    const { vehicleId, driverId, documentType, search, expiryFrom, expiryTo } = filters;
+    const conditions = ['organization_id = $1'];
+    const params = [orgId];
+    const param = (value) => {
+        params.push(value);
+        return `$${params.length}`;
+    };
+    if (vehicleId != null) conditions.push(`vehicle_id = ${param(vehicleId)}`);
+    if (driverId != null) conditions.push(`driver_id = ${param(driverId)}`);
+    if (documentType) conditions.push(`document_type = ${param(documentType)}`);
+    if (search) {
+        conditions.push(
+            `(document_number ILIKE ${param(`%${search}%`)} ` +
+            `OR notes ILIKE ${param(`%${search}%`)} ` +
+            `OR document_type ILIKE ${param(`%${search}%`)})`
+        );
+    }
+    if (expiryFrom) conditions.push(`expiry_date >= ${param(expiryFrom)}`);
+    if (expiryTo) conditions.push(`expiry_date <= ${param(expiryTo)}`);
+    const result = await query(
+        `SELECT * FROM documents WHERE ${conditions.join(' AND ')} ORDER BY id`,
+        params
+    );
+    return mapRows(result.rows);
+};
 
 // ============================================================
 // Budgets carburant (Phase 7.3) — un budget par organisation et par mois
@@ -624,6 +675,7 @@ module.exports = {
     incidents,
     accidents,
     fuelLogs,
+    documents,
     fuelBudgets,
     users,
     organizations,

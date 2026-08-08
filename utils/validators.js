@@ -224,6 +224,59 @@ function validateFuelLog(body, { partial = false } = {}) {
     return data;
 }
 
+// ===== Documents =====
+
+const DOCUMENT_KEYS = [
+    'vehicleId', 'driverId', 'documentType', 'documentNumber', 'issueDate',
+    'expiryDate', 'notes', 'fileName', 'filePath', 'mimeType', 'fileSize',
+];
+
+const DOCUMENT_TYPES = [
+    'Assurance', 'Carte Grise', 'Contrôle Technique', 'Permis',
+    'Vignette', 'Autorisation', 'Autre',
+];
+
+function validateDocument(body, { partial = false } = {}) {
+    const data = pick(body || {}, DOCUMENT_KEYS);
+    // Chaînes vides traitées comme absentes (rattachement "véhicule OU conducteur").
+    if (data.vehicleId === '') data.vehicleId = undefined;
+    if (data.driverId === '') data.driverId = undefined;
+
+    if (!partial) {
+        requireFields(data, ['documentType'], 'un document');
+        const hasVehicle = data.vehicleId !== undefined && data.vehicleId !== null;
+        const hasDriver = data.driverId !== undefined && data.driverId !== null;
+        if (!hasVehicle && !hasDriver) {
+            throw AppError.badRequest('Un document doit être rattaché à un véhicule OU à un conducteur.');
+        }
+        if (hasVehicle && hasDriver) {
+            throw AppError.badRequest('Un document ne peut pas être rattaché à la fois à un véhicule et à un conducteur.');
+        }
+    }
+    if (data.vehicleId !== undefined && data.vehicleId !== null) data.vehicleId = intValue(data.vehicleId, 'vehicleId', { min: 1 });
+    if (data.driverId !== undefined && data.driverId !== null) data.driverId = intValue(data.driverId, 'driverId', { min: 1 });
+    if (data.documentType !== undefined) {
+        data.documentType = textValue(data.documentType, 'documentType', { max: 100 });
+        if (!DOCUMENT_TYPES.includes(data.documentType)) {
+            throw AppError.badRequest(`Type de document invalide (attendu : ${DOCUMENT_TYPES.join(', ')}).`);
+        }
+    }
+    if (data.documentNumber !== undefined) data.documentNumber = textValue(data.documentNumber, 'documentNumber', { max: 100 });
+    if (data.issueDate !== undefined) data.issueDate = dateValue(data.issueDate, 'issueDate');
+    if (data.expiryDate !== undefined) data.expiryDate = dateValue(data.expiryDate, 'expiryDate');
+    if (data.notes !== undefined) data.notes = textValue(data.notes, 'notes', { max: 4000 });
+    if (data.fileName !== undefined) data.fileName = textValue(data.fileName, 'fileName', { max: 255 });
+    if (data.filePath !== undefined) data.filePath = textValue(data.filePath, 'filePath', { max: 2000 });
+    if (data.mimeType !== undefined) data.mimeType = textValue(data.mimeType, 'mimeType', { max: 100 });
+    if (data.fileSize !== undefined) data.fileSize = intValue(data.fileSize, 'fileSize', { min: 0 });
+
+    // Cohérence des dates : la date d'émission précède toujours l'expiration.
+    if (data.issueDate && data.expiryDate && String(data.issueDate) > String(data.expiryDate)) {
+        throw AppError.badRequest('La date d\'émission (issueDate) ne peut pas être postérieure à la date d\'expiration (expiryDate).');
+    }
+    return data;
+}
+
 // ===== Réservations =====
 
 const RESERVATION_KEYS = ['vehicleId', 'vehicle', 'driverId', 'driver', 'start', 'end', 'purpose', 'status'];
@@ -308,8 +361,10 @@ module.exports = {
     validateIncident,
     validateAccident,
     validateFuelLog,
+    validateDocument,
     validateReservation,
     validateUser,
     validateOrganization,
     VALID_ROLES,
+    DOCUMENT_TYPES,
 };

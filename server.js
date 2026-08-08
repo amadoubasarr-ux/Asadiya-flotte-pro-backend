@@ -171,6 +171,7 @@ app.use('/api/maintenances', requireAuth, subscriptionGuard, require('./routes/m
 app.use('/api/incidents', requireAuth, subscriptionGuard, require('./routes/incidents'));
 app.use('/api/accidents', requireAuth, subscriptionGuard, require('./routes/accidents'));
 app.use('/api/fuel-logs', requireAuth, subscriptionGuard, require('./routes/fuel'));
+app.use('/api/documents', requireAuth, subscriptionGuard, require('./routes/documents'));
 app.use('/api/users', requireAuth, subscriptionGuard, require('./routes/users'));
 app.use('/api/organizations', require('./routes/organizations'));
 app.use('/api/plans', require('./routes/plans'));

@@ -136,8 +136,17 @@ function oilDelayKm(v) {
 
 function documentStatus(dateStr) {
     if (!dateStr) return { status: 'UNKNOWN', daysLeft: null };
-    const expiry = toDate(dateStr);
-    if (!expiry) return { status: 'UNKNOWN', daysLeft: null };
+    // Les dates d'expiration sont des DATE 'AAAA-MM-JJ' (sans heure ni fuseau).
+    // Le passage par toDate() corromprait le jour final en suffixe de fuseau
+    // horaire ('2027-09-12' -> '2027-09-12:00' -> Date invalide) : on parse
+    // donc explicitement les dates nues à minuit UTC.
+    let expiry;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr))) {
+        expiry = new Date(`${dateStr}T00:00:00Z`);
+    } else {
+        expiry = toDate(dateStr);
+    }
+    if (!expiry || Number.isNaN(expiry.getTime())) return { status: 'UNKNOWN', daysLeft: null };
     const daysLeft = Math.round((expiry - today()) / MS_DAY);
     if (daysLeft < 0) return { status: 'EXPIRED', daysLeft };
     if (daysLeft <= 30) return { status: 'SOON', daysLeft };
@@ -1132,6 +1141,7 @@ module.exports = {
     getVehicleAnalytics,
     getDriverAnalytics,
     getSuperAdminStats,
+    documentStatus,
     normalizePeriod,
     PERIODS,
 };
