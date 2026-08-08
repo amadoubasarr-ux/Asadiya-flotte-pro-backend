@@ -329,12 +329,12 @@
                     this.closePaymentModal();
                 },
 
-                // Fournisseurs sélectionnables dans la modale. 'mock' (simulateur) et
-                // Orange Money sont disponibles ; Wave / Stripe arriveront ensuite.
+                // Fournisseurs sélectionnables dans la modale. 'mock' (simulateur),
+                // Orange Money et Wave sont disponibles ; Stripe arrivera ensuite.
                 // L'état réel (désactivé / non configuré) est tranché par le backend
                 // (403 / 503 / 501) au moment de POST /api/payments/create.
                 paymentMethodAvailable(provider) {
-                    return ['mock', 'orange_money'].indexOf(provider) !== -1;
+                    return ['mock', 'orange_money', 'wave'].indexOf(provider) !== -1;
                 },
 
                 selectPaymentProvider(provider) {
@@ -378,6 +378,19 @@
                     }
                 },
 
+                // Textes de la notice « paiement en cours » (page hébergée ouverte) :
+                // libellés dédiés à Wave (Commit 4B), génériques sinon (Orange Money).
+                paymentNoticeText() {
+                    return this.paymentProvider === 'wave'
+                        ? 'La page Wave a été ouverte dans un nouvel onglet. Finalisez votre paiement puis revenez ici.'
+                        : 'Une page de paiement sécurisée s\'est ouverte dans un nouvel onglet. Le succès sera confirmé par le fournisseur.';
+                },
+
+                // Libellé du bouton de réouverture de la page de paiement hébergée.
+                paymentReopenLabel() {
+                    return this.paymentProvider === 'wave' ? 'Rouvrir Wave' : 'Rouvrir la page de paiement';
+                },
+
                 paymentStatusBadgeClass(status) {
                     const colors = {
                         PENDING: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
@@ -394,6 +407,15 @@
 
                 formatPaymentError(e) {
                     const msg = (e && e.message) ? e.message : 'Erreur inattendue.';
+                    // Libellés dédiés au parcours Wave (Commit 4B), indépendants du
+                    // texte renvoyé par le backend. Orange Money / mock conservent les
+                    // messages génériques.
+                    if (this.paymentProvider === 'wave') {
+                        if (e && e.code === 'no_payment_url') return 'Impossible d\'obtenir le lien de paiement Wave. Veuillez réessayer.';
+                        if (e && e.status === 403) return 'Wave est actuellement indisponible.';
+                        if (e && e.status === 503) return 'Wave n\'est pas encore configuré sur le serveur.';
+                        if (e && e.status === 501) return 'Le paiement Wave n\'est pas encore disponible.';
+                    }
                     if (e && e.code === 'no_payment_url') return 'Le fournisseur n\'a pas fourni d\'URL de paiement. Réessayez ou contactez le support.';
                     if (e && e.networkError) return 'Erreur réseau : impossible de contacter le serveur. Vérifiez que le backend est démarré.';
                     if (e && e.status === 400) return 'Requête invalide : ' + msg;
@@ -428,7 +450,7 @@
                         this.paymentFlow.status = txn.status || 'PENDING';
                         this.paymentFlow.canceling = false;
                         this.paymentFlow.launchUrl = null;
-                        // Provider réel (Orange Money) : page de paiement hébergée.
+                        // Provider réel (Orange Money / Wave) : page de paiement hébergée.
                         // La redirection n'est JAMAIS un succès : seul le backend
                         // confirme via /check ou webhook.
                         if (this.isRealProvider(this.paymentProvider)) {
@@ -437,10 +459,14 @@
                                 this.paymentFlow.launchUrl = launchUrl;
                                 this.openPaymentPage(launchUrl);
                             } else {
+                                // Aucune URL de paiement : la transaction ne peut pas
+                                // être poursuivie (ex: session Wave sans wave_launch_url).
+                                // Erreur claire et AUCUN polling lancé.
                                 this.paymentError = this.formatPaymentError({
                                     code: 'no_payment_url',
                                     message: 'URL de paiement absente.',
                                 });
+                                return;
                             }
                         }
                         this.startPaymentPolling();
