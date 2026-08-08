@@ -2416,49 +2416,78 @@
                 <!-- VUE : GESTION DES CARBURANTS               -->
                 <!-- ========================================== -->
                 <div x-show="mainTab === 'fuel'" class="space-y-6" x-cloak>
-                    <div class="flex justify-between items-center animate-fade-up">
+                    <div class="flex justify-between items-center animate-fade-up flex-wrap gap-2">
                         <div>
                             <h2 class="text-xl font-bold text-slate-900">Gestion des Carburants</h2>
                             <p class="text-xs text-slate-500">Suivez les pleins, les dépenses et la consommation de chaque véhicule.</p>
                         </div>
-                        <button @click="openFuelModal()" class="btn btn-success">
-                            + Ajouter un Plein
-                        </button>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <select x-model="fuelStatsPeriod" class="input !w-auto" title="Période des statistiques carburant">
+                                <option value="month">Ce mois</option>
+                                <option value="prevMonth">Mois précédent</option>
+                                <option value="week">Cette semaine</option>
+                                <option value="year">Cette année</option>
+                                <option value="today">Aujourd'hui</option>
+                            </select>
+                            <button @click="openFuelModal()" class="btn btn-success">
+                                + Ajouter un Plein
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Statistiques carburant -->
+                    <!-- Statistiques carburant (données officielles /api/fuel-logs/stats) -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div class="card card-hover card-pad">
                             <div class="flex items-center justify-between">
-                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Dépense Totale</p>
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Dépense Sur La Période</p>
                                 <i class="fa-solid fa-money-bill-wave text-indigo-500"></i>
                             </div>
-                            <p class="text-lg font-bold text-slate-900 font-mono mt-1" x-text="totalFuelCost.toLocaleString() + ' FCFA'"></p>
+                            <p class="text-lg font-bold text-slate-900 font-mono mt-1" x-text="kpiText('cost', ' FCFA')"></p>
+                            <p class="text-[10px] mt-0.5 font-semibold flex items-center gap-1" :class="kpiDeltaClass('cost')" :title="kpiDeltaTitle('cost')">
+                                <i class="fa-solid" :class="kpiPct('cost') > 0 ? 'fa-arrow-trend-up' : (kpiPct('cost') < 0 ? 'fa-arrow-trend-down' : 'fa-minus')"></i>
+                                <span x-text="kpiDeltaText('cost')"></span>
+                                <span class="text-slate-400 font-normal" x-show="kpiPct('cost') != null">vs période préc.</span>
+                            </p>
                         </div>
                         <div class="card card-hover card-pad">
                             <div class="flex items-center justify-between">
-                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Volume Total</p>
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Volume Sur La Période</p>
                                 <i class="fa-solid fa-gas-pump text-emerald-500"></i>
                             </div>
-                            <p class="text-lg font-bold text-slate-900 font-mono mt-1" x-text="totalFuelLiters.toLocaleString() + ' L'"></p>
+                            <p class="text-lg font-bold text-slate-900 font-mono mt-1" x-text="kpiText('liters', ' L', 1)"></p>
+                            <p class="text-[10px] mt-0.5 font-semibold flex items-center gap-1" :class="kpiDeltaClass('liters')" :title="kpiDeltaTitle('liters')">
+                                <i class="fa-solid" :class="kpiPct('liters') > 0 ? 'fa-arrow-trend-up' : (kpiPct('liters') < 0 ? 'fa-arrow-trend-down' : 'fa-minus')"></i>
+                                <span x-text="kpiDeltaText('liters')"></span>
+                                <span class="text-slate-400 font-normal" x-show="kpiPct('liters') != null">vs période préc.</span>
+                            </p>
                         </div>
                         <div class="card card-hover card-pad">
                             <div class="flex items-center justify-between">
                                 <p class="text-[10px] text-slate-500 font-semibold uppercase">Prix Moyen / Litre</p>
                                 <i class="fa-solid fa-tags text-amber-500"></i>
                             </div>
-                            <p class="text-lg font-bold text-emerald-600 font-mono mt-1" x-text="avgFuelPricePerLiter.toLocaleString() + ' FCFA'"></p>
+                            <p class="text-lg font-bold text-slate-900 font-mono mt-1" x-text="kpiText('avgPricePerLiter', ' FCFA')"></p>
+                            <p class="text-[10px] mt-0.5 font-semibold flex items-center gap-1" :class="kpiDeltaClass('avgPricePerLiter')" :title="kpiDeltaTitle('avgPricePerLiter')">
+                                <i class="fa-solid" :class="kpiPct('avgPricePerLiter') > 0 ? 'fa-arrow-trend-up' : (kpiPct('avgPricePerLiter') < 0 ? 'fa-arrow-trend-down' : 'fa-minus')"></i>
+                                <span x-text="kpiDeltaText('avgPricePerLiter')"></span>
+                                <span class="text-slate-400 font-normal" x-show="kpiPct('avgPricePerLiter') != null">vs période préc.</span>
+                            </p>
                         </div>
                         <div class="card card-hover card-pad">
                             <div class="flex items-center justify-between">
-                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Nombre de Pleins</p>
-                                <i class="fa-solid fa-circle-check text-blue-500"></i>
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Consommation Moyenne</p>
+                                <i class="fa-solid fa-gauge-high text-blue-500"></i>
                             </div>
-                            <p class="text-lg font-bold text-slate-900 font-mono mt-1" x-text="fuelLogs.length"></p>
+                            <p class="text-lg font-bold text-slate-900 font-mono mt-1" x-text="kpiText('avgConsumption', ' L/100km', 1)"></p>
+                            <p class="text-[10px] mt-0.5 font-semibold flex items-center gap-1" :class="kpiDeltaClass('avgConsumption')" :title="kpiDeltaTitle('avgConsumption')">
+                                <i class="fa-solid" :class="kpiPct('avgConsumption') > 0 ? 'fa-arrow-trend-up' : (kpiPct('avgConsumption') < 0 ? 'fa-arrow-trend-down' : 'fa-minus')"></i>
+                                <span x-text="kpiDeltaText('avgConsumption')"></span>
+                                <span class="text-slate-400 font-normal" x-show="kpiPct('avgConsumption') != null">vs période préc.</span>
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Filtre par véhicule -->
+                    <!-- Filtre par véhicule (historique) + résumé de la période -->
                     <div class="card card-pad flex items-center gap-3 flex-wrap">
                         <label class="text-xs text-slate-600 font-semibold"><i class="fa-solid fa-filter mr-1 text-indigo-500"></i>Filtrer par véhicule :</label>
                         <select x-model="fuelFilterVehicle" class="input !w-auto">
@@ -2467,6 +2496,9 @@
                                 <option :value="name" x-text="name"></option>
                             </template>
                         </select>
+                        <span x-show="fuelStatsLoading" class="ml-auto text-[11px] text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Mise à jour...</span>
+                        <span x-show="!fuelStatsLoading && fuelStats" class="ml-auto text-[11px] text-slate-500"><i class="fa-solid fa-chart-line mr-1 text-indigo-500"></i><span x-text="fuelStatsPeriodSummary"></span></span>
+                        <span x-show="fuelStatsError" class="ml-auto text-[11px] text-rose-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i><span x-text="fuelStatsError"></span></span>
                     </div>
 
                     <!-- Historique des pleins -->

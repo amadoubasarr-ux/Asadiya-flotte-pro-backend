@@ -517,6 +517,21 @@
                 fuelFilterVehicle: 'ALL',
                 newFuelLog: { vehicleId: '', date: '', liters: '', cost: '', mileage: '' },
 
+                // Analytics carburant (Phase 7.3) — données officielles /api/fuel-logs/stats
+                fuelStats: null,             // KPI + anomalies + budget pour l'onglet Carburant
+                fuelStatsPeriod: 'month',    // today | week | month | prevMonth | year
+                fuelStatsLoading: false,
+                fuelStatsError: '',
+                dashboardFuelStats: null,    // mêmes stats, période alignée sur dashboardPeriod (graphiques)
+                dashboardFuelStatsLoading: false,
+
+                // Budget carburant mensuel
+                showFuelBudgetModal: false,
+                editingFuelBudgetId: null,
+                newFuelBudget: { month: '', amount: '' },
+                fuelBudgetSaving: false,
+                fuelBudgetError: '',
+
                 // --- ÉTAT ET LOGIQUE DU LECTEUR VIDÉO ---
                 videoTab: 'player', // 'player', 'script'
                 isPlaying: false,
@@ -881,6 +896,106 @@
                     return ((last.liters / distance) * 100).toFixed(1);
                 },
 
+                // ===== ANALYTICS CARBURANT (données officielles /api/fuel-logs/stats) =====
+
+                // Valeur d'un KPI de la période courante (null tant que pas chargé).
+                kpiValue(key) {
+                    const k = this.fuelStats && this.fuelStats.kpi;
+                    return (k && k[key]) ? k[key].value : null;
+                },
+
+                // Variation (%) du KPI vs période précédente (null = non calculable).
+                kpiPct(key) {
+                    const k = this.fuelStats && this.fuelStats.kpi;
+                    return (k && k[key]) ? k[key].pct : null;
+                },
+
+                // Formatage affichage d'un KPI : valeur + suffixe, ou '—'.
+                kpiText(key, suffix, decimals = 0) {
+                    const v = this.kpiValue(key);
+                    if (v == null) return '—';
+                    return v.toLocaleString('fr-FR', { maximumFractionDigits: decimals }) + (suffix || '');
+                },
+
+                // Variation en pourcentage (+/-), ou '—'.
+                kpiDeltaText(key) {
+                    const pct = this.kpiPct(key);
+                    if (pct == null) return '—';
+                    return (pct > 0 ? '+' : '') + pct.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' %';
+                },
+
+                // Couleur de la variation : une hausse de coût / prix / conso / coût/km
+                // est pénalisante (rouge), une baisse positive (vert). Les autres
+                // indicateurs (volume, nombre de pleins) restent neutres (indigo).
+                kpiDeltaClass(key) {
+                    const pct = this.kpiPct(key);
+                    if (pct == null || pct === 0) return 'text-slate-400';
+                    const penalisant = ['cost', 'avgPricePerLiter', 'avgConsumption', 'costPerKm'];
+                    if (penalisant.indexOf(key) !== -1) return pct > 0 ? 'text-rose-600' : 'text-emerald-600';
+                    return 'text-indigo-600';
+                },
+
+                kpiDeltaTitle(key) {
+                    const pct = this.kpiPct(key);
+                    return pct == null ? 'Période précédente vide : aucune comparaison' : 'Variation vs période précédente';
+                },
+
+                // Résumé compact : nombre de pleins / véhicules sur la période choisie.
+                get fuelStatsPeriodSummary() {
+                    if (!this.fuelStats || !this.fuelStats.kpi || !this.fuelStats.period) return '';
+                    const n = this.fuelStats.kpi.count ? this.fuelStats.kpi.count.value : 0;
+                    const v = this.fuelStats.kpi.vehiclesFed ? this.fuelStats.kpi.vehiclesFed.value : 0;
+                    return n + ' plein(s) · ' + v + ' véhicule(s) · ' + this.fuelStats.period.label;
+                },
+
+                get fuelAnomalies() {
+                    return (this.fuelStats && Array.isArray(this.fuelStats.anomalies)) ? this.fuelStats.anomalies : [];
+                },
+
+                get fuelBudget() {
+                    return (this.fuelStats && this.fuelStats.budget) ? this.fuelStats.budget : null;
+                },
+
+                get fuelBudgetList() {
+                    return (this.fuelStats && Array.isArray(this.fuelStats.budgetList)) ? this.fuelStats.budgetList : [];
+                },
+
+                // Anomalies : badge de sévérité (style badges existants de la console).
+                anomalySeverityMeta(severity) {
+                    const map = {
+                        'ÉLEVÉE': { cls: 'badge-red', label: 'Critique' },
+                        'MOYENNE': { cls: 'badge-amber', label: 'Moyenne' },
+                        'FAIBLE': { cls: 'badge-slate', label: 'Faible' }
+                    };
+                    return map[severity] || { cls: 'badge-slate', label: severity || '—' };
+                },
+
+                anomalyTypeLabel(type) {
+                    const map = {
+                        high_consumption: 'Consommation',
+                        mileage_regression: 'Kilométrage',
+                        impossible_consumption: 'Kilométrage',
+                        mileage_gap: 'Kilométrage',
+                        unusual_quantity: 'Volume',
+                        abnormal_price: 'Prix',
+                        high_cost_per_km: 'Coût/km',
+                        close_fills: 'Pleins rapprochés'
+                    };
+                    return map[type] || 'Autre';
+                },
+
+                // Total dépensé sur la période (source officielle /stats).
+                get dashboardFuelTotalCost() {
+                    const ch = this.dashboardFuelStats && this.dashboardFuelStats.charts && this.dashboardFuelStats.charts.costByMonth;
+                    if (ch && Array.isArray(ch.data)) return ch.data.reduce((s, v) => s + (Number(v) || 0), 0);
+                    const local = this.fuelExpensesByMonth;
+                    return (Array.isArray(local.data) ? local.data : []).reduce((s, v) => s + (Number(v) || 0), 0);
+                },
+
+                get dashboardFuelTotalText() {
+                    return Math.round(this.dashboardFuelTotalCost).toLocaleString('fr-FR') + ' FCFA';
+                },
+
                 async initApp() {
                     this.$watch('mainTab', (tab) => {
                         if (tab === 'dashboard') {
@@ -897,6 +1012,11 @@
                         if (this.mainTab === 'dashboard') {
                             this.initCharts();
                         }
+                    });
+
+                    // Période des statistiques carburant (onglet Carburant)
+                    this.$watch('fuelStatsPeriod', () => {
+                        this.loadFuelStats();
                     });
 
                     // Charge les offres publiques pour la page tarifs (page landing).
@@ -966,6 +1086,8 @@
                         this.incidents = incidents || [];
                         this.accidents = accidents || [];
                         this.fuelLogs = fuelLogs || [];
+                        this.loadFuelStats();
+                        this.loadDashboardFuelStats();
                         console.log('[CHART-DIAG] loadAllData (reponses API)', {
                             vehicles: { count: vehicles.length, premier: vehicles[0] ? { status: vehicles[0].status, mileage: vehicles[0].mileage } : null },
                             drivers: { count: drivers.length },
@@ -1011,6 +1133,55 @@
                     if (!confirm('Recharger les données depuis le serveur ? Toute modification locale non enregistrée sera perdue.')) return;
                     this.loadAllData();
                 },
+
+                // ===== STATISTIQUES CARBURANT (source officielle /api/fuel-logs/stats) =====
+
+                // Charge les stats de l'onglet Carburant pour la période choisie.
+                async loadFuelStats() {
+                    if (this.isSuperAdmin) return;
+                    this.fuelStatsLoading = true;
+                    this.fuelStatsError = '';
+                    try {
+                        this.fuelStats = await this.apiFetch('/api/fuel-logs/stats?period=' + encodeURIComponent(this.fuelStatsPeriod));
+                    } catch (e) {
+                        if (e && e.status === 403) return; // compte sans organisation (ex. SUPERADMIN)
+                        this.fuelStatsError = (e && e.message) || 'Impossible de charger les statistiques carburant.';
+                    } finally {
+                        this.fuelStatsLoading = false;
+                    }
+                },
+
+                // Période alignée sur dashboardPeriod (ALL/MONTH/QUARTER/YEAR) pour les
+                // graphiques du tableau de bord. Le backend gère today/week/month/prevMonth/year/custom.
+                dashboardStatsQuery() {
+                    const now = new Date();
+                    const pad = n => String(n).padStart(2, '0');
+                    const fmt = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+                    const today = fmt(now);
+                    if (this.dashboardPeriod === 'MONTH') return 'period=month';
+                    if (this.dashboardPeriod === 'YEAR') return 'period=year';
+                    if (this.dashboardPeriod === 'QUARTER') {
+                        const q = Math.floor(now.getMonth() / 3);
+                        return 'period=custom&from=' + now.getFullYear() + '-' + pad(q * 3 + 1) + '-01&to=' + today;
+                    }
+                    return 'period=custom&from=2000-01-01&to=' + today; // Toutes les périodes
+                },
+
+                // Charge les stats alignées sur la période du tableau de bord (graphiques).
+                async loadDashboardFuelStats() {
+                    if (this.isSuperAdmin) return;
+                    this.dashboardFuelStatsLoading = true;
+                    try {
+                        this.dashboardFuelStats = await this.apiFetch('/api/fuel-logs/stats?' + this.dashboardStatsQuery());
+                    } catch (e) {
+                        // On conserve l'ancien jeu de données ; les graphiques retombent
+                        // sur l'agrégation locale en attendant le prochain chargement.
+                    } finally {
+                        this.dashboardFuelStatsLoading = false;
+                    }
+                },
+                // ===== FIN STATISTIQUES CARBURANT =====
+
                 // ===== FIN CONNEXION À L'API =====
 
                 // Garantit que Chart.js est chargé avant de créer les graphiques.
@@ -1680,6 +1851,7 @@
                         }
 
                         this.showFuelModal = false;
+                        await Promise.all([this.loadFuelStats(), this.loadDashboardFuelStats()]);
                         if (this.mainTab === 'dashboard') this.initCharts();
                     } catch (e) {
                         alert('Erreur : ' + (e.message || 'impossible d\'enregistrer le plein.'));
@@ -1691,6 +1863,7 @@
                     try {
                         await this.apiFetch('/api/fuel-logs/' + id, { method: 'DELETE' });
                         this.fuelLogs = this.fuelLogs.filter(f => f.id !== id);
+                        await Promise.all([this.loadFuelStats(), this.loadDashboardFuelStats()]);
                         if (this.mainTab === 'dashboard') this.initCharts();
                     } catch (e) {
                         alert('Erreur : ' + (e.message || 'suppression impossible.'));
