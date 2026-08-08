@@ -84,7 +84,7 @@
                 publicPlansLoading: false,
                 publicPlansError: '',
                 // Parcours de paiement (préparation uniquement — activé dans une étape ultérieure)
-                paymentFlow: { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF', txn: null, status: null, canceling: false },
+                paymentFlow: { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF', txn: null, status: null, canceling: false, launchUrl: null },
                 // Modale d'initiation de paiement (Commit 2)
                 showPaymentModal: false,
                 paymentProvider: null,      // 'mock' | 'wave' | 'orange_money' | 'stripe' | null
@@ -329,10 +329,12 @@
                     this.closePaymentModal();
                 },
 
-                // Seul le simulateur local 'mock' est utilisable à cette étape.
-                // Wave / Orange Money / Stripe : affichés mais « disponibles prochainement ».
+                // Fournisseurs sélectionnables dans la modale. 'mock' (simulateur) et
+                // Orange Money sont disponibles ; Wave / Stripe arriveront ensuite.
+                // L'état réel (désactivé / non configuré) est tranché par le backend
+                // (403 / 503 / 501) au moment de POST /api/payments/create.
                 paymentMethodAvailable(provider) {
-                    return provider === 'mock';
+                    return ['mock', 'orange_money'].indexOf(provider) !== -1;
                 },
 
                 selectPaymentProvider(provider) {
@@ -351,6 +353,31 @@
                     return labels[provider] || provider;
                 },
 
+                // Fournisseur réel (page de paiement hébergée) vs simulateur 'mock'.
+                isRealProvider(provider) {
+                    return !!provider && provider !== 'mock';
+                },
+
+                // URL de paiement hébergée renvoyée par le backend dans
+                // providerResponse (orange_money -> paymentUrl ; wave -> waveLaunchUrl).
+                paymentLaunchUrl(txn) {
+                    const pr = (txn && txn.providerResponse) || {};
+                    return pr.paymentUrl || pr.waveLaunchUrl || null;
+                },
+
+                // Ouvre la page de paiement hébergée dans un nouvel onglet (ne quitte
+                // pas l'application : le polling continue). Si la fenêtre est bloquée,
+                // on redirige l'onglet courant (successUrl ramènera l'utilisateur).
+                openPaymentPage(url) {
+                    if (!url) return;
+                    try {
+                        const win = window.open(url, '_blank', 'noopener,noreferrer');
+                        if (!win) window.location.assign(url);
+                    } catch (e) {
+                        window.location.assign(url);
+                    }
+                },
+
                 paymentStatusBadgeClass(status) {
                     const colors = {
                         PENDING: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
@@ -367,6 +394,7 @@
 
                 formatPaymentError(e) {
                     const msg = (e && e.message) ? e.message : 'Erreur inattendue.';
+                    if (e && e.code === 'no_payment_url') return 'Le fournisseur n\'a pas fourni d\'URL de paiement. Réessayez ou contactez le support.';
                     if (e && e.networkError) return 'Erreur réseau : impossible de contacter le serveur. Vérifiez que le backend est démarré.';
                     if (e && e.status === 400) return 'Requête invalide : ' + msg;
                     if (e && e.status === 403) return msg;
@@ -399,6 +427,22 @@
                         this.paymentFlow.txn = txn;
                         this.paymentFlow.status = txn.status || 'PENDING';
                         this.paymentFlow.canceling = false;
+                        this.paymentFlow.launchUrl = null;
+                        // Provider réel (Orange Money) : page de paiement hébergée.
+                        // La redirection n'est JAMAIS un succès : seul le backend
+                        // confirme via /check ou webhook.
+                        if (this.isRealProvider(this.paymentProvider)) {
+                            const launchUrl = this.paymentLaunchUrl(txn);
+                            if (launchUrl) {
+                                this.paymentFlow.launchUrl = launchUrl;
+                                this.openPaymentPage(launchUrl);
+                            } else {
+                                this.paymentError = this.formatPaymentError({
+                                    code: 'no_payment_url',
+                                    message: 'URL de paiement absente.',
+                                });
+                            }
+                        }
                         this.startPaymentPolling();
                     } catch (e) {
                         this.paymentError = this.formatPaymentError(e);
@@ -530,6 +574,7 @@
                         planName: target ? target.name : null,
                         amount: target ? this.paymentPlanAmount(target.code) : null,
                         currency: 'XOF',
+                        launchUrl: null,
                     };
                     this.paymentProvider = null;
                     this.paymentError = '';

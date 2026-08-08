@@ -3621,7 +3621,7 @@
             </div>
         </div>
 
-        <!-- MODALE : PAIEMENT DE L'ABONNEMENT (initiation + suivi — Commit 3) -->
+        <!-- MODALE : PAIEMENT DE L'ABONNEMENT (initiation + suivi — Commit 4A : Orange Money) -->
         <div x-show="showPaymentModal" class="modal-backdrop" x-cloak>
             <div class="modal-card p-6 space-y-4">
                 <div class="flex items-center justify-between">
@@ -3660,15 +3660,15 @@
                         <div>
                             <p class="label">Moyen de paiement</p>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <!-- Orange Money -->
+                                <!-- Orange Money (mobile money Sénégal — page de paiement hébergée) -->
                                 <button type="button" :disabled="!paymentMethodAvailable('orange_money')"
                                         @click="selectPaymentProvider('orange_money')"
                                         :class="paymentProvider === 'orange_money' ? 'ring-2 ring-orange-500 border-orange-500' : 'border-slate-200'"
-                                        class="rounded-xl border bg-white p-3 text-left transition flex items-center gap-3 opacity-70 cursor-not-allowed">
+                                        class="rounded-xl border bg-white p-3 text-left transition flex items-center gap-3">
                                     <span class="w-8 h-8 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-phone text-sm"></i></span>
                                     <span class="min-w-0">
                                         <span class="block text-xs font-bold text-slate-900">Orange Money</span>
-                                        <span class="block text-[10px] text-slate-500">Disponible prochainement</span>
+                                        <span class="block text-[10px] text-slate-500">Paiement mobile money (page sécurisée)</span>
                                     </span>
                                 </button>
                                 <!-- Wave -->
@@ -3736,6 +3736,20 @@
                             <p class="text-sm font-bold text-slate-900" x-text="paymentStatusTitle(paymentFlow.status)"></p>
                             <p class="text-xs text-slate-500"
                                x-text="paymentFlow.status === 'PROCESSING' ? 'Vérification du statut auprès du fournisseur...' : 'En attente de confirmation du paiement...'"></p>
+                        </div>
+
+                        <!-- Page de paiement hébergée lancée chez le fournisseur (Orange Money) -->
+                        <div x-show="paymentFlow.launchUrl && ['PENDING','PROCESSING'].includes(paymentFlow.status)"
+                             class="rounded-xl bg-indigo-50 border border-indigo-200 p-3 flex items-start gap-2 text-[11px]">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-indigo-500 mt-0.5 flex-shrink-0"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-bold text-slate-900">Paiement <span x-text="paymentProviderLabel(paymentFlow.txn.provider)"></span> en cours</p>
+                                <p class="text-slate-600 mt-0.5">Une page de paiement sécurisée s'est ouverte dans un nouvel onglet. Le succès sera confirmé par le fournisseur.</p>
+                                <button @click="openPaymentPage(paymentFlow.launchUrl)"
+                                        class="mt-1.5 inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-indigo-700 transition">
+                                    <i class="fa-solid fa-rotate-right"></i> Rouvrir la page de paiement
+                                </button>
+                            </div>
                         </div>
 
                         <!-- SUCCESS : affichage minimal (le renouvellement SaaS est fait par le backend) -->
