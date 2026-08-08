@@ -128,6 +128,17 @@ CREATE TABLE IF NOT EXISTS fuel_logs (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Budget carburant mensuel (Phase 7.3) : une ligne par organisation et par mois.
+CREATE TABLE IF NOT EXISTS fuel_budgets (
+    id              SERIAL PRIMARY KEY,
+    organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    month           DATE NOT NULL,
+    amount          NUMERIC(12, 0) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fuel_budgets_org_month_unique UNIQUE (organization_id, month)
+);
+
 -- ============================================================
 -- Plans d'abonnement SaaS
 -- ============================================================
@@ -349,6 +360,28 @@ WHERE trial_ends_at IS NULL OR end_date IS NULL;
 `;
 
 // ============================================================
+// Migration des bases existantes (bases créées avant la Phase 7.3)
+// ============================================================
+
+// Enrichit fuel_logs avec les champs du module carburant professionnel.
+// Strictement idempotent (ADD COLUMN IF NOT EXISTS) : aucune perte de
+// données, les colonnes existantes ne sont pas touchées.
+const UPGRADE_FUEL_SQL = `
+ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS driver_id     INTEGER REFERENCES drivers(id) ON DELETE SET NULL;
+ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS driver        TEXT;
+ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS fuel_type     TEXT;
+ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS price_per_liter NUMERIC(12, 2);
+ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS station       TEXT;
+ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS payment_method TEXT;
+ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS receipt_number TEXT;
+ALTER TABLE fuel_logs ADD COLUMN IF NOT EXISTS notes         TEXT;
+CREATE INDEX IF NOT EXISTS idx_fuel_logs_date   ON fuel_logs(organization_id, date);
+CREATE INDEX IF NOT EXISTS idx_fuel_logs_vehicle ON fuel_logs(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_fuel_budgets_organization ON fuel_budgets(organization_id);
+CREATE INDEX IF NOT EXISTS idx_fuel_budgets_month ON fuel_budgets(organization_id, month);
+`;
+
+// ============================================================
 // Plans par défaut (Seed)
 // ============================================================
 
@@ -460,6 +493,7 @@ async function upgradeExistingSubscriptions() {
 async function migrate() {
     await pool.query(SCHEMA);
     await pool.query(UPGRADE_INVOICES_SQL);
+    await pool.query(UPGRADE_FUEL_SQL);
     await upgradeExistingSubscriptions();
     await seedDefaultPlans();
 }

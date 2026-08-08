@@ -181,16 +181,45 @@ function validateAccident(body, { partial = false } = {}) {
     return data;
 }
 
-const FUEL_KEYS = ['vehicleId', 'vehicle', 'date', 'liters', 'cost', 'mileage'];
+const FUEL_KEYS = [
+    'vehicleId', 'vehicle', 'driverId', 'driver', 'date', 'liters', 'cost',
+    'pricePerLiter', 'mileage', 'fuelType', 'station', 'paymentMethod',
+    'receiptNumber', 'notes',
+];
 
 function validateFuelLog(body, { partial = false } = {}) {
     const data = pick(body || {}, FUEL_KEYS);
-    if (!partial) requireFields(data, ['vehicleId', 'date', 'liters', 'cost'], 'un plein de carburant');
+    if (!partial) {
+        requireFields(data, ['vehicleId', 'date', 'liters'], 'un plein de carburant');
+        // Le montant peut être fourni directement (cost) ou calculé
+        // automatiquement (litres × prix/litre) quand pricePerLiter est donné.
+        if (data.cost === undefined && data.pricePerLiter === undefined) {
+            throw AppError.badRequest('Le champ "cost" (ou "pricePerLiter" pour le calcul automatique) est requis pour un plein de carburant.');
+        }
+    }
     if (data.vehicleId !== undefined) data.vehicleId = intValue(data.vehicleId, 'vehicleId', { min: 1 });
     if (data.vehicle !== undefined) data.vehicle = textValue(data.vehicle, 'vehicle', { max: 200 });
+    if (data.driverId !== undefined && data.driverId !== '') data.driverId = intValue(data.driverId, 'driverId', { min: 1 });
+    if (data.driver !== undefined) data.driver = textValue(data.driver, 'driver', { max: 200 });
     if (data.liters !== undefined) data.liters = numberValue(data.liters, 'liters', { min: 0 });
-    if (data.cost !== undefined) data.cost = numberValue(data.cost, 'cost', { min: 0 });
+    if (data.pricePerLiter !== undefined) data.pricePerLiter = numberValue(data.pricePerLiter, 'pricePerLiter', { min: 0 });
     if (data.mileage !== undefined) data.mileage = intValue(data.mileage, 'mileage', { min: 0 });
+    if (data.fuelType !== undefined) data.fuelType = textValue(data.fuelType, 'fuelType', { max: 50 });
+    if (data.station !== undefined) data.station = textValue(data.station, 'station', { max: 200 });
+    if (data.paymentMethod !== undefined) data.paymentMethod = textValue(data.paymentMethod, 'paymentMethod', { max: 100 });
+    if (data.receiptNumber !== undefined) data.receiptNumber = textValue(data.receiptNumber, 'receiptNumber', { max: 100 });
+    if (data.notes !== undefined) data.notes = textValue(data.notes, 'notes', { max: 4000 });
+
+    // Calcul automatique : montant total = litres × prix/litre.
+    if (data.cost === undefined && data.liters !== undefined && data.pricePerLiter !== undefined) {
+        data.cost = Math.round(parseFloat(data.liters) * parseFloat(data.pricePerLiter));
+    }
+    if (data.cost !== undefined) data.cost = numberValue(data.cost, 'cost', { min: 0 });
+
+    // Un plein sans volume n'a aucun sens : litres strictement positifs à la création.
+    if (!partial && data.liters !== undefined && Number(data.liters) <= 0) {
+        throw AppError.badRequest('Le champ "liters" doit être strictement positif pour un plein de carburant.');
+    }
     if (data.date !== undefined) data.date = dateValue(data.date, 'date', { required: !partial });
     return data;
 }

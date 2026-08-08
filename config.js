@@ -7,6 +7,11 @@ function parseIntEnv(name, fallback) {
     return Number.isNaN(value) ? fallback : value;
 }
 
+function parseFloatEnv(name, fallback) {
+    const value = parseFloat(process.env[name]);
+    return Number.isNaN(value) ? fallback : value;
+}
+
 // Parse souple des booléens d'environnement (true/false, 1/0, yes/no, on/off).
 function parseBoolEnv(name, fallback) {
     const raw = process.env[name];
@@ -94,6 +99,30 @@ const config = {
     // Abonnements SaaS
     // Durée de la période d'essai accordée aux nouveaux clients (en jours).
     trialDays: parseIntEnv('TRIAL_DAYS', 14),
+
+    // Détection des anomalies carburant (Phase 7.3).
+    // Tous les seuils sont configurables par environnement ; les valeurs par
+    // défaut sont documentées dans db/fuelAnalytics.js (DEFAULT_THRESHOLDS).
+    fuel: {
+        // Consommation (L/100km) jugée anormalement élevée, en facteur de la
+        // consommation moyenne du parc et en valeur absolue (véhicule léger).
+        highConsumptionFactor: parseFloatEnv('FUEL_HIGH_CONSUMPTION_FACTOR', 1.5),
+        highConsumptionMin: parseFloatEnv('FUEL_HIGH_CONSUMPTION_L100KM', 15),
+        // Écart kilométrique (km) entre deux pleins : au-delà => relevé incohérent.
+        maxMileageGap: parseIntEnv('FUEL_MAX_MILEAGE_GAP', 5000),
+        // Écart kilométrique minimal pour considérer une consommation exploitable.
+        minMileageGap: parseIntEnv('FUEL_MIN_MILEAGE_GAP', 1),
+        // Quantité (litres) hors des bornes "normales" d'un plein.
+        maxLiters: parseFloatEnv('FUEL_MAX_LITERS', 120),
+        minLiters: parseFloatEnv('FUEL_MIN_LITERS', 1),
+        // Prix/litre jugé anormal (facteur du prix moyen de la période).
+        abnormalPriceFactor: parseFloatEnv('FUEL_ABNORMAL_PRICE_FACTOR', 1.3),
+        // Deux pleins rapprochés : écart horaire minimal.
+        closeFillsHours: parseIntEnv('FUEL_CLOSE_FILLS_HOURS', 12),
+        // Coût/km jugé anormal (facteur du coût/km moyen et valeur absolue FCFA/km).
+        highCostPerKmFactor: parseFloatEnv('FUEL_HIGH_COST_KM_FACTOR', 1.5),
+        maxCostPerKm: parseFloatEnv('FUEL_MAX_COST_KM', 120),
+    },
 
     // Paiement : architecture préparée pour les futurs intégrations.
     // Aucun paiement n'est encore traité : ces champs sont des placeholders.

@@ -98,10 +98,18 @@ const FIELD_MAPS = {
     fuelLogs: {
         vehicleId: 'vehicle_id',
         vehicle: 'vehicle',
+        driverId: 'driver_id',
+        driver: 'driver',
         date: 'date',
         liters: 'liters',
         cost: 'cost',
+        pricePerLiter: 'price_per_liter',
         mileage: 'mileage',
+        fuelType: 'fuel_type',
+        station: 'station',
+        paymentMethod: 'payment_method',
+        receiptNumber: 'receipt_number',
+        notes: 'notes',
     },
 };
 
@@ -111,7 +119,7 @@ const CHILD_REFS = {
     maintenances: ['vehicleId'],
     incidents: ['vehicleId', 'driverId'],
     accidents: ['vehicleId', 'driverId'],
-    fuel_logs: ['vehicleId'],
+    fuel_logs: ['vehicleId', 'driverId'],
     reservations: ['vehicleId', 'driverId'],
 };
 
@@ -247,6 +255,48 @@ const maintenances = makeCrudRepo('maintenances', FIELD_MAPS.maintenances);
 const incidents = makeCrudRepo('incidents', FIELD_MAPS.incidents);
 const accidents = makeCrudRepo('accidents', FIELD_MAPS.accidents);
 const fuelLogs = makeCrudRepo('fuel_logs', FIELD_MAPS.fuelLogs);
+
+// ============================================================
+// Budgets carburant (Phase 7.3) — un budget par organisation et par mois
+// ============================================================
+const fuelBudgets = {
+    async findAllByOrg(orgId) {
+        const result = await query(
+            'SELECT * FROM fuel_budgets WHERE organization_id = $1 ORDER BY month DESC, id DESC',
+            [orgId]
+        );
+        return mapRows(result.rows);
+    },
+
+    async findById(orgId, id) {
+        const result = await query(
+            'SELECT * FROM fuel_budgets WHERE organization_id = $1 AND id = $2',
+            [orgId, id]
+        );
+        return mapRow(result.rows[0] || null);
+    },
+
+    /** Crée ou met à jour (upsert) le budget d'un mois donné. */
+    async upsert(orgId, month, amount) {
+        const result = await query(
+            `INSERT INTO fuel_budgets (organization_id, month, amount)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (organization_id, month)
+             DO UPDATE SET amount = EXCLUDED.amount, updated_at = NOW()
+             RETURNING *`,
+            [orgId, month, amount]
+        );
+        return mapRow(result.rows[0] || null);
+    },
+
+    async remove(orgId, id) {
+        const result = await query(
+            'DELETE FROM fuel_budgets WHERE organization_id = $1 AND id = $2 RETURNING id',
+            [orgId, id]
+        );
+        return (result.rowCount ?? 0) > 0;
+    },
+};
 
 // ============================================================
 // Réservations (avec détection de conflit en base)
@@ -574,6 +624,7 @@ module.exports = {
     incidents,
     accidents,
     fuelLogs,
+    fuelBudgets,
     users,
     organizations,
     findConflict,
