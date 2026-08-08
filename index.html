@@ -26,11 +26,18 @@
                 return m === 'auto' ? (systemDark() ? 'dark' : 'light') : m;
             };
 
-            // Applique le thème et notifie (bascule header, icônes, etc.).
+            // Applique le thème et notifie (bascule header, icônes, graphiques, etc.).
+            window.__themeListeners = [];
+            window.addEventListenerThemeChange = function (fn) {
+                if (typeof fn === 'function') window.__themeListeners.push(fn);
+            };
             window.applyTheme = function (m) {
                 var eff = (m === 'light' || m === 'dark') ? m : window.getEffectiveTheme();
                 document.documentElement.setAttribute('data-theme', eff);
                 if (window.__onThemeChange) window.__onThemeChange(eff);
+                (window.__themeListeners || []).forEach(function (fn) {
+                    try { fn(eff); } catch (e) { /* un listener ne doit jamais bloquer l'application du thème */ }
+                });
             };
 
             // Choix explicite depuis les Paramètres : mémorise + applique.
@@ -1907,7 +1914,7 @@
                         <div class="md:col-span-2 card card-pad space-y-4">
                             <div class="flex justify-between items-center flex-wrap gap-2">
                                 <h3 class="font-bold text-sm text-slate-900">Évolution des Dépenses de Carburant (FCFA)</h3>
-                                <span class="text-xs text-indigo-600 font-mono bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1">Total Annuel : 2 965 000 FCFA</span>
+                                <span class="text-xs text-indigo-600 font-mono bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1" x-text="'Total : ' + dashboardFuelTotalText"></span>
                             </div>
                             <div class="chart-shell h-64">
                                 <canvas id="fuelChart"></canvas>

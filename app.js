@@ -1054,15 +1054,29 @@
                     });
 
                     this.$watch('dashboardPeriod', () => {
-                        if (this.mainTab === 'dashboard') {
-                            this.initCharts();
-                        }
+                        this.loadDashboardFuelStats().then(() => {
+                            if (this.mainTab === 'dashboard') {
+                                this.initCharts();
+                            }
+                        });
                     });
 
                     // Période des statistiques carburant (onglet Carburant)
                     this.$watch('fuelStatsPeriod', () => {
                         this.loadFuelStats();
                     });
+
+                    // Redessine les graphiques lors du changement de thème clair/sombre :
+                    // la palette chart.js est recalculée selon html[data-theme].
+                    if (window.addEventListenerThemeChange) {
+                        window.addEventListenerThemeChange(() => {
+                            if (this.isSuperAdmin) {
+                                this.initSuperAdminCharts();
+                            } else {
+                                this.initCharts();
+                            }
+                        });
+                    }
 
                     // Charge les offres publiques pour la page tarifs (page landing).
                     this.loadPublicPlans();
@@ -1131,8 +1145,8 @@
                         this.incidents = incidents || [];
                         this.accidents = accidents || [];
                         this.fuelLogs = fuelLogs || [];
-                        this.loadFuelStats();
-                        this.loadDashboardFuelStats();
+                        // Les stats officielles sont chargées avant le rendu des graphiques.
+                        await Promise.all([this.loadFuelStats(), this.loadDashboardFuelStats()]);
                         console.log('[CHART-DIAG] loadAllData (reponses API)', {
                             vehicles: { count: vehicles.length, premier: vehicles[0] ? { status: vehicles[0].status, mileage: vehicles[0].mileage } : null },
                             drivers: { count: drivers.length },
@@ -1280,6 +1294,33 @@
                     return (typeof window.Alpine !== 'undefined' && typeof window.Alpine.raw === 'function') ? window.Alpine.raw(inst) : inst;
                 },
 
+                // Palette de couleurs des graphiques selon le thème actif (clair/sombre).
+                // Les graphiques sont recréés à chaque changement de thème via
+                // addEventListenerThemeChange → initCharts().
+                chartTheme() {
+                    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+                    return {
+                        dark,
+                        text: dark ? '#9aa8c1' : '#64748b',
+                        grid: dark ? 'rgba(148, 163, 184, .14)' : 'rgba(100, 116, 139, .18)',
+                        indigo: dark ? '#818cf8' : '#6366f1',
+                        blue: dark ? '#60a5fa' : '#3b82f6',
+                        sky: dark ? '#38bdf8' : '#0ea5e9',
+                        emerald: dark ? '#34d399' : '#10b981',
+                        amber: dark ? '#fbbf24' : '#f59e0b',
+                        rose: dark ? '#fb7185' : '#ef4444',
+                        orange: dark ? '#fb923c' : '#f97316',
+                        violet: dark ? '#a78bfa' : '#8b5cf6',
+                        slate: dark ? '#94a3b8' : '#64748b'
+                    };
+                },
+
+                hexToRgba(hex, alpha) {
+                    const n = parseInt(String(hex).replace('#', ''), 16);
+                    if (Number.isNaN(n) || String(hex).replace('#', '').length !== 6) return hex;
+                    return 'rgba(' + (n >> 16 & 255) + ', ' + (n >> 8 & 255) + ', ' + (n & 255) + ', ' + alpha + ')';
+                },
+
                 initCharts() {
                     this.loadChartLibrary().then(() => {
                     this.$nextTick(() => {
@@ -1301,17 +1342,22 @@
                                 maintenance: !!this.chartMaintenance, fuelConsumers: !!this.chartFuelConsumers
                             }
                         });
+                        // Palette du thème actif (clair/sombre) : appliquée à tous les graphiques.
+                        const th = this.chartTheme();
                         // Chaque graphique est isolé dans son propre try/catch :
                         // si l'un d'eux rencontre un problème de données, les autres
                         // continuent quand même de s'afficher normalement.
 
-                        // 1. Graphique Carburant
+                        // 1. Graphique Carburant (source officielle /stats quand disponible)
                         try {
                         const ctxFuel = document.getElementById('fuelChart');
                         if (ctxFuel) {
                             if (this.chartFuel) this._chartRaw(this.chartFuel).destroy();
-                            const fuelMonthly = this.fuelExpensesByMonth;
-                            this.chartDiag('1.Carburant', 'avant-creation', ctxFuel, fuelMonthly.labels, fuelMonthly.data, { sources: { fuelLogs: this.fuelLogs.length, periodFuelLogs: this.periodFuelLogs.length, dashboardPeriod: this.dashboardPeriod } });
+                            const statsCharts = this.dashboardFuelStats && this.dashboardFuelStats.charts;
+                            const fuelMonthly = statsCharts && statsCharts.costByMonth && statsCharts.costByMonth.labels && statsCharts.costByMonth.labels.length
+                                ? statsCharts.costByMonth
+                                : this.fuelExpensesByMonth;
+                            this.chartDiag('1.Carburant', 'avant-creation', ctxFuel, fuelMonthly.labels, fuelMonthly.data, { sources: { stats: !!this.dashboardFuelStats, fuelLogs: this.fuelLogs.length, periodFuelLogs: this.periodFuelLogs.length, dashboardPeriod: this.dashboardPeriod } });
                             this.chartFuel = new Chart(ctxFuel, {
                                 type: 'bar',
                                 data: {
@@ -1319,17 +1365,17 @@
                                     datasets: [{
                                         label: 'Dépenses Carburant (FCFA)',
                                         data: fuelMonthly.data,
-                                        backgroundColor: '#6366f1',
+                                        backgroundColor: th.indigo,
                                         borderRadius: 8
                                     }]
                                 },
                                 options: { 
                                     responsive: true, 
                                     maintainAspectRatio: false,
-                                    plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans' } } } },
+                                    plugins: { legend: { labels: { color: th.text, font: { family: 'Plus Jakarta Sans' } } } },
                                     scales: {
-                                        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                                        x: { ticks: { color: th.text }, grid: { color: th.grid } },
+                                        y: { ticks: { color: th.text }, grid: { color: th.grid } }
                                     }
                                 }
                             });
@@ -1350,14 +1396,14 @@
                                     labels: ['Disponibles', 'En Mission', 'En Maintenance'],
                                     datasets: [{
                                         data: [this.availableVehiclesCount, this.bookedVehiclesCount, this.maintenanceVehiclesCount],
-                                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'],
+                                        backgroundColor: [th.emerald, th.blue, th.amber],
                                         borderWidth: 0
                                     }]
                                 },
                                 options: { 
                                     responsive: true, 
                                     maintainAspectRatio: false,
-                                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans' } } } }
+                                    plugins: { legend: { position: 'bottom', labels: { color: th.text, font: { family: 'Plus Jakarta Sans' } } } }
                                 }
                             });
                             this._chartRaw(this.chartStatus).update();
@@ -1379,7 +1425,7 @@
                                     datasets: [{
                                         label: 'Kilométrage (km)',
                                         data: topData.data,
-                                        backgroundColor: '#38bdf8',
+                                        backgroundColor: th.sky,
                                         borderRadius: 6
                                     }]
                                 },
@@ -1389,8 +1435,8 @@
                                     maintainAspectRatio: false,
                                     plugins: { legend: { display: false } },
                                     scales: {
-                                        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                                        y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } }
+                                        x: { ticks: { color: th.text }, grid: { color: th.grid } },
+                                        y: { ticks: { color: th.text, font: { size: 10 } }, grid: { display: false } }
                                     }
                                 }
                             });
@@ -1413,8 +1459,8 @@
                                     datasets: [{
                                         label: 'Vidanges Effectuées',
                                         data: oilMonthly.data,
-                                        borderColor: '#fbbf24',
-                                        backgroundColor: 'rgba(251, 191, 36, 0.15)',
+                                        borderColor: th.amber,
+                                        backgroundColor: this.hexToRgba(th.amber, .15),
                                         fill: true,
                                         tension: 0.3
                                     }]
@@ -1424,8 +1470,8 @@
                                     maintainAspectRatio: false,
                                     plugins: { legend: { display: false } },
                                     scales: {
-                                        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                                        y: { ticks: { color: '#94a3b8', stepSize: 1, precision: 0 }, grid: { color: '#334155' } }
+                                        x: { ticks: { color: th.text }, grid: { color: th.grid } },
+                                        y: { ticks: { color: th.text, stepSize: 1, precision: 0 }, grid: { color: th.grid } }
                                     }
                                 }
                             });
@@ -1446,14 +1492,14 @@
                                     labels: ['Haute Priorité', 'Moyenne Priorité', 'Basse Priorité'],
                                     datasets: [{
                                         data: this.incidentsPriorityCount,
-                                        backgroundColor: ['#f43f5e', '#f59e0b', '#64748b'],
+                                        backgroundColor: [th.rose, th.amber, th.slate],
                                         borderWidth: 0
                                     }]
                                 },
                                 options: { 
                                     responsive: true, 
                                     maintainAspectRatio: false,
-                                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans' } } } }
+                                    plugins: { legend: { position: 'bottom', labels: { color: th.text, font: { family: 'Plus Jakarta Sans' } } } }
                                 }
                             });
                             this._chartRaw(this.chartIncidents).update();
@@ -1474,7 +1520,7 @@
                                     datasets: [{
                                         label: 'Dossiers Sinistres',
                                         data: this.accidentsStatusCount,
-                                        backgroundColor: ['#f43f5e', '#fbbf24', '#10b981'],
+                                        backgroundColor: [th.rose, th.amber, th.emerald],
                                         borderRadius: 6
                                     }]
                                 },
@@ -1483,8 +1529,8 @@
                                     maintainAspectRatio: false,
                                     plugins: { legend: { display: false } },
                                     scales: {
-                                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
-                                        y: { ticks: { color: '#94a3b8', stepSize: 1 }, grid: { color: '#334155' } }
+                                        x: { ticks: { color: th.text }, grid: { display: false } },
+                                        y: { ticks: { color: th.text, stepSize: 1 }, grid: { color: th.grid } }
                                     }
                                 }
                             });
@@ -1507,8 +1553,8 @@
                                     datasets: [{
                                         label: 'Coût Entretiens (FCFA)',
                                         data: maintMonthly.data,
-                                        borderColor: '#818cf8',
-                                        backgroundColor: 'rgba(129, 140, 248, 0.15)',
+                                        borderColor: th.indigo,
+                                        backgroundColor: this.hexToRgba(th.indigo, .15),
                                         fill: true,
                                         tension: 0.4
                                     }]
@@ -1516,10 +1562,10 @@
                                 options: { 
                                     responsive: true, 
                                     maintainAspectRatio: false,
-                                    plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans' } } } },
+                                    plugins: { legend: { labels: { color: th.text, font: { family: 'Plus Jakarta Sans' } } } },
                                     scales: {
-                                        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                                        x: { ticks: { color: th.text }, grid: { color: th.grid } },
+                                        y: { ticks: { color: th.text }, grid: { color: th.grid } }
                                     }
                                 }
                             });
@@ -1528,20 +1574,24 @@
                         }
                         } catch (e) { console.error('Erreur graphique Coût Entretiens:', e); }
 
-                        // 8. Graphique Top Véhicules Consommateurs de Carburant
+                        // 8. Graphique Top Véhicules Consommateurs de Carburant (source /stats)
                         try {
                         const ctxFuelConsumers = document.getElementById('fuelConsumersChart');
                         if (ctxFuelConsumers) {
                             if (this.chartFuelConsumers) this._chartRaw(this.chartFuelConsumers).destroy();
-                            this.chartDiag('8.Consommateurs', 'avant-creation', ctxFuelConsumers, this.topFuelConsumersData.labels, this.topFuelConsumersData.data, { sources: { fuelLogs: this.fuelLogs.length, periodFuelLogs: this.periodFuelLogs.length, dashboardPeriod: this.dashboardPeriod } });
+                            const statsCharts = this.dashboardFuelStats && this.dashboardFuelStats.charts;
+                            const topConsumers = statsCharts && statsCharts.topConsumers && statsCharts.topConsumers.labels && statsCharts.topConsumers.labels.length
+                                ? statsCharts.topConsumers
+                                : this.topFuelConsumersData;
+                            this.chartDiag('8.Consommateurs', 'avant-creation', ctxFuelConsumers, topConsumers.labels, topConsumers.data, { sources: { stats: !!this.dashboardFuelStats, fuelLogs: this.fuelLogs.length, periodFuelLogs: this.periodFuelLogs.length, dashboardPeriod: this.dashboardPeriod } });
                             this.chartFuelConsumers = new Chart(ctxFuelConsumers, {
                                 type: 'bar',
                                 data: {
-                                    labels: this.topFuelConsumersData.labels,
+                                    labels: topConsumers.labels,
                                     datasets: [{
                                         label: 'Litres Consommés',
-                                        data: this.topFuelConsumersData.data,
-                                        backgroundColor: '#f59e0b',
+                                        data: topConsumers.data,
+                                        backgroundColor: th.orange,
                                         borderRadius: 6
                                     }]
                                 },
@@ -1551,13 +1601,13 @@
                                     maintainAspectRatio: false,
                                     plugins: { legend: { display: false } },
                                     scales: {
-                                        x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
-                                        y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } }
+                                        x: { ticks: { color: th.text }, grid: { color: th.grid } },
+                                        y: { ticks: { color: th.text, font: { size: 10 } }, grid: { display: false } }
                                     }
                                 }
                             });
                             this._chartRaw(this.chartFuelConsumers).update();
-                            this.chartDiag('8.Consommateurs', 'apres-creation', ctxFuelConsumers, this.topFuelConsumersData.labels, this.topFuelConsumersData.data, { chartExecute: true, updateAppele: true });
+                            this.chartDiag('8.Consommateurs', 'apres-creation', ctxFuelConsumers, topConsumers.labels, topConsumers.data, { chartExecute: true, updateAppele: true });
                         }
                         } catch (e) { console.error('Erreur graphique Top Consommateurs Carburant:', e); }
 
@@ -1571,8 +1621,9 @@
                     this.$nextTick(() => {
                         const stats = this.superadminStats;
                         if (!stats || !stats.charts) return;
-                        const tickStyle = { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', size: 10 } };
-                        const gridStyle = { color: '#334155' };
+                        const th = this.chartTheme();
+                        const tickStyle = { color: th.text, font: { family: 'Plus Jakarta Sans', size: 10 } };
+                        const gridStyle = { color: th.grid };
                         this._diagSuperInitCount = (this._diagSuperInitCount || 0) + 1;
                         console.log('[CHART-DIAG] initSuperAdminCharts appel n°' + this._diagSuperInitCount, {
                             chartJSCharge: typeof window.Chart,
@@ -1596,12 +1647,12 @@
                                         datasets: [{
                                             label: 'Clients créés',
                                             data: stats.charts.orgGrowth.data,
-                                            borderColor: '#6366f1',
-                                            backgroundColor: 'rgba(99,102,241,0.15)',
+                                            borderColor: th.indigo,
+                                            backgroundColor: this.hexToRgba(th.indigo, .15),
                                             fill: true,
                                             tension: 0.35,
                                             pointRadius: 3,
-                                            pointBackgroundColor: '#6366f1'
+                                            pointBackgroundColor: th.indigo
                                         }]
                                     },
                                     options: {
@@ -1632,12 +1683,12 @@
                                         datasets: [{
                                             label: 'MRR (FCFA)',
                                             data: stats.charts.mrrByMonth.data,
-                                            borderColor: '#10b981',
-                                            backgroundColor: 'rgba(16,185,129,0.15)',
+                                            borderColor: th.emerald,
+                                            backgroundColor: this.hexToRgba(th.emerald, .15),
                                             fill: true,
                                             tension: 0.35,
                                             pointRadius: 3,
-                                            pointBackgroundColor: '#10b981'
+                                            pointBackgroundColor: th.emerald
                                         }]
                                     },
                                     options: {
@@ -1671,7 +1722,7 @@
                                         datasets: [{
                                             label: 'Véhicules',
                                             data: stats.charts.fleetByOrg.data,
-                                            backgroundColor: '#8b5cf6',
+                                            backgroundColor: th.violet,
                                             borderRadius: 8
                                         }]
                                     },
