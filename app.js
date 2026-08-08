@@ -83,6 +83,8 @@
                 publicPlans: [],
                 publicPlansLoading: false,
                 publicPlansError: '',
+                // Parcours de paiement (préparation uniquement — activé dans une étape ultérieure)
+                paymentFlow: { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF' },
                 signupForm: { name: '', adminName: '', adminUsername: '', adminPassword: '', planCode: 'STARTER' },
                 signupError: '',
                 isSigningUp: false,
@@ -214,6 +216,45 @@
                     } catch (e) {
                         alert('Erreur : ' + (e.message || 'renouvellement impossible.'));
                     }
+                },
+                // ===== ABONNEMENT & PAIEMENT : VUE PARAMÈTRES (préparation du parcours) =====
+                availablePlans() {
+                    return (this.publicPlans || []).slice().sort((a, b) => (Number(a.monthlyPrice) || 0) - (Number(b.monthlyPrice) || 0));
+                },
+
+                isCurrentPlan(planCode) {
+                    const cur = this.clientSubscription && this.clientSubscription.plan;
+                    return !!(cur && cur.code === planCode);
+                },
+
+                paymentPlanAmount(planCode) {
+                    const p = (this.publicPlans || []).find((x) => x.code === planCode);
+                    const price = Number((p && p.monthlyPrice) || 0);
+                    const months = Number((p && p.durationMonths) || 1);
+                    return Math.round(price * months);
+                },
+
+                preparePaymentPlan(planCode) {
+                    const cur = this.clientSubscription && this.clientSubscription.plan;
+                    const p = (this.publicPlans || []).find((x) => x.code === planCode);
+                    const plan = p || cur || null;
+                    if (!plan) return;
+                    this.paymentFlow = {
+                        step: 'ready',
+                        planCode: plan.code,
+                        planName: plan.name,
+                        amount: this.paymentPlanAmount(plan.code),
+                        currency: 'XOF',
+                    };
+                },
+
+                prepareRenewal() {
+                    const cur = this.clientSubscription && this.clientSubscription.plan;
+                    if (cur) this.preparePaymentPlan(cur.code);
+                },
+
+                resetPaymentFlow() {
+                    this.paymentFlow = { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF' };
                 },
                 // ===== FIN ABONNEMENT : ESPACE CLIENT =====
 

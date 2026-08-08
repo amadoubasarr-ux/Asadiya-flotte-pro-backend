@@ -3361,6 +3361,133 @@
                         </section>
 
                     </div>
+
+                    <!-- ============ ABONNEMENT & PAIEMENT : VUE PLAN (Commit 1) ============ -->
+                    <section x-show="clientSubscription" x-cloak class="max-w-6xl mx-auto">
+                        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                            <!-- En-tête -->
+                            <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-receipt text-sm"></i></div>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-slate-900">Abonnement & Paiement</h3>
+                                        <p class="text-[11px] text-slate-500">Votre plan actuel et les offres disponibles.</p>
+                                    </div>
+                                </div>
+                                <span class="badge" :class="subscriptionStatusColor(clientSubscription.subscription.status)">
+                                    <i class="fa-solid" :class="subscriptionActive ? 'fa-circle-check' : 'fa-triangle-exclamation'"></i>
+                                    <span x-text="clientSubscription.statusLabel"></span>
+                                </span>
+                            </div>
+
+                            <div class="p-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <!-- Carte : plan actuel + détails -->
+                                <div class="rounded-xl border border-slate-200 p-4 space-y-4">
+                                    <div>
+                                        <p class="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Plan actuel</p>
+                                        <div class="mt-1 flex items-center justify-between gap-2 flex-wrap">
+                                            <p class="text-lg font-extrabold text-slate-900" x-text="clientSubscription?.plan?.name || '—'"></p>
+                                            <p class="text-sm font-bold text-indigo-600">
+                                                <span x-text="fmtPrice(clientSubscription.plan.monthlyPrice)"></span>
+                                                <span class="text-[10px] text-slate-500 font-semibold"> FCFA / mois</span>
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="rounded-lg bg-slate-50 p-3">
+                                            <p class="text-[10px] text-slate-500 font-semibold uppercase">Expiration</p>
+                                            <p class="text-xs font-bold text-slate-900 mt-0.5" x-text="clientSubscription.endDate || '—'"></p>
+                                        </div>
+                                        <div class="rounded-lg bg-slate-50 p-3">
+                                            <p class="text-[10px] text-slate-500 font-semibold uppercase">Jours restants</p>
+                                            <p class="text-xs font-bold mt-0.5"
+                                               :class="clientSubscription.daysLeft != null && clientSubscription.daysLeft <= 7 ? 'text-amber-600' : 'text-slate-900'"
+                                               x-text="clientSubscription.daysLeft != null ? clientSubscription.daysLeft + ' jour(s)' : '—'"></p>
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-3">
+                                        <div>
+                                            <div class="flex items-center justify-between text-[11px]">
+                                                <span class="text-slate-500 font-semibold">Véhicules utilisés</span>
+                                                <span class="text-slate-900 font-bold font-mono" x-text="clientSubscription.usage.vehicles + ' / ' + (clientSubscription.limits.vehicles == null ? '∞' : clientSubscription.limits.vehicles)"></span>
+                                            </div>
+                                            <div class="mt-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                                <div class="h-full rounded-full transition-all" :class="clientSubscription.limits.vehicles != null && clientSubscription.usage.vehicles >= clientSubscription.limits.vehicles ? 'bg-rose-500' : 'bg-indigo-500'"
+                                                     :style="'width:' + usagePercent(clientSubscription.usage.vehicles, clientSubscription.limits.vehicles) + '%'"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center justify-between text-[11px]">
+                                                <span class="text-slate-500 font-semibold">Utilisateurs</span>
+                                                <span class="text-slate-900 font-bold font-mono" x-text="clientSubscription.usage.users + ' / ' + (clientSubscription.limits.users == null ? '∞' : clientSubscription.limits.users)"></span>
+                                            </div>
+                                            <div class="mt-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                                <div class="h-full rounded-full transition-all" :class="clientSubscription.limits.users != null && clientSubscription.usage.users >= clientSubscription.limits.users ? 'bg-rose-500' : 'bg-emerald-500'"
+                                                     :style="'width:' + usagePercent(clientSubscription.usage.users, clientSubscription.limits.users) + '%'"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <button x-show="canManageFleet" @click="prepareRenewal()"
+                                            class="btn btn-primary btn-sm w-full">
+                                        <i class="fa-solid fa-rotate"></i> Renouveler
+                                    </button>
+                                    <p x-show="canManageFleet === false" class="text-[10px] text-slate-400 italic">
+                                        La gestion du paiement est réservée à l'administrateur et au gestionnaire.
+                                    </p>
+                                </div>
+
+                                <!-- Carte : plans disponibles -->
+                                <div class="rounded-xl border border-slate-200 p-4 space-y-3">
+                                    <p class="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Plans disponibles</p>
+                                    <p x-show="publicPlansLoading" class="text-[11px] text-slate-400 animate-pulse">Chargement des offres…</p>
+                                    <template x-for="plan in availablePlans()" :key="plan.code">
+                                        <div class="rounded-lg border p-3 flex items-center justify-between gap-3 transition"
+                                             :class="isCurrentPlan(plan.code) ? 'border-indigo-300 bg-indigo-50' : 'border-slate-200 hover:border-indigo-200'">
+                                            <div class="min-w-0">
+                                                <p class="text-xs font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                                                    <span x-text="plan.name"></span>
+                                                    <span x-show="isCurrentPlan(plan.code)" class="badge badge-indigo">Plan actuel</span>
+                                                </p>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 truncate" x-text="plan.description || ''"></p>
+                                                <p class="text-[11px] font-bold text-indigo-600 mt-1">
+                                                    <span x-text="fmtPrice(plan.monthlyPrice)"></span>
+                                                    <span class="text-[10px] font-semibold text-slate-500"> FCFA / mois</span>
+                                                    <span x-show="plan.durationMonths > 1" class="text-[10px] font-semibold text-slate-400"> — <span x-text="plan.durationMonths"></span> mois</span>
+                                                </p>
+                                            </div>
+                                            <button x-show="canManageFleet && !isCurrentPlan(plan.code)"
+                                                    @click="preparePaymentPlan(plan.code)"
+                                                    class="btn btn-ghost btn-xs !text-indigo-600 font-bold flex-shrink-0">
+                                                Changer de plan
+                                            </button>
+                                        </div>
+                                    </template>
+                                    <div x-show="!publicPlansLoading && availablePlans().length === 0" class="text-[11px] text-slate-400">
+                                        Aucune offre disponible pour le moment.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Note : parcours de paiement préparé (activé à l'étape suivante) -->
+                            <div x-show="paymentFlow.step === 'ready'" class="mx-5 mb-5 rounded-xl border p-3 flex items-start gap-2"
+                                 :class="paymentFlow.planCode === (clientSubscription?.plan?.code) ? 'border-indigo-200 bg-indigo-50' : 'border-emerald-200 bg-emerald-50'">
+                                <i class="fa-solid fa-circle-info mt-0.5 text-indigo-500 flex-shrink-0"></i>
+                                <div class="text-[11px]">
+                                    <p class="text-slate-700">
+                                        <b x-text="paymentFlow.planName"></b> sélectionné —
+                                        <b x-text="fmtPrice(paymentFlow.amount)"></b> FCFA.
+                                        <span x-show="paymentFlow.planCode === (clientSubscription?.plan?.code)">Le renouvellement de votre plan actuel est prêt.</span>
+                                        <span x-show="paymentFlow.planCode !== (clientSubscription?.plan?.code)">Le changement de plan sera appliqué après paiement.</span>
+                                    </p>
+                                    <p class="text-slate-500 mt-0.5">Le parcours de paiement (Orange Money, Wave, carte bancaire) sera disponible dans une prochaine étape.</p>
+                                </div>
+                                <button type="button" @click="resetPaymentFlow()" class="ml-auto flex-shrink-0 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                        </div>
+                    </section>
                 </div>
 
             </main>
