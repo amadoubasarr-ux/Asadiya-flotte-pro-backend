@@ -2521,6 +2521,81 @@
                         </div>
                     </div>
 
+                    <!-- Budget carburant mensuel (source officielle /api/fuel-logs/stats) -->
+                    <div class="card card-pad space-y-3">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-wallet text-indigo-500"></i> Budget Carburant Mensuel
+                            </h3>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span x-show="!fuelStatsLoading && fuelBudget" class="badge" :class="budgetStatusMeta().cls" x-text="budgetStatusMeta().label"></span>
+                                <button x-show="canManageFleet" @click="openFuelBudgetModal()" class="btn btn-primary btn-xs">
+                                    <i class="fa-solid fa-sliders mr-1"></i> Définir / Modifier
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Aucun budget défini pour le mois en cours -->
+                        <div x-show="!fuelStatsLoading && fuelBudget && !fuelBudget.hasBudget" class="text-xs text-slate-500 flex items-center gap-2 py-2 flex-wrap">
+                            <i class="fa-solid fa-circle-info text-slate-400"></i>
+                            <span>Aucun budget défini pour <span class="font-semibold" x-text="fuelBudgetMonthLabel(fuelBudget.month)"></span>.</span>
+                            <span x-show="canManageFleet">Définissez un montant pour suivre les dépenses.</span>
+                        </div>
+
+                        <!-- Budget actif : prévu / dépensé / restant / utilisation -->
+                        <div x-show="!fuelStatsLoading && fuelBudget && fuelBudget.hasBudget" class="space-y-3">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                                <div class="card p-3 bg-slate-50/60 border-slate-200">
+                                    <p class="text-[10px] text-slate-500 font-semibold uppercase">Budget Prévu</p>
+                                    <p class="text-base font-bold text-slate-900 font-mono" x-text="fmtMoney(fuelBudget.amount)"></p>
+                                </div>
+                                <div class="card p-3 bg-slate-50/60 border-slate-200">
+                                    <p class="text-[10px] text-slate-500 font-semibold uppercase">Dépensé</p>
+                                    <p class="text-base font-bold text-slate-900 font-mono" x-text="fmtMoney(fuelBudget.spent)"></p>
+                                </div>
+                                <div class="card p-3 bg-slate-50/60 border-slate-200">
+                                    <p class="text-[10px] text-slate-500 font-semibold uppercase" x-text="fuelBudget.remaining < 0 ? 'Dépassement' : 'Restant'"></p>
+                                    <p class="text-base font-bold font-mono" :class="fuelBudget.remaining < 0 ? 'text-rose-600' : 'text-emerald-600'" x-text="fmtMoney(Math.abs(fuelBudget.remaining))"></p>
+                                </div>
+                                <div class="card p-3 bg-slate-50/60 border-slate-200">
+                                    <p class="text-[10px] text-slate-500 font-semibold uppercase">Utilisation</p>
+                                    <p class="text-base font-bold text-slate-900 font-mono" x-text="fuelBudget.utilization != null ? fuelBudget.utilization.toLocaleString('fr-FR') + ' %' : '—'"></p>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
+                                    <div class="h-full rounded-full transition-all" :class="budgetBarClass()" :style="'width:' + Math.min(fuelBudgetUtilization, 100) + '%'"></div>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-1" x-text="fuelBudget.remaining >= 0 ? 'Il reste ' + fmtMoney(fuelBudget.remaining) + ' sur le budget de ' + fuelBudgetMonthLabel(fuelBudget.month) + '.' : 'Le budget de ' + fuelBudgetMonthLabel(fuelBudget.month) + ' est dépassé de ' + fmtMoney(Math.abs(fuelBudget.remaining)) + '.'"></p>
+                            </div>
+                        </div>
+
+                        <div x-show="fuelStatsLoading" class="text-xs text-slate-400 py-2">
+                            <i class="fa-solid fa-spinner fa-spin mr-1"></i> Chargement du budget...
+                        </div>
+
+                        <!-- Historique des budgets mensuels -->
+                        <div x-show="fuelBudgetList.length > 0" class="space-y-2">
+                            <p class="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Historique des budgets</p>
+                            <template x-for="b in fuelBudgetList" :key="b.id">
+                                <div class="card p-2.5 flex justify-between items-center gap-2 bg-slate-50/60 border-slate-200">
+                                    <div class="min-w-0">
+                                        <p class="font-bold text-xs text-slate-900" x-text="fuelBudgetMonthLabel(b.month)"></p>
+                                        <p class="text-[10px] text-slate-500 font-mono" x-text="fmtMoney(b.amount)"></p>
+                                    </div>
+                                    <div class="flex items-center gap-1 flex-shrink-0" x-show="canManageFleet">
+                                        <button @click="openFuelBudgetModal(b)" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600" title="Modifier">
+                                            <i class="fa-solid fa-pen text-[11px]"></i>
+                                        </button>
+                                        <button @click="deleteFuelBudget(b.id)" class="btn btn-ghost btn-xs !text-slate-400 hover:!text-rose-500" title="Supprimer">
+                                            <i class="fa-solid fa-trash-can text-[11px]"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
                     <!-- Filtre par véhicule (historique) + résumé de la période -->
                     <div class="card card-pad flex items-center gap-3 flex-wrap">
                         <label class="text-xs text-slate-600 font-semibold"><i class="fa-solid fa-filter mr-1 text-indigo-500"></i>Filtrer par véhicule :</label>
@@ -3387,6 +3462,44 @@
                 <div class="flex justify-end space-x-2 pt-2">
                     <button @click="showFuelModal = false" class="btn btn-secondary">Annuler</button>
                     <button @click="addFuelLogSubmit()" class="btn btn-success">Enregistrer le Plein</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODALE : BUDGET CARBURANT MENSUEL -->
+        <div x-show="showFuelBudgetModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-wallet text-indigo-500"></i> <span x-text="editingFuelBudgetId ? 'Modifier le Budget' : 'Définir le Budget'"></span>
+                    </h3>
+                    <button @click="showFuelBudgetModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="label">Mois (AAAA-MM)</label>
+                        <input type="month" x-model="newFuelBudget.month" class="input font-mono">
+                    </div>
+                    <div>
+                        <label class="label">Montant prévu (FCFA)</label>
+                        <input type="number" min="0" step="500" x-model="newFuelBudget.amount" placeholder="ex: 500000" class="input font-mono">
+                    </div>
+                    <p x-show="fuelBudgetError" class="text-[11px] text-rose-600 flex items-center gap-1">
+                        <i class="fa-solid fa-triangle-exclamation"></i><span x-text="fuelBudgetError"></span>
+                    </p>
+                    <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-100 text-indigo-700 text-[11px]">
+                        <i class="fa-solid fa-circle-info mr-1"></i> Le budget est mensuel : la dépense du mois est comparée au montant prévu (alerte à partir de 80 %).
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showFuelBudgetModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="saveFuelBudget()" :disabled="fuelBudgetSaving" class="btn btn-primary">
+                        <i class="fa-solid fa-spinner fa-spin mr-1" x-show="fuelBudgetSaving"></i>
+                        <span x-text="editingFuelBudgetId ? 'Enregistrer' : 'Créer le Budget'"></span>
+                    </button>
                 </div>
             </div>
         </div>

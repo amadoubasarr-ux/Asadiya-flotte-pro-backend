@@ -969,6 +969,42 @@
                     return (this.fuelStats && Array.isArray(this.fuelStats.budgetList)) ? this.fuelStats.budgetList : [];
                 },
 
+                // État du budget du mois en cours (NO_BUDGET | OK | WARNING | OVER).
+                get fuelBudgetStatus() {
+                    return this.fuelBudget ? this.fuelBudget.status : 'NO_BUDGET';
+                },
+
+                // Taux d'utilisation du budget (0-100+), 0 par défaut.
+                get fuelBudgetUtilization() {
+                    return this.fuelBudget ? (this.fuelBudget.utilization || 0) : 0;
+                },
+
+                budgetStatusMeta() {
+                    const map = {
+                        NO_BUDGET: { cls: 'badge-slate', label: 'Budget non défini' },
+                        OK: { cls: 'badge-green', label: 'Dans le budget' },
+                        WARNING: { cls: 'badge-amber', label: 'Seuil atteint (≥ 80 %)' },
+                        OVER: { cls: 'badge-red', label: 'Budget dépassé' }
+                    };
+                    return map[this.fuelBudgetStatus] || map.NO_BUDGET;
+                },
+
+                // Couleur de la barre de progression selon l'état du budget.
+                budgetBarClass() {
+                    if (this.fuelBudgetStatus === 'OVER') return 'bg-rose-500';
+                    if (this.fuelBudgetStatus === 'WARNING') return 'bg-amber-500';
+                    return 'bg-emerald-500';
+                },
+
+                // Libellé du mois d'un budget ('2026-08-01' → 'Août 2026').
+                fuelBudgetMonthLabel(monthStr) {
+                    const m = String(monthStr || '').slice(0, 7);
+                    const months = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+                    if (!/^\d{4}-\d{2}$/.test(m)) return monthStr || '—';
+                    const y = m.split('-')[0];
+                    return months[parseInt(m.split('-')[1], 10) - 1] + ' ' + y;
+                },
+
                 // Anomalies : badge de sévérité (style badges existants de la console).
                 anomalySeverityMeta(severity) {
                     const map = {
@@ -1878,6 +1914,65 @@
                         alert('Erreur : ' + (e.message || 'suppression impossible.'));
                     }
                 },
+
+                // ===== BUDGET CARBURANT MENSUEL (ADMIN / MANAGER uniquement) =====
+                openFuelBudgetModal(budget = null) {
+                    if (!this.canManageFleet) return;
+                    this.editingFuelBudgetId = budget ? budget.id : null;
+                    const now = new Date();
+                    this.newFuelBudget = {
+                        month: budget ? String(budget.month).slice(0, 7) : now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'),
+                        amount: budget ? Math.round(budget.amount) : ''
+                    };
+                    this.fuelBudgetError = '';
+                    this.showFuelBudgetModal = true;
+                },
+
+                async saveFuelBudget() {
+                    const month = String(this.newFuelBudget.month || '').trim();
+                    const amount = parseFloat(this.newFuelBudget.amount);
+                    if (!/^\d{4}-\d{2}$/.test(month)) {
+                        this.fuelBudgetError = 'Le mois doit être au format AAAA-MM.';
+                        return;
+                    }
+                    if (Number.isNaN(amount) || amount < 0) {
+                        this.fuelBudgetError = 'Le montant doit être un nombre positif.';
+                        return;
+                    }
+                    this.fuelBudgetSaving = true;
+                    this.fuelBudgetError = '';
+                    try {
+                        if (this.editingFuelBudgetId) {
+                            await this.apiFetch('/api/fuel-logs/budgets/' + this.editingFuelBudgetId, {
+                                method: 'PUT',
+                                body: JSON.stringify({ amount: Math.round(amount) })
+                            });
+                        } else {
+                            await this.apiFetch('/api/fuel-logs/budgets', {
+                                method: 'POST',
+                                body: JSON.stringify({ month, amount: Math.round(amount) })
+                            });
+                        }
+                        this.showFuelBudgetModal = false;
+                        await Promise.all([this.loadFuelStats(), this.loadDashboardFuelStats()]);
+                    } catch (e) {
+                        this.fuelBudgetError = (e && e.message) || 'Impossible d\'enregistrer le budget.';
+                    } finally {
+                        this.fuelBudgetSaving = false;
+                    }
+                },
+
+                async deleteFuelBudget(id) {
+                    if (!this.canManageFleet) return;
+                    if (!confirm('Supprimer ce budget mensuel ?')) return;
+                    try {
+                        await this.apiFetch('/api/fuel-logs/budgets/' + id, { method: 'DELETE' });
+                        await Promise.all([this.loadFuelStats(), this.loadDashboardFuelStats()]);
+                    } catch (e) {
+                        alert('Erreur : ' + (e.message || 'suppression impossible.'));
+                    }
+                },
+                // ===== FIN BUDGET CARBURANT MENSUEL =====
 
                 // Gestion des véhicules
                 openVehicleModal(v = null) {
