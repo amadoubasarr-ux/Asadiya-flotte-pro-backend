@@ -897,6 +897,20 @@
                 // Filtre de période appliqué aux graphiques du tableau de bord
                 dashboardPeriod: 'ALL', // 'ALL', 'MONTH', 'QUARTER', 'YEAR'
 
+                // ===== CENTRE DE PILOTAGE (Phase 7.6) =====
+                // Période du Centre : 'today' | '7d' | 'month' | 'quarter' | 'year'
+                pilotPeriod: 'month',
+                pilotPeriodOptions: [
+                    { value: 'today', label: "Aujourd'hui" },
+                    { value: '7d', label: '7 jours' },
+                    { value: 'month', label: 'Mois' },
+                    { value: 'quarter', label: '3 mois' },
+                    { value: 'year', label: 'Année' }
+                ],
+                // Stats carburant alignées sur pilotPeriod (source /api/fuel-logs/stats)
+                pilotFuelStats: null,
+                pilotFuelStatsLoading: false,
+
                 // Références pour les instances Chart.js
                 chartFuel: null,
                 chartStatus: null,
@@ -1508,6 +1522,12 @@
                         });
                     });
 
+                    // Centre de pilotage : recharger les stats carburant alignées
+                    // sur la période pilotée par le sélecteur.
+                    this.$watch('pilotPeriod', () => {
+                        this.loadPilotFuelStats();
+                    });
+
                     // Période des statistiques carburant (onglet Carburant)
                     this.$watch('fuelStatsPeriod', () => {
                         this.loadFuelStats();
@@ -1571,6 +1591,210 @@
                     return data;
                 },
 
+                // ===== CENTRE DE PILOTAGE (Phase 7.6) =====
+
+                // Bornes [from, to] de la période du Centre pour un offset donné
+                // (0 = période courante, 1 = période précédente de même durée).
+                pilotPeriodRange(period, offset) {
+                    const now = new Date();
+                    const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+                    const endOfDay = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
+                    if (period === 'today') {
+                        const today = startOfDay(now);
+                        if (offset === 1) {
+                            const prev = new Date(today); prev.setDate(prev.getDate() - 1);
+                            return { from: prev, to: endOfDay(new Date(today.getTime() - 1)) };
+                        }
+                        return { from: today, to: now };
+                    }
+                    if (period === '7d') {
+                        const end = now;
+                        const start = startOfDay(new Date(now.getTime() - 6 * 86400000));
+                        if (offset === 1) {
+                            const prevStart = new Date(start.getTime() - 7 * 86400000);
+                            return { from: prevStart, to: new Date(start.getTime() - 1) };
+                        }
+                        return { from: start, to: end };
+                    }
+                    if (period === 'month') {
+                        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                        if (offset === 1) {
+                            const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                            return { from: prevStart, to: new Date(start.getTime() - 1) };
+                        }
+                        return { from: start, to: now };
+                    }
+                    if (period === 'quarter') {
+                        const q = Math.floor(now.getMonth() / 3);
+                        const start = new Date(now.getFullYear(), q * 3, 1);
+                        if (offset === 1) {
+                            const prevMonthStart = q === 0 ? 9 : (q - 1) * 3;
+                            const prevYear = q === 0 ? now.getFullYear() - 1 : now.getFullYear();
+                            const prevStart = new Date(prevYear, prevMonthStart, 1);
+                            return { from: prevStart, to: new Date(start.getTime() - 1) };
+                        }
+                        return { from: start, to: now };
+                    }
+                    if (period === 'year') {
+                        const start = new Date(now.getFullYear(), 0, 1);
+                        if (offset === 1) {
+                            const prevStart = new Date(now.getFullYear() - 1, 0, 1);
+                            return { from: prevStart, to: new Date(start.getTime() - 1) };
+                        }
+                        return { from: start, to: now };
+                    }
+                    return { from: null, to: now };
+                },
+
+                // True si dateStr appartient à la période courante (offset 0)
+                // ou à la période précédente équivalente (offset 1).
+                isInPilotRange(dateStr, offset) {
+                    if (!dateStr) return false;
+                    const d = new Date(dateStr);
+                    if (isNaN(d.getTime())) return false;
+                    const { from, to } = this.pilotPeriodRange(this.pilotPeriod, offset || 0);
+                    if (!from) return true;
+                    return d >= from && d <= to;
+                },
+
+                // Évolution en % entre deux valeurs ; null si non calculable.
+                pilotDelta(current, previous) {
+                    if (current == null || previous == null) return null;
+                    if (previous === 0) return current === 0 ? 0 : null;
+                    return Math.round(((current - previous) / previous) * 1000) / 10;
+                },
+
+                // Maintenances non effectuées dont la date est déjà passée.
+                pilotOverdueMaintenances() {
+                    const today = new Date(); today.setHours(0, 0, 0, 0);
+                    return this.maintenances.filter(m => {
+                        if (m.status === 'EFFECTUÉ') return false;
+                        const d = new Date(m.date);
+                        if (isNaN(d.getTime())) return false;
+                        return d < today;
+                    });
+                },
+
+                // Conformité documents : véhicules (assurance, carte grise, CT)
+                // + conducteurs (permis). Dénominateur = documents renseignés.
+                get pilotCompliance() {
+                    let valid = 0, soon = 0, expired = 0;
+                    const docs = [];
+                    this.vehicles.forEach(v => {
+                        ['insuranceExpiry', 'registrationExpiry', 'technicalControlExpiry'].forEach(k => {
+                            if (v[k]) docs.push({ label: k, date: v[k] });
+                        });
+                    });
+                    this.drivers.forEach(dr => {
+                        if (dr.licenseExpiry) docs.push({ label: 'licenseExpiry', date: dr.licenseExpiry });
+                    });
+                    docs.forEach(doc => {
+                        const st = this.getDocumentStatus(doc.date);
+                        if (st.status === 'OK') valid++;
+                        else if (st.status === 'SOON') soon++;
+                        else if (st.status === 'EXPIRED') expired++;
+                    });
+                    const total = valid + soon + expired;
+                    return {
+                        valid, soon, expired, total,
+                        rate: total > 0 ? Math.round((valid / total) * 100) : null
+                    };
+                },
+
+                // Filtrage des données locales par période (offset 0/1).
+                get pilotFuelLogs() { return this.fuelLogs.filter(f => this.isInPilotRange(f.date, 0)); },
+                get pilotFuelLogsPrev() { return this.fuelLogs.filter(f => this.isInPilotRange(f.date, 1)); },
+                get pilotMaintenances() { return this.maintenances.filter(m => this.isInPilotRange(m.date, 0)); },
+                get pilotMaintenancesPrev() { return this.maintenances.filter(m => this.isInPilotRange(m.date, 1)); },
+                get pilotAccidents() { return this.accidents.filter(a => this.isInPilotRange(a.date, 0)); },
+                get pilotAccidentsPrev() { return this.accidents.filter(a => this.isInPilotRange(a.date, 1)); },
+
+                // Coûts agrégés de la période courante vs période précédente.
+                get pilotFuelCost() { return this.pilotFuelLogs.reduce((s, f) => s + (parseFloat(f.cost) || 0), 0); },
+                get pilotFuelCostPrev() { return this.pilotFuelLogsPrev.reduce((s, f) => s + (parseFloat(f.cost) || 0), 0); },
+                get pilotMaintenanceCost() { return this.pilotMaintenances.reduce((s, m) => s + (parseFloat(m.cost) || 0), 0); },
+                get pilotMaintenanceCostPrev() { return this.pilotMaintenancesPrev.reduce((s, m) => s + (parseFloat(m.cost) || 0), 0); },
+                get pilotAccidentCost() { return this.pilotAccidents.reduce((s, a) => s + (parseFloat(a.costEstimate) || 0), 0); },
+                get pilotAccidentCostPrev() { return this.pilotAccidentsPrev.reduce((s, a) => s + (parseFloat(a.costEstimate) || 0), 0); },
+                get pilotTotalCost() { return this.pilotFuelCost + this.pilotMaintenanceCost + this.pilotAccidentCost; },
+                get pilotTotalCostPrev() { return this.pilotFuelCostPrev + this.pilotMaintenanceCostPrev + this.pilotAccidentCostPrev; },
+
+                // Métadonnées visuelles d'un état KPI (pastille + couleurs).
+                pilotStateMeta(state) {
+                    const map = {
+                        normal: { dot: 'bg-emerald-500', text: 'text-slate-500' },
+                        attention: { dot: 'bg-amber-500', text: 'text-amber-600' },
+                        critical: { dot: 'bg-rose-500', text: 'text-rose-600' }
+                    };
+                    return map[state] || map.normal;
+                },
+
+                pilotColorMeta(color) {
+                    const map = {
+                        indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+                        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+                        amber: 'bg-amber-50 text-amber-600 border-amber-100',
+                        rose: 'bg-rose-50 text-rose-600 border-rose-100',
+                        sky: 'bg-sky-50 text-sky-600 border-sky-100',
+                        violet: 'bg-violet-50 text-violet-600 border-violet-100'
+                    };
+                    return map[color] || map.indigo;
+                },
+
+                // Tableau des cartes KPI du Centre de pilotage (ordre d'affichage).
+                get pilotKpis() {
+                    const total = this.vehicles.length;
+                    const avail = this.availableVehiclesCount;
+                    const immob = this.maintenanceVehiclesCount;
+                    const availRate = total > 0 ? Math.round((avail / total) * 100) : 0;
+                    const compliance = this.pilotCompliance;
+                    const overdue = this.pilotOverdueMaintenances().length;
+                    const consoKpi = (this.pilotFuelStats && this.pilotFuelStats.kpi && this.pilotFuelStats.kpi.avgConsumption) || null;
+                    const conso = consoKpi ? consoKpi.value : null;
+
+                    const deltaOf = (cur, prev) => {
+                        const pct = this.pilotDelta(cur, prev);
+                        if (pct == null) return { text: '—', arrow: '', cls: 'text-slate-400' };
+                        const up = pct > 0;
+                        return {
+                            text: (pct > 0 ? '+' : '') + pct.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' %',
+                            arrow: pct === 0 ? 'fa-minus' : up ? 'fa-arrow-up' : 'fa-arrow-down',
+                            cls: pct === 0 ? 'text-slate-400' : up ? 'text-rose-600' : 'text-emerald-600'
+                        };
+                    };
+
+                    const fuelDelta = deltaOf(this.pilotFuelCost, this.pilotFuelCostPrev);
+                    const maintDelta = deltaOf(this.pilotMaintenanceCost, this.pilotMaintenanceCostPrev);
+                    const totalDelta = deltaOf(this.pilotTotalCost, this.pilotTotalCostPrev);
+                    let consoDelta = null;
+                    if (consoKpi && consoKpi.pct != null) {
+                        const pct = consoKpi.pct;
+                        consoDelta = {
+                            text: (pct > 0 ? '+' : '') + pct.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' %',
+                            arrow: pct === 0 ? 'fa-minus' : pct > 0 ? 'fa-arrow-up' : 'fa-arrow-down',
+                            cls: pct === 0 ? 'text-slate-400' : pct > 0 ? 'text-rose-600' : 'text-emerald-600'
+                        };
+                    }
+
+                    return [
+                        { key: 'vehicles', label: 'Véhicules', icon: 'fa-car', color: 'indigo', value: String(total), sub: total > 0 ? 'dans le parc' : 'aucun véhicule', state: total > 0 ? 'normal' : 'attention' },
+                        { key: 'availability', label: 'Disponibilité', icon: 'fa-circle-check', color: 'emerald', value: availRate + ' %', sub: avail + ' prêts / ' + total, state: availRate >= 80 ? 'normal' : availRate >= 50 ? 'attention' : 'critical' },
+                        { key: 'immobilized', label: 'Immobilisés', icon: 'fa-truck-pickup', color: 'rose', value: String(immob), sub: immob > 0 ? 'en maintenance' : 'aucun', state: immob === 0 ? 'normal' : immob > 3 ? 'critical' : 'attention' },
+                        { key: 'fuel', label: 'Coût carburant', icon: 'fa-gas-pump', color: 'amber', value: this.fmtPrice(this.pilotFuelCost), sub: 'FCFA · ' + this.pilotFuelLogs.length + ' plein(s)', state: 'normal', delta: fuelDelta },
+                        { key: 'total', label: 'Coût total', icon: 'fa-money-bill-wave', color: 'indigo', value: this.fmtPrice(this.pilotTotalCost), sub: 'FCFA · carburant+entretien+sinistres', state: 'normal', delta: totalDelta },
+                        { key: 'maintenance', label: 'Maintenance', icon: 'fa-wrench', color: 'violet', value: this.fmtPrice(this.pilotMaintenanceCost), sub: 'FCFA · ' + this.pilotMaintenances.length + ' opération(s)', state: 'normal', delta: maintDelta },
+                        { key: 'consumption', label: 'Conso moyenne', icon: 'fa-gauge-high', color: 'sky', value: conso != null ? conso.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) : '—', sub: 'L/100km', state: 'normal', delta: consoDelta },
+                        { key: 'overdue', label: 'Maintenance en retard', icon: 'fa-clock', color: 'rose', value: String(overdue), sub: overdue > 0 ? 'à traiter' : 'à jour', state: overdue === 0 ? 'normal' : overdue > 3 ? 'critical' : 'attention' },
+                        { key: 'compliance', label: 'Conformité', icon: 'fa-file-shield', color: 'emerald', value: compliance.rate != null ? compliance.rate + ' %' : '—', sub: compliance.total > 0 ? compliance.valid + '/' + compliance.total + ' docs valides' : 'docs non renseignés', state: compliance.rate == null ? 'attention' : compliance.rate >= 90 ? 'normal' : compliance.rate >= 70 ? 'attention' : 'critical' }
+                    ];
+                },
+
+                // Recharge les données + stats du Centre de pilotage (bouton Actualiser).
+                // loadAllData() déclenche déjà loadPilotFuelStats() en parallèle.
+                async refreshPilot() {
+                    await this.loadAllData();
+                },
+
                 // Recharge les 7 ressources depuis l'API en parallèle
                 async loadAllData() {
                     this.isLoadingData = true;
@@ -1593,7 +1817,7 @@
                         this.accidents = accidents || [];
                         this.fuelLogs = fuelLogs || [];
                         // Les stats officielles sont chargées avant le rendu des graphiques.
-                        await Promise.all([this.loadFuelStats(), this.loadDashboardFuelStats()]);
+                        await Promise.all([this.loadFuelStats(), this.loadDashboardFuelStats(), this.loadPilotFuelStats()]);
                         console.log('[CHART-DIAG] loadAllData (reponses API)', {
                             vehicles: { count: vehicles.length, premier: vehicles[0] ? { status: vehicles[0].status, mileage: vehicles[0].mileage } : null },
                             drivers: { count: drivers.length },
@@ -1685,6 +1909,40 @@
                         // sur l'agrégation locale en attendant le prochain chargement.
                     } finally {
                         this.dashboardFuelStatsLoading = false;
+                    }
+                },
+
+                // ===== CENTRE DE PILOTAGE — STATS CARBURANT (Phase 7.6) =====
+
+                // Traduit pilotPeriod en paramètre de requête /api/fuel-logs/stats.
+                pilotStatsQuery() {
+                    const now = new Date();
+                    const pad = n => String(n).padStart(2, '0');
+                    const fmt = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+                    const today = fmt(now);
+                    if (this.pilotPeriod === 'today') return 'period=today';
+                    if (this.pilotPeriod === '7d') return 'period=week';
+                    if (this.pilotPeriod === 'month') return 'period=month';
+                    if (this.pilotPeriod === 'year') return 'period=year';
+                    if (this.pilotPeriod === 'quarter') {
+                        const q = Math.floor(now.getMonth() / 3);
+                        return 'period=custom&from=' + now.getFullYear() + '-' + pad(q * 3 + 1) + '-01&to=' + today;
+                    }
+                    return 'period=month';
+                },
+
+                // Charge les stats carburant alignées sur pilotPeriod (Centre de pilotage).
+                // Réutilise le même endpoint que l'onglet Carburant (aucune nouvelle API).
+                async loadPilotFuelStats() {
+                    if (this.isSuperAdmin) return;
+                    this.pilotFuelStatsLoading = true;
+                    try {
+                        this.pilotFuelStats = await this.apiFetch('/api/fuel-logs/stats?' + this.pilotStatsQuery());
+                    } catch (e) {
+                        if (e && e.status === 403) return; // compte sans organisation (ex. SUPERADMIN)
+                        this.pilotFuelStats = null; // écran vide propre si l'endpoint échoue
+                    } finally {
+                        this.pilotFuelStatsLoading = false;
                     }
                 },
                 // ===== FIN STATISTIQUES CARBURANT =====
