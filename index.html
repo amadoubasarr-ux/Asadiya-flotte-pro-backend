@@ -510,6 +510,7 @@
         html[data-theme="dark"] .border-slate-100 { border-color: #1a2540 !important; }
         html[data-theme="dark"] .border-slate-200 { border-color: #24314f !important; }
         html[data-theme="dark"] .border-indigo-100 { border-color: rgba(99, 102, 241, .35) !important; }
+        html[data-theme="dark"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1a2540 !important; }
         html[data-theme="dark"] .border-indigo-200 { border-color: rgba(99, 102, 241, .45) !important; }
         html[data-theme="dark"] .border-emerald-100 { border-color: rgba(16, 185, 129, .35) !important; }
         html[data-theme="dark"] .border-emerald-200 { border-color: rgba(16, 185, 129, .45) !important; }
@@ -3470,6 +3471,84 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Historique des paiements (Commit 5) -->
+                        <div class="px-5 pb-5 border-t border-slate-100">
+                            <div class="flex flex-wrap items-center justify-between gap-2 pt-4 pb-3">
+                                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-clock-rotate-left text-indigo-500"></i> Historique des paiements
+                                </h4>
+                                <button @click="loadPaymentHistory()" :disabled="paymentHistoryLoading"
+                                        class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition">
+                                    <i class="fa-solid fa-rotate-right" :class="paymentHistoryLoading ? 'fa-spin' : ''"></i>
+                                    Actualiser
+                                </button>
+                            </div>
+                            <!-- Filtres : fournisseur + statut -->
+                            <div class="flex flex-wrap gap-2 pb-3">
+                                <select x-model="paymentHistoryFilters.provider" class="input max-w-[180px]">
+                                    <option value="">Tous les fournisseurs</option>
+                                    <option value="mock">Mode test (Mock)</option>
+                                    <option value="orange_money">Orange Money</option>
+                                    <option value="wave">Wave</option>
+                                </select>
+                                <select x-model="paymentHistoryFilters.status" class="input max-w-[170px]">
+                                    <option value="">Tous les statuts</option>
+                                    <option value="PENDING">En attente</option>
+                                    <option value="PROCESSING">En cours</option>
+                                    <option value="SUCCESS">Réussi</option>
+                                    <option value="FAILED">Échoué</option>
+                                    <option value="CANCELLED">Annulé</option>
+                                    <option value="EXPIRED">Expiré</option>
+                                    <option value="REFUNDED">Remboursé</option>
+                                </select>
+                            </div>
+                            <!-- Chargement -->
+                            <p x-show="paymentHistoryLoading" class="text-[11px] text-slate-500 flex items-center gap-1.5 py-3">
+                                <i class="fa-solid fa-circle-notch fa-spin"></i> Chargement de l'historique…
+                            </p>
+                            <!-- Erreur -->
+                            <p x-show="paymentHistoryError" class="text-[11px] text-rose-600 flex items-start gap-1.5 rounded-lg bg-rose-50 border border-rose-200 p-2.5 mb-3">
+                                <i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i><span x-text="paymentHistoryError"></span>
+                            </p>
+                            <!-- Tableau -->
+                            <div x-show="!paymentHistoryLoading && !paymentHistoryError && paymentHistoryFiltered().length > 0"
+                                 class="overflow-x-auto rounded-xl border border-slate-200">
+                                <table class="w-full text-left text-[11px] min-w-[640px]">
+                                    <thead class="bg-slate-50 text-slate-500">
+                                        <tr>
+                                            <th class="px-3 py-2 font-semibold">Date</th>
+                                            <th class="px-3 py-2 font-semibold">Fournisseur</th>
+                                            <th class="px-3 py-2 font-semibold">Montant</th>
+                                            <th class="px-3 py-2 font-semibold">Statut</th>
+                                            <th class="px-3 py-2 font-semibold">Référence</th>
+                                            <th class="px-3 py-2 font-semibold">Facture</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <template x-for="p in paymentHistoryFiltered()" :key="p.id">
+                                            <tr class="text-slate-600">
+                                                <td class="px-3 py-2 whitespace-nowrap" x-text="formatDateTime(p.createdAt)"></td>
+                                                <td class="px-3 py-2 whitespace-nowrap font-semibold text-slate-900" x-text="paymentProviderLabel(p.provider)"></td>
+                                                <td class="px-3 py-2 whitespace-nowrap font-mono font-bold text-slate-900" x-text="fmtPrice(p.amount) + ' ' + (p.currency || 'XOF')"></td>
+                                                <td class="px-3 py-2 whitespace-nowrap">
+                                                    <span class="badge" :class="paymentStatusBadgeClass(p.status)">
+                                                        <span x-text="paymentStatusTitle(p.status)"></span>
+                                                    </span>
+                                                </td>
+                                                <td class="px-3 py-2 font-mono text-[10px] text-slate-500" x-text="p.transactionReference"></td>
+                                                <td class="px-3 py-2 font-mono text-[10px] text-slate-500" x-text="p.invoiceId || '—'"></td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <!-- Vide -->
+                            <p x-show="!paymentHistoryLoading && !paymentHistoryError && paymentHistoryFiltered().length === 0"
+                               class="text-[11px] text-slate-400 flex items-center gap-1.5 py-3">
+                                <i class="fa-solid fa-inbox"></i> Aucun paiement enregistré pour le moment.
+                            </p>
+                        </div>
                     </section>
                 </div>
 
@@ -3752,12 +3831,17 @@
                             </div>
                         </div>
 
-                        <!-- SUCCESS : affichage minimal (le renouvellement SaaS est fait par le backend) -->
-                        <div class="flex flex-col items-center text-center py-4 space-y-2" x-show="paymentFlow.status === 'SUCCESS'">
+                        <!-- SUCCESS : paiement confirmé (le renouvellement SaaS est fait par le backend) -->
+                        <div class="flex flex-col items-center text-center py-2 space-y-2" x-show="paymentFlow.status === 'SUCCESS'">
                             <div class="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
                                 <i class="fa-solid fa-check text-emerald-600 text-xl"></i>
                             </div>
-                            <p class="text-sm font-bold text-emerald-600">Paiement réussi. Votre abonnement sera mis à jour.</p>
+                            <p class="text-sm font-bold text-emerald-600">Paiement réussi</p>
+                            <p class="text-[11px] text-slate-500 flex items-center gap-1.5" x-show="paymentFlow.refreshingAbonnement">
+                                <i class="fa-solid fa-circle-notch fa-spin"></i> Paiement confirmé. Actualisation de votre abonnement en cours…
+                            </p>
+                            <p class="text-[11px] font-bold text-emerald-600" x-show="!paymentFlow.refreshingAbonnement && !paymentFlow.refreshError">Votre plan a été changé avec succès.</p>
+                            <p class="text-[11px] text-slate-500" x-show="!paymentFlow.refreshingAbonnement && paymentFlow.refreshError">Paiement confirmé. Les informations de l'abonnement seront actualisées au prochain rechargement.</p>
                         </div>
 
                         <!-- États terminaux non réussis : FAILED / CANCELLED / EXPIRED / REFUNDED -->
@@ -3776,9 +3860,9 @@
                             <p class="text-sm font-bold text-slate-900" x-text="paymentStatusTitle(paymentFlow.status)"></p>
                         </div>
 
-                        <!-- Détails de la transaction (cachés sur SUCCESS : affichage minimal) -->
+                        <!-- Détails de la transaction (états terminaux : SUCCESS / FAILED / CANCELLED / EXPIRED / REFUNDED) -->
                         <div class="rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs overflow-hidden"
-                             x-show="paymentFlow.status !== 'SUCCESS'">
+                             x-show="['SUCCESS','FAILED','CANCELLED','EXPIRED','REFUNDED'].includes(paymentFlow.status)">
                             <div class="flex items-center justify-between px-3 py-2">
                                 <span class="text-slate-500">Référence de transaction</span>
                                 <span class="font-mono font-bold text-slate-900 text-[11px]" x-text="paymentFlow.txn.transactionReference"></span>
@@ -3790,6 +3874,14 @@
                             <div class="flex items-center justify-between px-3 py-2">
                                 <span class="text-slate-500">Montant</span>
                                 <span class="font-bold text-slate-900" x-text="fmtPrice(paymentFlow.txn.amount) + ' ' + (paymentFlow.txn.currency || 'XOF')"></span>
+                            </div>
+                            <div class="flex items-center justify-between px-3 py-2">
+                                <span class="text-slate-500">Date</span>
+                                <span class="font-bold text-slate-900" x-text="formatDateTime(paymentFlow.txn.completedAt || paymentFlow.txn.initiatedAt || paymentFlow.txn.createdAt)"></span>
+                            </div>
+                            <div class="flex items-center justify-between px-3 py-2">
+                                <span class="text-slate-500">Facture</span>
+                                <span class="font-mono font-bold text-slate-900 text-[11px]" x-text="paymentFlow.txn.invoiceId || '—'"></span>
                             </div>
                             <div class="flex items-center justify-between px-3 py-2">
                                 <span class="text-slate-500">Statut</span>

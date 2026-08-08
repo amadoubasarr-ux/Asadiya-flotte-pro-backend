@@ -52,6 +52,7 @@
                             await this.loadSuperAdminStats();
                         } else {
                             await this.loadAllData();
+                            await this.loadPaymentHistory();
                             setTimeout(() => this.initCharts(), 150);
                         }
                     } catch (e) {
@@ -84,7 +85,7 @@
                 publicPlansLoading: false,
                 publicPlansError: '',
                 // Parcours de paiement (préparation uniquement — activé dans une étape ultérieure)
-                paymentFlow: { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF', txn: null, status: null, canceling: false, launchUrl: null },
+                paymentFlow: { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF', txn: null, status: null, canceling: false, launchUrl: null, refreshed: false, refreshingAbonnement: false, refreshError: '' },
                 // Modale d'initiation de paiement (Commit 2)
                 showPaymentModal: false,
                 paymentProvider: null,      // 'mock' | 'wave' | 'orange_money' | 'stripe' | null
@@ -126,6 +127,13 @@
 
                 fmtPrice(n) {
                     return (Number(n) || 0).toLocaleString('fr-FR');
+                },
+
+                formatDateTime(value) {
+                    if (!value) return '—';
+                    const d = new Date(value);
+                    if (isNaN(d.getTime())) return '—';
+                    return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                 },
 
                 signupPlanId() {
@@ -213,19 +221,6 @@
                     return Math.min(100, Math.round((Number(used) / Math.max(1, Number(limit))) * 100));
                 },
 
-                async renewMySubscription() {
-                    try {
-                        await this.apiFetch('/api/subscriptions/me/renew', {
-                            method: 'POST',
-                            body: JSON.stringify({ reason: 'Renouvellement depuis l\'espace client.' })
-                        });
-                        const data = await this.apiFetch('/api/auth/me');
-                        this.currentUser = data.user;
-                        alert('✅ Votre abonnement a été renouvelé avec succès.');
-                    } catch (e) {
-                        alert('Erreur : ' + (e.message || 'renouvellement impossible.'));
-                    }
-                },
                 // ===== ABONNEMENT & PAIEMENT : MODALE D'INITIATION =====
                 availablePlans() {
                     return (this.publicPlans || []).slice().sort((a, b) => (Number(a.monthlyPrice) || 0) - (Number(b.monthlyPrice) || 0));
@@ -558,6 +553,14 @@
                     if (this.paymentTerminal) {
                         this.stopPaymentPolling(); // arrêt immédiat sur état terminal
                     }
+                    // Succès confirmé par le backend : on recharge l'état officiel
+                    // de l'abonnement. Le renouvellement SaaS est fait par le
+                    // backend (services/paymentSync) — le frontend ne renouvelle
+                    // JAMAIS directement, il relit simplement /api/auth/me.
+                    if (this.paymentFlow.status === 'SUCCESS' && !this.paymentFlow.refreshed) {
+                        this.paymentFlow.refreshed = true;
+                        this.refreshAbonnement();
+                    }
                 },
 
                 // Annulation demandée par l'utilisateur (PENDING / PROCESSING).
@@ -604,6 +607,60 @@
                     };
                     this.paymentProvider = null;
                     this.paymentError = '';
+                },
+
+                // ===== CONFIRMATION & ABONNEMENT (Commit 5) =====
+                // Après un paiement SUCCESS, le renouvellement SaaS est effectué par
+                // le backend (services/paymentSync.settlePayment). Le frontend ne
+                // renouvelle jamais directement : il relit /api/auth/me pour afficher
+                // l'état officiel (statut, dates, limites) renvoyé par le serveur.
+                async refreshAbonnement() {
+                    if (!this.paymentFlow || !this.paymentFlow.txn || !this.paymentFlow.txn.id) return;
+                    this.paymentFlow.refreshingAbonnement = true;
+                    this.paymentFlow.refreshError = '';
+                    try {
+                        const data = await this.apiFetch('/api/auth/me');
+                        this.currentUser = data.user;
+                    } catch (e) {
+                        // Non bloquant : le SUCCESS est déjà confirmé par le backend.
+                        // On affiche une information sans jamais inventer d'état.
+                        this.paymentFlow.refreshError = (e && e.message) || 'Actualisation de l\'abonnement impossible.';
+                    } finally {
+                        this.paymentFlow.refreshingAbonnement = false;
+                    }
+                    this.loadPaymentHistory();
+                },
+
+                // ===== HISTORIQUE DES PAIEMENTS (Commit 5) =====
+                paymentHistory: [],
+                paymentHistoryLoading: false,
+                paymentHistoryError: '',
+                paymentHistoryFilters: { provider: '', status: '' },
+
+                async loadPaymentHistory() {
+                    if (this.isSuperAdmin) return;
+                    this.paymentHistoryLoading = true;
+                    this.paymentHistoryError = '';
+                    try {
+                        this.paymentHistory = await this.apiFetch('/api/payments/me');
+                    } catch (e) {
+                        if (e && (e.status === 401 || e.status === 403 || e.status === 404)) {
+                            this.paymentHistory = [];
+                            return;
+                        }
+                        this.paymentHistoryError = (e && e.message) || 'Impossible de charger l\'historique des paiements.';
+                    } finally {
+                        this.paymentHistoryLoading = false;
+                    }
+                },
+
+                paymentHistoryFiltered() {
+                    const f = this.paymentHistoryFilters || {};
+                    return (this.paymentHistory || []).filter((t) => {
+                        if (f.provider && t.provider !== f.provider) return false;
+                        if (f.status && t.status !== f.status) return false;
+                        return true;
+                    });
                 },
                 // ===== FIN ABONNEMENT : ESPACE CLIENT =====
 
@@ -1568,6 +1625,7 @@
                             await this.loadSuperAdminStats();
                         } else {
                             await this.loadAllData();
+                            await this.loadPaymentHistory();
                             setTimeout(() => this.initCharts(), 150);
                         }
                     } catch (e) {
