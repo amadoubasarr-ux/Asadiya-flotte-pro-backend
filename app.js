@@ -85,6 +85,12 @@
                 publicPlansError: '',
                 // Parcours de paiement (préparation uniquement — activé dans une étape ultérieure)
                 paymentFlow: { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF' },
+                // Modale d'initiation de paiement (Commit 2)
+                showPaymentModal: false,
+                paymentProvider: null,      // 'mock' | 'wave' | 'orange_money' | 'stripe' | null
+                paymentSubmitting: false,
+                paymentError: '',
+                paymentCreated: null,       // transaction renvoyée par POST /api/payments/create
                 signupForm: { name: '', adminName: '', adminUsername: '', adminPassword: '', planCode: 'STARTER' },
                 signupError: '',
                 isSigningUp: false,
@@ -217,7 +223,7 @@
                         alert('Erreur : ' + (e.message || 'renouvellement impossible.'));
                     }
                 },
-                // ===== ABONNEMENT & PAIEMENT : VUE PARAMÈTRES (préparation du parcours) =====
+                // ===== ABONNEMENT & PAIEMENT : MODALE D'INITIATION =====
                 availablePlans() {
                     return (this.publicPlans || []).slice().sort((a, b) => (Number(a.monthlyPrice) || 0) - (Number(b.monthlyPrice) || 0));
                 },
@@ -234,6 +240,16 @@
                     return Math.round(price * months);
                 },
 
+                get paymentPlanPrice() {
+                    const p = (this.publicPlans || []).find((x) => x.code === this.paymentFlow.planCode);
+                    return p ? Number(p.monthlyPrice) || 0 : Number(this.paymentFlow.amount) || 0;
+                },
+
+                get paymentPlanMonths() {
+                    const p = (this.publicPlans || []).find((x) => x.code === this.paymentFlow.planCode);
+                    return p ? Number(p.durationMonths) || 1 : 1;
+                },
+
                 preparePaymentPlan(planCode) {
                     const cur = this.clientSubscription && this.clientSubscription.plan;
                     const p = (this.publicPlans || []).find((x) => x.code === planCode);
@@ -246,6 +262,7 @@
                         amount: this.paymentPlanAmount(plan.code),
                         currency: 'XOF',
                     };
+                    this.openPaymentModal();
                 },
 
                 prepareRenewal() {
@@ -253,8 +270,108 @@
                     if (cur) this.preparePaymentPlan(cur.code);
                 },
 
-                resetPaymentFlow() {
+                openPaymentModal() {
+                    if (!this.canManageFleet) return;
+                    if (!this.paymentFlow || this.paymentFlow.step !== 'ready') {
+                        const cur = this.clientSubscription && this.clientSubscription.plan;
+                        if (cur) {
+                            this.paymentFlow = {
+                                step: 'ready',
+                                planCode: cur.code,
+                                planName: cur.name,
+                                amount: this.paymentPlanAmount(cur.code),
+                                currency: 'XOF',
+                            };
+                        }
+                    }
+                    this.paymentProvider = null;
+                    this.paymentSubmitting = false;
+                    this.paymentError = '';
+                    this.paymentCreated = null;
+                    this.showPaymentModal = true;
+                },
+
+                closePaymentModal() {
+                    this.showPaymentModal = false;
+                    this.paymentProvider = null;
+                    this.paymentSubmitting = false;
+                    this.paymentError = '';
+                    this.paymentCreated = null;
                     this.paymentFlow = { step: 'idle', planCode: null, planName: null, amount: null, currency: 'XOF' };
+                },
+
+                resetPaymentFlow() {
+                    this.closePaymentModal();
+                },
+
+                // Seul le simulateur local 'mock' est utilisable à cette étape.
+                // Wave / Orange Money / Stripe : affichés mais « disponibles prochainement ».
+                paymentMethodAvailable(provider) {
+                    return provider === 'mock';
+                },
+
+                selectPaymentProvider(provider) {
+                    if (!this.paymentMethodAvailable(provider)) return;
+                    this.paymentProvider = provider;
+                    this.paymentError = '';
+                },
+
+                paymentProviderLabel(provider) {
+                    const labels = {
+                        orange_money: 'Orange Money',
+                        wave: 'Wave',
+                        stripe: 'Carte bancaire',
+                        mock: 'Mode test (Mock)',
+                    };
+                    return labels[provider] || provider;
+                },
+
+                paymentStatusBadgeClass(status) {
+                    const colors = {
+                        PENDING: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
+                        PROCESSING: 'bg-blue-500/15 text-blue-600 border-blue-500/30',
+                        SUCCESS: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
+                        FAILED: 'bg-rose-500/15 text-rose-600 border-rose-500/30',
+                        CANCELLED: 'bg-slate-500/15 text-slate-600 border-slate-500/30',
+                        CREATED: 'bg-slate-500/15 text-slate-600 border-slate-500/30',
+                    };
+                    return colors[status] || 'bg-slate-500/15 text-slate-600 border-slate-500/30';
+                },
+
+                formatPaymentError(e) {
+                    const msg = (e && e.message) ? e.message : 'Erreur inattendue.';
+                    if (e && e.networkError) return 'Erreur réseau : impossible de contacter le serveur. Vérifiez que le backend est démarré.';
+                    if (e && e.status === 400) return 'Requête invalide : ' + msg;
+                    if (e && e.status === 403) return msg;
+                    if (e && e.status === 503) return msg;
+                    if (e && e.status === 501) return msg;
+                    return msg;
+                },
+
+                async submitPayment() {
+                    if (!this.canManageFleet) return;
+                    if (!this.paymentProvider || !this.paymentFlow || this.paymentSubmitting) return;
+                    this.paymentSubmitting = true;
+                    this.paymentError = '';
+                    try {
+                        const txn = await this.apiFetch('/api/payments/create', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                provider: this.paymentProvider,
+                                amount: this.paymentFlow.amount,
+                                currency: 'XOF',
+                                planCode: this.paymentFlow.planCode,
+                                subscriptionId: this.clientSubscription && this.clientSubscription.subscription ? this.clientSubscription.subscription.id : undefined,
+                                successUrl: window.location.origin + window.location.pathname,
+                                errorUrl: window.location.origin + window.location.pathname,
+                            })
+                        });
+                        this.paymentCreated = txn;
+                    } catch (e) {
+                        this.paymentError = this.formatPaymentError(e);
+                    } finally {
+                        this.paymentSubmitting = false;
+                    }
                 },
                 // ===== FIN ABONNEMENT : ESPACE CLIENT =====
 

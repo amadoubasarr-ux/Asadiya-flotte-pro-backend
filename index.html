@@ -1691,7 +1691,7 @@
                             </div>
                         </div>
 
-                        <button x-show="subscriptionInactive" @click="renewMySubscription()"
+                        <button x-show="subscriptionInactive && canManageFleet" @click="prepareRenewal()"
                                 class="btn btn-primary btn-sm">
                             <i class="fa-solid fa-rotate"></i> Renouveler maintenant
                         </button>
@@ -3467,24 +3467,7 @@
                                     </template>
                                     <div x-show="!publicPlansLoading && availablePlans().length === 0" class="text-[11px] text-slate-400">
                                         Aucune offre disponible pour le moment.
-                                    </div>
                                 </div>
-                            </div>
-
-                            <!-- Note : parcours de paiement préparé (activé à l'étape suivante) -->
-                            <div x-show="paymentFlow.step === 'ready'" class="mx-5 mb-5 rounded-xl border p-3 flex items-start gap-2"
-                                 :class="paymentFlow.planCode === (clientSubscription?.plan?.code) ? 'border-indigo-200 bg-indigo-50' : 'border-emerald-200 bg-emerald-50'">
-                                <i class="fa-solid fa-circle-info mt-0.5 text-indigo-500 flex-shrink-0"></i>
-                                <div class="text-[11px]">
-                                    <p class="text-slate-700">
-                                        <b x-text="paymentFlow.planName"></b> sélectionné —
-                                        <b x-text="fmtPrice(paymentFlow.amount)"></b> FCFA.
-                                        <span x-show="paymentFlow.planCode === (clientSubscription?.plan?.code)">Le renouvellement de votre plan actuel est prêt.</span>
-                                        <span x-show="paymentFlow.planCode !== (clientSubscription?.plan?.code)">Le changement de plan sera appliqué après paiement.</span>
-                                    </p>
-                                    <p class="text-slate-500 mt-0.5">Le parcours de paiement (Orange Money, Wave, carte bancaire) sera disponible dans une prochaine étape.</p>
-                                </div>
-                                <button type="button" @click="resetPaymentFlow()" class="ml-auto flex-shrink-0 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
                             </div>
                         </div>
                     </section>
@@ -3635,6 +3618,150 @@
                         <span x-text="editingFuelBudgetId ? 'Enregistrer' : 'Créer le Budget'"></span>
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- MODALE : PAIEMENT DE L'ABONNEMENT (initiation — Commit 2) -->
+        <div x-show="showPaymentModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-credit-card text-indigo-500"></i> Paiement de l'abonnement
+                    </h3>
+                    <button @click="closePaymentModal()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Écran 1 : récapitulatif + choix du moyen de paiement -->
+                <template x-if="!paymentCreated">
+                    <div class="space-y-4">
+                        <!-- Récapitulatif du plan -->
+                        <div class="rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs overflow-hidden">
+                            <div class="flex items-center justify-between px-3 py-2">
+                                <span class="text-slate-500">Plan</span>
+                                <span class="font-bold text-slate-900" x-text="paymentFlow.planName"></span>
+                            </div>
+                            <div class="flex items-center justify-between px-3 py-2">
+                                <span class="text-slate-500">Prix</span>
+                                <span class="font-bold text-slate-900" x-text="fmtPrice(paymentPlanPrice) + ' FCFA / mois'"></span>
+                            </div>
+                            <div class="flex items-center justify-between px-3 py-2">
+                                <span class="text-slate-500">Durée</span>
+                                <span class="font-bold text-slate-900" x-text="paymentPlanMonths > 1 ? paymentPlanMonths + ' mois' : '1 mois'"></span>
+                            </div>
+                            <div class="flex items-center justify-between px-3 py-2 bg-indigo-50/60">
+                                <span class="text-slate-600 font-semibold">Montant total (XOF)</span>
+                                <span class="font-bold text-indigo-600 text-sm" x-text="fmtPrice(paymentFlow.amount) + ' FCFA'"></span>
+                            </div>
+                        </div>
+
+                        <!-- Choix du moyen de paiement -->
+                        <div>
+                            <p class="label">Moyen de paiement</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <!-- Orange Money -->
+                                <button type="button" :disabled="!paymentMethodAvailable('orange_money')"
+                                        @click="selectPaymentProvider('orange_money')"
+                                        :class="paymentProvider === 'orange_money' ? 'ring-2 ring-orange-500 border-orange-500' : 'border-slate-200'"
+                                        class="rounded-xl border bg-white p-3 text-left transition flex items-center gap-3 opacity-70 cursor-not-allowed">
+                                    <span class="w-8 h-8 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-phone text-sm"></i></span>
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-bold text-slate-900">Orange Money</span>
+                                        <span class="block text-[10px] text-slate-500">Disponible prochainement</span>
+                                    </span>
+                                </button>
+                                <!-- Wave -->
+                                <button type="button" :disabled="!paymentMethodAvailable('wave')"
+                                        @click="selectPaymentProvider('wave')"
+                                        :class="paymentProvider === 'wave' ? 'ring-2 ring-sky-500 border-sky-500' : 'border-slate-200'"
+                                        class="rounded-xl border bg-white p-3 text-left transition flex items-center gap-3 opacity-70 cursor-not-allowed">
+                                    <span class="w-8 h-8 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-wave-square text-sm"></i></span>
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-bold text-slate-900">Wave</span>
+                                        <span class="block text-[10px] text-slate-500">Disponible prochainement</span>
+                                    </span>
+                                </button>
+                                <!-- Carte bancaire (Stripe) -->
+                                <button type="button" :disabled="!paymentMethodAvailable('stripe')"
+                                        @click="selectPaymentProvider('stripe')"
+                                        :class="paymentProvider === 'stripe' ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-slate-200'"
+                                        class="rounded-xl border bg-white p-3 text-left transition flex items-center gap-3 opacity-70 cursor-not-allowed">
+                                    <span class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-credit-card text-sm"></i></span>
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-bold text-slate-900">Carte bancaire (Stripe)</span>
+                                        <span class="block text-[10px] text-slate-500">Disponible prochainement</span>
+                                    </span>
+                                </button>
+                                <!-- Mode test (Mock) -->
+                                <button type="button" :disabled="!paymentMethodAvailable('mock')"
+                                        @click="selectPaymentProvider('mock')"
+                                        :class="paymentProvider === 'mock' ? 'ring-2 ring-emerald-500 border-emerald-500' : 'border-slate-200'"
+                                        class="rounded-xl border bg-white p-3 text-left transition flex items-center gap-3">
+                                    <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-flask text-sm"></i></span>
+                                    <span class="min-w-0">
+                                        <span class="block text-xs font-bold text-slate-900">Mode test (Mock)</span>
+                                        <span class="block text-[10px] text-slate-500">Simulation locale sans paiement réel</span>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Erreur backend -->
+                        <p x-show="paymentError" class="text-[11px] text-rose-600 flex items-start gap-1.5 rounded-lg bg-rose-50 border border-rose-200 p-2.5">
+                            <i class="fa-solid fa-triangle-exclamation mt-0.5 flex-shrink-0"></i><span x-text="paymentError"></span>
+                        </p>
+
+                        <!-- Actions -->
+                        <div class="flex justify-end space-x-2 pt-1">
+                            <button @click="closePaymentModal()" class="btn btn-secondary">Annuler</button>
+                            <button @click="submitPayment()" :disabled="!paymentProvider || paymentSubmitting" class="btn btn-primary">
+                                <i class="fa-solid fa-spinner fa-spin mr-1" x-show="paymentSubmitting"></i>
+                                <span x-text="paymentSubmitting ? 'Création du paiement…' : 'Payer ' + fmtPrice(paymentFlow.amount) + ' FCFA'"></span>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Écran 2 : paiement créé (suivi ajouté au Commit 3) -->
+                <template x-if="paymentCreated">
+                    <div class="space-y-4">
+                        <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3 flex items-start gap-2 text-[11px]">
+                            <i class="fa-solid fa-circle-check text-emerald-600 mt-0.5 flex-shrink-0"></i>
+                            <div>
+                                <p class="font-bold text-emerald-600">Paiement initié avec succès.</p>
+                                <p class="text-emerald-600 mt-0.5">Le suivi de la transaction (PENDING → SUCCESS / FAILED / CANCELLED) sera ajouté à l'étape suivante.</p>
+                            </div>
+                        </div>
+
+                        <div class="rounded-xl border border-slate-200 divide-y divide-slate-100 text-xs overflow-hidden">
+                            <div class="flex items-center justify-between px-3 py-2">
+                                <span class="text-slate-500">Référence de transaction</span>
+                                <span class="font-mono font-bold text-slate-900 text-[11px]" x-text="paymentCreated.transactionReference"></span>
+                            </div>
+                            <div class="flex items-center justify-between px-3 py-2">
+                                <span class="text-slate-500">Fournisseur</span>
+                                <span class="font-bold text-slate-900" x-text="paymentProviderLabel(paymentCreated.provider)"></span>
+                            </div>
+                            <div class="flex items-center justify-between px-3 py-2">
+                                <span class="text-slate-500">Montant</span>
+                                <span class="font-bold text-slate-900" x-text="fmtPrice(paymentCreated.amount) + ' ' + (paymentCreated.currency || 'XOF')"></span>
+                            </div>
+                            <div class="flex items-center justify-between px-3 py-2">
+                                <span class="text-slate-500">Statut</span>
+                                <span class="badge" :class="paymentStatusBadgeClass(paymentCreated.status)">
+                                    <span x-text="paymentCreated.status"></span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-1">
+                            <button @click="closePaymentModal()" class="btn btn-primary">
+                                <i class="fa-solid fa-check mr-1"></i> Fermer
+                            </button>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
 
