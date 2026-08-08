@@ -1959,6 +1959,92 @@
                                 </div>
                             </template>
                         </div>
+
+                        <!-- ===== GRAPHIQUES DU CENTRE DE PILOTAGE (Phase 7.6) ===== -->
+                        <div class="border-t border-slate-100 pt-4">
+                            <h4 class="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-chart-pie text-indigo-500"></i> Analyses de la période
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                <!-- Évolution des coûts carburant -->
+                                <div class="card card-pad space-y-3">
+                                    <div class="flex items-center justify-between flex-wrap gap-1">
+                                        <h5 class="font-bold text-xs text-slate-900">Évolution coûts carburant</h5>
+                                        <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full px-2 py-0.5" x-text="pilotFuelLogs.length + ' plein(s)'"></span>
+                                    </div>
+                                    <div class="chart-shell h-52">
+                                        <canvas id="pilotCostChart"></canvas>
+                                        <div x-show="!pilotCostSeries" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-slate-400">
+                                            <i class="fa-solid fa-chart-column text-lg"></i>
+                                            <span class="text-[11px] font-medium">Données insuffisantes</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Évolution de la consommation -->
+                                <div class="card card-pad space-y-3">
+                                    <div class="flex items-center justify-between flex-wrap gap-1">
+                                        <h5 class="font-bold text-xs text-slate-900">Évolution de la consommation</h5>
+                                        <span class="text-[10px] font-bold text-sky-600 bg-sky-50 border border-sky-100 rounded-full px-2 py-0.5">L/100km</span>
+                                    </div>
+                                    <div class="chart-shell h-52">
+                                        <canvas id="pilotConsumptionChart"></canvas>
+                                        <div x-show="!pilotConsumptionSeries" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-slate-400">
+                                            <i class="fa-solid fa-gauge-high text-lg"></i>
+                                            <span class="text-[11px] font-medium">Données insuffisantes</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Répartition des coûts -->
+                                <div class="card card-pad space-y-3">
+                                    <h5 class="font-bold text-xs text-slate-900">Répartition des coûts</h5>
+                                    <div class="chart-shell h-52">
+                                        <canvas id="pilotCostSplitChart"></canvas>
+                                        <div x-show="pilotCostSplit.length === 0" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-slate-400">
+                                            <i class="fa-solid fa-coins text-lg"></i>
+                                            <span class="text-[11px] font-medium">Données insuffisantes</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Disponibilité de la flotte -->
+                                <div class="card card-pad space-y-3">
+                                    <h5 class="font-bold text-xs text-slate-900">Disponibilité de la flotte</h5>
+                                    <div class="chart-shell h-52">
+                                        <canvas id="pilotAvailabilityChart"></canvas>
+                                        <div x-show="pilotAvailabilitySplit.length === 0" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-slate-400">
+                                            <i class="fa-solid fa-circle-check text-lg"></i>
+                                            <span class="text-[11px] font-medium">Aucun véhicule</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- État de la maintenance -->
+                                <div class="card card-pad space-y-3">
+                                    <h5 class="font-bold text-xs text-slate-900">État de la maintenance</h5>
+                                    <div class="chart-shell h-52">
+                                        <canvas id="pilotMaintenanceChart"></canvas>
+                                        <div x-show="pilotMaintenanceSplit.length === 0" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-slate-400">
+                                            <i class="fa-solid fa-wrench text-lg"></i>
+                                            <span class="text-[11px] font-medium">Données insuffisantes</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Conformité des documents -->
+                                <div class="card card-pad space-y-3">
+                                    <h5 class="font-bold text-xs text-slate-900">Conformité des documents</h5>
+                                    <div class="chart-shell h-52">
+                                        <canvas id="pilotComplianceChart"></canvas>
+                                        <div x-show="pilotComplianceSplit.length === 0" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-slate-400">
+                                            <i class="fa-solid fa-file-shield text-lg"></i>
+                                            <span class="text-[11px] font-medium">Documents non renseignés</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- SECTION GRAPHIQUES DYNAMIQUES PRINCIPAUX (2 COLONNES) -->

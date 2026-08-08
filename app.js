@@ -911,6 +911,14 @@
                 pilotFuelStats: null,
                 pilotFuelStatsLoading: false,
 
+                // Instances Chart.js du Centre de pilotage (Phase 7.6)
+                pilotChartCost: null,
+                pilotChartConsumption: null,
+                pilotChartCostSplit: null,
+                pilotChartAvailability: null,
+                pilotChartMaintenance: null,
+                pilotChartCompliance: null,
+
                 // Références pour les instances Chart.js
                 chartFuel: null,
                 chartStatus: null,
@@ -1523,9 +1531,14 @@
                     });
 
                     // Centre de pilotage : recharger les stats carburant alignées
-                    // sur la période pilotée par le sélecteur.
+                    // sur la période pilotée par le sélecteur puis redessiner les
+                    // graphiques de la section.
                     this.$watch('pilotPeriod', () => {
-                        this.loadPilotFuelStats();
+                        this.loadPilotFuelStats().then(() => {
+                            if (this.mainTab === 'dashboard') {
+                                this.initPilotCharts();
+                            }
+                        });
                     });
 
                     // Période des statistiques carburant (onglet Carburant)
@@ -1787,6 +1800,218 @@
                         { key: 'overdue', label: 'Maintenance en retard', icon: 'fa-clock', color: 'rose', value: String(overdue), sub: overdue > 0 ? 'à traiter' : 'à jour', state: overdue === 0 ? 'normal' : overdue > 3 ? 'critical' : 'attention' },
                         { key: 'compliance', label: 'Conformité', icon: 'fa-file-shield', color: 'emerald', value: compliance.rate != null ? compliance.rate + ' %' : '—', sub: compliance.total > 0 ? compliance.valid + '/' + compliance.total + ' docs valides' : 'docs non renseignés', state: compliance.rate == null ? 'attention' : compliance.rate >= 90 ? 'normal' : compliance.rate >= 70 ? 'attention' : 'critical' }
                     ];
+                },
+
+                // ===== CENTRE DE PILOTAGE — GRAPHIQUES (Phase 7.6) =====
+
+                // Agrège une série (somme) par jour ou par mois selon la période.
+                // Labels courts en français : 'JJ/MM' (jour) ou 'Jan 2026' (mois).
+                pilotGroupSeries(items, dateField, valueField, granularity) {
+                    const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+                    const map = {};
+                    items.forEach(it => {
+                        const d = new Date(it[dateField]);
+                        if (isNaN(d.getTime())) return;
+                        let key, label;
+                        if (granularity === 'day') {
+                            key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                            label = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+                        } else {
+                            key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+                            label = monthNames[d.getMonth()] + ' ' + d.getFullYear();
+                        }
+                        map[key] = map[key] || { label, total: 0 };
+                        map[key].total += parseFloat(it[valueField]) || 0;
+                    });
+                    const keys = Object.keys(map).sort();
+                    return { labels: keys.map(k => map[k].label), data: keys.map(k => map[k].total) };
+                },
+
+                // Évolution des coûts de carburant : journalière pour Aujourd'hui /
+                // 7 jours, mensuelle sinon. Repli sur les séries serveur si besoin.
+                get pilotCostSeries() {
+                    const gran = (this.pilotPeriod === 'today' || this.pilotPeriod === '7d') ? 'day' : 'month';
+                    const local = this.pilotGroupSeries(this.pilotFuelLogs, 'date', 'cost', gran);
+                    if (local.labels.length) return local;
+                    const s = this.pilotFuelStats && this.pilotFuelStats.charts && this.pilotFuelStats.charts.costByMonth;
+                    return (s && s.labels && s.labels.length) ? s : null;
+                },
+
+                // Évolution de la consommation : série serveur calculée à partir des
+                // kilométrages réels (seule source fiable) — null si indisponible.
+                get pilotConsumptionSeries() {
+                    const s = this.pilotFuelStats && this.pilotFuelStats.charts && this.pilotFuelStats.charts.consumptionByMonth;
+                    return (s && s.labels && s.labels.length) ? s : null;
+                },
+
+                // Répartition des coûts de la période (carburant / maintenance / sinistres).
+                get pilotCostSplit() {
+                    return [
+                        { label: 'Carburant', value: this.pilotFuelCost, colorKey: 'amber' },
+                        { label: 'Maintenance', value: this.pilotMaintenanceCost, colorKey: 'violet' },
+                        { label: 'Sinistres', value: this.pilotAccidentCost, colorKey: 'rose' }
+                    ].filter(s => s.value > 0);
+                },
+
+                // Disponibilité de la flotte à l'instant T.
+                get pilotAvailabilitySplit() {
+                    return [
+                        { label: 'Disponibles', value: this.availableVehiclesCount, colorKey: 'emerald' },
+                        { label: 'En mission', value: this.bookedVehiclesCount, colorKey: 'blue' },
+                        { label: 'En maintenance', value: this.maintenanceVehiclesCount, colorKey: 'amber' }
+                    ].filter(s => s.value > 0);
+                },
+
+                // État de la maintenance : réalisées / en retard / à venir.
+                get pilotMaintenanceSplit() {
+                    const today = new Date(); today.setHours(0, 0, 0, 0);
+                    let done = 0, upcoming = 0;
+                    this.maintenances.forEach(m => {
+                        if (m.status === 'EFFECTUÉ') { done++; return; }
+                        const d = new Date(m.date);
+                        if (isNaN(d.getTime())) return;
+                        if (d < today) return; // compté dans « en retard »
+                        upcoming++;
+                    });
+                    return [
+                        { label: 'Réalisées', value: done, colorKey: 'emerald' },
+                        { label: 'En retard', value: this.pilotOverdueMaintenances().length, colorKey: 'rose' },
+                        { label: 'À venir', value: upcoming, colorKey: 'sky' }
+                    ].filter(s => s.value > 0);
+                },
+
+                // Conformité documents : conformes / proches expiration / expirés.
+                get pilotComplianceSplit() {
+                    const c = this.pilotCompliance;
+                    return [
+                        { label: 'Conformes', value: c.valid, colorKey: 'emerald' },
+                        { label: 'Proches expiration', value: c.soon, colorKey: 'amber' },
+                        { label: 'Expirés', value: c.expired, colorKey: 'rose' }
+                    ].filter(s => s.value > 0);
+                },
+
+                // Dessine les 6 graphiques du Centre de pilotage avec la palette du
+                // thème actif (chartTheme). Chaque graphique est isolé : une erreur
+                // de données n'empêche pas les autres de s'afficher.
+                initPilotCharts() {
+                    if (this.isSuperAdmin) return;
+                    this.loadChartLibrary().then(() => {
+                    this.$nextTick(() => {
+                        const th = this.chartTheme();
+                        const tickStyle = { color: th.text, font: { family: 'Plus Jakarta Sans', size: 10 } };
+                        const gridStyle = { color: th.grid };
+                        const colorOf = (key) => ({ indigo: th.indigo, blue: th.blue, sky: th.sky, emerald: th.emerald, amber: th.amber, rose: th.rose, violet: th.violet, slate: th.slate }[key] || th.slate);
+
+                        // 1. Évolution des coûts carburant
+                        try {
+                            const ctx = document.getElementById('pilotCostChart');
+                            if (ctx) {
+                                if (this.pilotChartCost) this._chartRaw(this.pilotChartCost).destroy();
+                                const s = this.pilotCostSeries;
+                                if (s && s.labels.length) {
+                                    this.pilotChartCost = new Chart(ctx, {
+                                        type: 'bar',
+                                        data: { labels: s.labels, datasets: [{ label: 'Coût (FCFA)', data: s.data, backgroundColor: th.indigo, borderRadius: 6 }] },
+                                        options: {
+                                            responsive: true, maintainAspectRatio: false,
+                                            plugins: { legend: { display: false } },
+                                            scales: {
+                                                x: { ticks: tickStyle, grid: { display: false } },
+                                                y: { ticks: tickStyle, grid: gridStyle }
+                                            }
+                                        }
+                                    });
+                                    this._chartRaw(this.pilotChartCost).update();
+                                } else {
+                                    this.pilotChartCost = null;
+                                }
+                            }
+                        } catch (e) { console.error('Erreur graphique Coût Carburant (pilotage):', e); }
+
+                        // 2. Évolution de la consommation
+                        try {
+                            const ctx = document.getElementById('pilotConsumptionChart');
+                            if (ctx) {
+                                if (this.pilotChartConsumption) this._chartRaw(this.pilotChartConsumption).destroy();
+                                const s = this.pilotConsumptionSeries;
+                                if (s && s.labels.length) {
+                                    this.pilotChartConsumption = new Chart(ctx, {
+                                        type: 'line',
+                                        data: {
+                                            labels: s.labels,
+                                            datasets: [{
+                                                label: 'Conso (L/100km)',
+                                                data: s.data,
+                                                borderColor: th.sky,
+                                                backgroundColor: this.hexToRgba(th.sky, .15),
+                                                fill: true, tension: .35, pointRadius: 3
+                                            }]
+                                        },
+                                        options: {
+                                            responsive: true, maintainAspectRatio: false,
+                                            plugins: { legend: { display: false } },
+                                            scales: {
+                                                x: { ticks: tickStyle, grid: { display: false } },
+                                                y: { ticks: tickStyle, grid: gridStyle }
+                                            }
+                                        }
+                                    });
+                                    this._chartRaw(this.pilotChartConsumption).update();
+                                } else {
+                                    this.pilotChartConsumption = null;
+                                }
+                            }
+                        } catch (e) { console.error('Erreur graphique Consommation (pilotage):', e); }
+
+                        // Helper commun pour les graphiques en anneau (donut).
+                        const doughnut = (canvasId, refName, split) => {
+                            const ctx = document.getElementById(canvasId);
+                            if (!ctx) return;
+                            if (this[refName]) this._chartRaw(this[refName]).destroy();
+                            if (!split.length) { this[refName] = null; return; }
+                            this[refName] = new Chart(ctx, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: split.map(s => s.label),
+                                    datasets: [{
+                                        data: split.map(s => s.value),
+                                        backgroundColor: split.map(s => colorOf(s.colorKey)),
+                                        borderWidth: 2,
+                                        borderColor: th.dark ? '#111a2b' : '#ffffff'
+                                    }]
+                                },
+                                options: {
+                                    responsive: true, maintainAspectRatio: false,
+                                    cutout: '62%',
+                                    plugins: {
+                                        legend: { position: 'bottom', labels: { color: th.text, font: { family: 'Plus Jakarta Sans', size: 10 }, boxWidth: 10, padding: 8 } }
+                                    }
+                                }
+                            });
+                            this._chartRaw(this[refName]).update();
+                        };
+
+                        // 3. Répartition des coûts
+                        try {
+                            doughnut('pilotCostSplitChart', 'pilotChartCostSplit', this.pilotCostSplit);
+                        } catch (e) { console.error('Erreur graphique Répartition coûts (pilotage):', e); }
+
+                        // 4. Disponibilité de la flotte
+                        try {
+                            doughnut('pilotAvailabilityChart', 'pilotChartAvailability', this.pilotAvailabilitySplit);
+                        } catch (e) { console.error('Erreur graphique Disponibilité (pilotage):', e); }
+
+                        // 5. État de la maintenance
+                        try {
+                            doughnut('pilotMaintenanceChart', 'pilotChartMaintenance', this.pilotMaintenanceSplit);
+                        } catch (e) { console.error('Erreur graphique Maintenance (pilotage):', e); }
+
+                        // 6. Conformité des documents
+                        try {
+                            doughnut('pilotComplianceChart', 'pilotChartCompliance', this.pilotComplianceSplit);
+                        } catch (e) { console.error('Erreur graphique Conformité (pilotage):', e); }
+                    });
+                    }).catch((e) => console.error('Chart.js indisponible, graphiques pilotage désactivés:', e.message));
                 },
 
                 // Recharge les données + stats du Centre de pilotage (bouton Actualiser).
@@ -2316,6 +2541,13 @@
                             this.chartDiag('8.Consommateurs', 'apres-creation', ctxFuelConsumers, topConsumers.labels, topConsumers.data, { chartExecute: true, updateAppele: true });
                         }
                         } catch (e) { console.error('Erreur graphique Top Consommateurs Carburant:', e); }
+
+                        // Graphiques du Centre de pilotage (Phase 7.6) : redessinés
+                        // avec les graphiques du tableau de bord (thème, rechargement
+                        // des données, retour sur l'onglet dashboard).
+                        if (this.mainTab === 'dashboard') {
+                            this.initPilotCharts();
+                        }
 
                     });
                     }).catch((e) => console.error('Chart.js indisponible, graphiques désactivés:', e.message));
