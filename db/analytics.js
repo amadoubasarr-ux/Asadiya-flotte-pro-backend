@@ -149,6 +149,7 @@ function documentStatus(dateStr) {
     if (!expiry || Number.isNaN(expiry.getTime())) return { status: 'UNKNOWN', daysLeft: null };
     const daysLeft = Math.round((expiry - today()) / MS_DAY);
     if (daysLeft < 0) return { status: 'EXPIRED', daysLeft };
+    if (daysLeft <= 7) return { status: 'CRITICAL', daysLeft };
     if (daysLeft <= 30) return { status: 'SOON', daysLeft };
     return { status: 'OK', daysLeft };
 }
@@ -253,6 +254,7 @@ function vehicleRiskScore(v, ctx) {
     ['insuranceExpiry', 'registrationExpiry', 'technicalControlExpiry'].forEach((key) => {
         const s = documentStatus(v[key]);
         if (s.status === 'EXPIRED') risk += 8;
+        else if (s.status === 'CRITICAL') risk += 6;
         else if (s.status === 'SOON') risk += 4;
     });
 
@@ -278,6 +280,7 @@ function vehicleHealthScore(v, ctx) {
     ['insuranceExpiry', 'registrationExpiry', 'technicalControlExpiry'].forEach((key) => {
         const s = documentStatus(v[key]);
         if (s.status === 'EXPIRED') docScore -= 34;
+        else if (s.status === 'CRITICAL') docScore -= 25;
         else if (s.status === 'SOON') docScore -= 17;
     });
     docScore = clamp(docScore, 0, 100);
@@ -347,7 +350,7 @@ function driverScore(d, incidents, accidents, reservations) {
     const acc = accidents.filter((a) => a.driverId === d.id).length;
     const missions = reservations.filter((r) => r.driverId === d.id && r.status === 'APPROVED').length;
     const lic = documentStatus(d.licenseExpiry);
-    const licensePenalty = lic.status === 'EXPIRED' ? 20 : lic.status === 'SOON' ? 10 : 0;
+    const licensePenalty = lic.status === 'EXPIRED' ? 20 : lic.status === 'CRITICAL' ? 15 : lic.status === 'SOON' ? 10 : 0;
     const risk = inc * 15 + acc * 40 + licensePenalty;
     const score = clamp(100 - inc * 15 - acc * 40 - licensePenalty + Math.min(5, missions * 0.5), 0, 100);
     return { inc, acc, missions, licenseStatus: lic.status, licenseDaysLeft: lic.daysLeft, risk, score };
@@ -507,6 +510,8 @@ function buildAlerts({ vehicles, drivers, incidents, accidents }) {
             const s = documentStatus(date);
             if (s.status === 'EXPIRED') {
                 push('critical', 'documents', `${docLabel} expiré(e)`, `${label} : expiré depuis ${Math.abs(s.daysLeft)} j.`, 'vehicle', v.id);
+            } else if (s.status === 'CRITICAL') {
+                push('warning', 'documents', `${docLabel} expire en moins de 7 jours`, `${label} : expire dans ${s.daysLeft} j.`, 'vehicle', v.id);
             } else if (s.status === 'SOON') {
                 push('warning', 'documents', `${docLabel} expire bientôt`, `${label} : expire dans ${s.daysLeft} j.`, 'vehicle', v.id);
             }
@@ -517,6 +522,8 @@ function buildAlerts({ vehicles, drivers, incidents, accidents }) {
         const s = documentStatus(d.licenseExpiry);
         if (s.status === 'EXPIRED') {
             push('critical', 'drivers', 'Permis de conduire expiré', `${d.name} : expiré depuis ${Math.abs(s.daysLeft)} j.`, 'driver', d.id);
+        } else if (s.status === 'CRITICAL') {
+            push('warning', 'drivers', 'Permis expire en moins de 7 jours', `${d.name} : expire dans ${s.daysLeft} j.`, 'driver', d.id);
         } else if (s.status === 'SOON') {
             push('warning', 'drivers', 'Permis expire bientôt', `${d.name} : expire dans ${s.daysLeft} j.`, 'driver', d.id);
         }

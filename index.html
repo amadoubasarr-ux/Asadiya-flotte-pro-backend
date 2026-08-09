@@ -251,6 +251,7 @@
         .badge-amber { background: #fffbeb; color: #b45309; border-color: #fde68a; }
         .badge-blue { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
         .badge-indigo { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+        .badge-violet { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
         .badge-slate { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
 
         /* ---------- Tableaux ---------- */
@@ -422,6 +423,7 @@
         html[data-theme="dark"] .badge-red { background: rgba(244, 63, 94, .14); color: #fb7185; border-color: rgba(244, 63, 94, .4); }
         html[data-theme="dark"] .badge-amber { background: rgba(245, 158, 11, .14); color: #fbbf24; border-color: rgba(245, 158, 11, .4); }
         html[data-theme="dark"] .badge-blue, html[data-theme="dark"] .badge-indigo { background: rgba(59, 130, 246, .14); color: #60a5fa; border-color: rgba(59, 130, 246, .4); }
+        html[data-theme="dark"] .badge-violet { background: rgba(139, 92, 246, .14); color: #a78bfa; border-color: rgba(139, 92, 246, .4); }
         html[data-theme="dark"] .badge-slate { background: rgba(148, 163, 184, .12); color: #cbd5e1; border-color: #334155; }
 
         html[data-theme="dark"] .table-wrap { background: var(--surface); border-color: var(--border); }
@@ -1434,6 +1436,7 @@
                     <span x-show="mainTab === 'documents'" class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-indigo-600"></span>
                     <span class="nav-ico"><i class="fa-solid fa-folder-open"></i></span>
                     Documents
+                    <span x-show="documentUrgentCount > 0" class="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center shadow-sm" x-text="documentUrgentCount"></span>
                 </button>
 
                 <p class="sidebar-group-label">Sécurité & Sinistres</p>
@@ -1525,6 +1528,7 @@
                     <p class="sidebar-group-label">Documentation</p>
                     <button @click="mainTab = 'documents'; sidebarOpen = false" :class="mainTab === 'documents' ? 'active' : ''" class="sidebar-item mb-0.5">
                         <span class="nav-ico"><i class="fa-solid fa-folder-open"></i></span> Documents
+                        <span x-show="documentUrgentCount > 0" class="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center shadow-sm" x-text="documentUrgentCount"></span>
                     </button>
                     <p class="sidebar-group-label">Sécurité & Sinistres</p>
                     <button @click="mainTab = 'incidents'; sidebarOpen = false" :class="mainTab === 'incidents' ? 'active' : ''" class="sidebar-item mb-0.5">
@@ -1591,16 +1595,16 @@
                         <div class="relative" x-data="{ notifOpen: false }">
                             <button @click="notifOpen = !notifOpen" class="relative p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition" title="Alertes">
                                 <i class="fa-solid fa-bell"></i>
-                                <span x-show="getVehiclesNeedingOilChange().length + vehiclesWithDocumentAlerts.length + driversWithLicenseAlerts.length > 0"
+                                <span x-show="getVehiclesNeedingOilChange().length + documentUrgentCount > 0"
                                       class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center shadow-sm"
-                                      x-text="getVehiclesNeedingOilChange().length + vehiclesWithDocumentAlerts.length + driversWithLicenseAlerts.length"></span>
+                                      x-text="getVehiclesNeedingOilChange().length + documentUrgentCount"></span>
                             </button>
 
                             <div x-show="notifOpen" x-cloak @click.outside="notifOpen = false"
                                  class="absolute right-0 mt-2 w-80 rounded-2xl bg-white border border-slate-200 shadow-2xl shadow-slate-900/10 z-50 overflow-hidden animate-fade-up">
                                 <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                                     <p class="text-xs font-bold text-slate-900">Notifications</p>
-                                    <span class="badge badge-red" x-text="getVehiclesNeedingOilChange().length + vehiclesWithDocumentAlerts.length + driversWithLicenseAlerts.length + ' alerte(s)'"></span>
+                                    <span class="badge badge-red" x-text="getVehiclesNeedingOilChange().length + documentUrgentCount + ' alerte(s)'"></span>
                                 </div>
                                 <div class="p-2 space-y-1">
                                     <button @click="mainTab = 'vehicles'; notifOpen = false" class="w-full flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition text-left">
@@ -1610,21 +1614,14 @@
                                             <span class="block text-[10px] text-slate-500"><span class="font-bold text-rose-500" x-text="getVehiclesNeedingOilChange().length"></span> véhicule(s) proche(s) du seuil</span>
                                         </span>
                                     </button>
-                                    <button @click="mainTab = 'vehicles'; notifOpen = false" class="w-full flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition text-left">
-                                        <span class="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 border border-amber-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-file-circle-exclamation text-xs"></i></span>
+                                    <button @click="goToDocumentRenewal(); notifOpen = false" class="w-full flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition text-left">
+                                        <span class="w-8 h-8 rounded-lg bg-violet-50 text-violet-500 border border-violet-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-folder-open text-xs"></i></span>
                                         <span class="min-w-0">
-                                            <span class="block text-xs font-semibold text-slate-800">Documents véhicules</span>
-                                            <span class="block text-[10px] text-slate-500"><span class="font-bold text-amber-500" x-text="vehiclesWithDocumentAlerts.length"></span> véhicule(s) avec un document à renouveler</span>
+                                            <span class="block text-xs font-semibold text-slate-800">Documents à renouveler</span>
+                                            <span class="block text-[10px] text-slate-500" x-text="documentRenewalSummary"></span>
                                         </span>
                                     </button>
-                                    <button @click="mainTab = isDriver ? 'dashboard' : 'drivers'; notifOpen = false" class="w-full flex items-start gap-3 p-3 rounded-xl hover:bg-slate-50 transition text-left">
-                                        <span class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 border border-indigo-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-id-card text-xs"></i></span>
-                                        <span class="min-w-0">
-                                            <span class="block text-xs font-semibold text-slate-800">Permis de conduire</span>
-                                            <span class="block text-[10px] text-slate-500"><span class="font-bold text-indigo-500" x-text="driversWithLicenseAlerts.length"></span> conducteur(s) à régulariser</span>
-                                        </span>
-                                    </button>
-                                    <p x-show="getVehiclesNeedingOilChange().length + vehiclesWithDocumentAlerts.length + driversWithLicenseAlerts.length === 0" class="text-center text-xs text-slate-400 py-4">Aucune alerte, tout est en ordre 🎉</p>
+                                    <p x-show="getVehiclesNeedingOilChange().length + documentUrgentCount === 0" class="text-center text-xs text-slate-400 py-4">Aucune alerte, tout est en ordre 🎉</p>
                                 </div>
                             </div>
                         </div>
@@ -2941,36 +2938,51 @@
                         </div>
                     </div>
 
-                    <!-- KPI rapides (données officielles /api/documents) -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div class="card card-hover card-pad">
+                    <!-- Compteurs d'alertes par statut (données officielles /api/documents).
+                         Clic sur un compteur = filtre automatique du tableau par statut. -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+                        <button @click="setDocumentStatusFilter('')" :class="documentFilters.status === '' ? 'ring-2 ring-indigo-300' : ''" class="card card-hover card-pad text-left transition" title="Tous les documents">
                             <div class="flex items-center justify-between">
-                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Total Documents</p>
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Total</p>
                                 <i class="fa-solid fa-folder-open text-indigo-500"></i>
                             </div>
                             <p class="text-xl font-bold text-slate-900 font-mono mt-1" x-text="documentsStatsLoading ? '…' : documentStats.total"></p>
-                        </div>
-                        <div class="card card-hover card-pad">
+                        </button>
+                        <button @click="setDocumentStatusFilter('OK')" :class="documentFilters.status === 'OK' ? 'ring-2 ring-emerald-300' : ''" class="card card-hover card-pad text-left transition" title="Filtrer les documents valides">
                             <div class="flex items-center justify-between">
-                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Documents Valides</p>
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Valides</p>
                                 <i class="fa-solid fa-shield-halved text-emerald-500"></i>
                             </div>
                             <p class="text-xl font-bold text-slate-900 font-mono mt-1" x-text="documentsStatsLoading ? '…' : documentStats.ok"></p>
-                        </div>
-                        <div class="card card-hover card-pad">
+                        </button>
+                        <button @click="setDocumentStatusFilter('CRITICAL')" :class="documentFilters.status === 'CRITICAL' ? 'ring-2 ring-violet-300' : ''" class="card card-hover card-pad text-left transition" title="Filtrer les documents qui expirent dans ≤ 7 jours">
                             <div class="flex items-center justify-between">
-                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Expirent Bientôt</p>
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Urgents ≤ 7 j</p>
+                                <i class="fa-solid fa-triangle-exclamation text-violet-500"></i>
+                            </div>
+                            <p class="text-xl font-bold text-slate-900 font-mono mt-1" x-text="documentsStatsLoading ? '…' : documentStats.critical"></p>
+                        </button>
+                        <button @click="setDocumentStatusFilter('SOON')" :class="documentFilters.status === 'SOON' ? 'ring-2 ring-amber-300' : ''" class="card card-hover card-pad text-left transition" title="Filtrer les documents qui expirent sous 30 jours">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Bientôt</p>
                                 <i class="fa-solid fa-clock text-amber-500"></i>
                             </div>
                             <p class="text-xl font-bold text-slate-900 font-mono mt-1" x-text="documentsStatsLoading ? '…' : documentStats.soon"></p>
-                        </div>
-                        <div class="card card-hover card-pad">
+                        </button>
+                        <button @click="setDocumentStatusFilter('EXPIRED')" :class="documentFilters.status === 'EXPIRED' ? 'ring-2 ring-rose-300' : ''" class="card card-hover card-pad text-left transition" title="Filtrer les documents expirés">
                             <div class="flex items-center justify-between">
                                 <p class="text-[10px] text-slate-500 font-semibold uppercase">Expirés</p>
                                 <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
                             </div>
                             <p class="text-xl font-bold text-slate-900 font-mono mt-1" x-text="documentsStatsLoading ? '…' : documentStats.expired"></p>
-                        </div>
+                        </button>
+                        <button @click="setDocumentStatusFilter('UNKNOWN')" :class="documentFilters.status === 'UNKNOWN' ? 'ring-2 ring-slate-300' : ''" class="card card-hover card-pad text-left transition" title="Filtrer les documents sans date d'expiration">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Sans date</p>
+                                <i class="fa-solid fa-calendar-xmark text-slate-400"></i>
+                            </div>
+                            <p class="text-xl font-bold text-slate-900 font-mono mt-1" x-text="documentsStatsLoading ? '…' : documentStats.unknown"></p>
+                        </button>
                     </div>
 
                     <!-- Barre de filtres compacte (paramètres de l'API /api/documents) -->
@@ -3001,6 +3013,7 @@
                             <select x-model="documentFilters.status" class="input !w-auto" @change="applyDocumentFilters()" title="Statut">
                                 <option value="">Tous les statuts</option>
                                 <option value="OK">Valide</option>
+                                <option value="CRITICAL">Urgent (≤ 7 j)</option>
                                 <option value="SOON">Bientôt expiré</option>
                                 <option value="EXPIRED">Expiré</option>
                                 <option value="UNKNOWN">Sans date</option>
@@ -3014,6 +3027,64 @@
                             <button @click="resetDocumentFilters()" class="btn btn-secondary btn-sm" title="Réinitialiser les filtres">
                                 <i class="fa-solid fa-rotate-left mr-1"></i> Réinitialiser
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Documents à renouveler (EXPIRED / ≤ 7 j / ≤ 30 j), triés par urgence -->
+                    <div class="card card-pad space-y-3">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-rotate text-violet-500"></i> Documents à renouveler
+                            </h3>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] text-slate-500" x-show="!documentsRenewLoading" x-text="documentRenewalCount + (documentRenewalCount > 1 ? ' document(s) concerné(s)' : ' document concerné')"></span>
+                                <span class="badge badge-violet" x-show="documentUrgentCount > 0" x-text="documentUrgentCount + ' urgent(s)'"></span>
+                            </div>
+                        </div>
+
+                        <!-- État : chargement -->
+                        <div x-show="documentsRenewLoading" class="flex items-center justify-center gap-3 text-slate-500 text-sm py-6">
+                            <i class="fa-solid fa-spinner fa-spin text-lg text-indigo-500"></i>
+                            <span>Analyse des échéances...</span>
+                        </div>
+
+                        <!-- État : aucun document à renouveler -->
+                        <div x-show="!documentsRenewLoading && documentRenewalCount === 0" class="flex items-center justify-center gap-3 text-emerald-600 text-xs font-semibold py-6">
+                            <i class="fa-solid fa-circle-check text-lg"></i>
+                            <span>Aucun document à renouveler, toutes les échéances sont en ordre.</span>
+                        </div>
+
+                        <!-- Liste triée par urgence (expirés d'abord, puis échéance croissante) -->
+                        <div x-show="!documentsRenewLoading && documentsToRenew.length > 0" class="divide-y divide-slate-100">
+                            <template x-for="d in documentsToRenew.slice(0, 10)" :key="d.id">
+                                <div class="flex items-center gap-3 py-2.5 hover:bg-slate-50 rounded-lg px-1 transition cursor-pointer" @click="openDocumentModal('view', d)">
+                                    <span class="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0">
+                                        <i class="fa-solid text-violet-500 text-sm" :class="documentTypeIcon(d.documentType)"></i>
+                                    </span>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-xs font-bold text-slate-800 truncate">
+                                            <span x-text="d.documentType + (d.documentNumber ? ' — ' + d.documentNumber : '')"></span>
+                                        </p>
+                                        <p class="text-[10px] text-slate-500 truncate">
+                                            <i class="fa-solid" :class="d.vehicleId ? 'fa-car' : 'fa-id-card-clip'"></i>
+                                            <span x-text="documentOwnerLabel(d)"></span>
+                                            <template x-if="d.fileName">
+                                                <span class="inline-flex items-center gap-0.5 ml-1 text-violet-500"><i class="fa-solid fa-paperclip text-[9px]"></i> pièce jointe</span>
+                                            </template>
+                                        </p>
+                                    </div>
+                                    <div class="hidden sm:block text-right flex-shrink-0">
+                                        <p class="font-mono text-[10px] text-slate-500" x-text="d.expiryDate ? fmtDate(d.expiryDate) : 'Sans date'"></p>
+                                        <p class="text-[10px]" :class="d.status === 'EXPIRED' ? 'text-rose-500' : d.status === 'CRITICAL' ? 'text-violet-500' : 'text-amber-600'" x-text="documentStatusDetail(d)"></p>
+                                    </div>
+                                    <span class="badge flex-shrink-0" :class="documentStatusMeta(d).badge" x-text="documentStatusMeta(d).label"></span>
+                                </div>
+                            </template>
+                            <div x-show="documentsToRenew.length > 10" class="pt-2 text-center">
+                                <button @click="setDocumentStatusFilter('')" class="text-[11px] font-bold text-indigo-600 hover:text-indigo-500">
+                                    Voir tous les documents (<span x-text="documentsToRenew.length - 10"></span> de plus) <i class="fa-solid fa-arrow-right ml-0.5"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -4153,12 +4224,14 @@
                         <div class="pt-2 border-t border-slate-200">
                             <div class="rounded-xl border px-4 py-3 flex items-center justify-between gap-3 flex-wrap" :class="{
                                 'border-emerald-200 bg-emerald-50': documentStatusPreview.status === 'OK',
+                                'border-violet-200 bg-violet-50': documentStatusPreview.status === 'CRITICAL',
                                 'border-amber-200 bg-amber-50': documentStatusPreview.status === 'SOON',
                                 'border-rose-200 bg-rose-50': documentStatusPreview.status === 'EXPIRED',
                                 'border-slate-200 bg-slate-50': documentStatusPreview.status === 'UNKNOWN'
                             }">
                                 <div class="flex items-center gap-2 text-xs font-semibold" :class="{
                                     'text-emerald-700': documentStatusPreview.status === 'OK',
+                                    'text-violet-700': documentStatusPreview.status === 'CRITICAL',
                                     'text-amber-700': documentStatusPreview.status === 'SOON',
                                     'text-rose-700': documentStatusPreview.status === 'EXPIRED',
                                     'text-slate-600': documentStatusPreview.status === 'UNKNOWN'

@@ -26,9 +26,9 @@ const documentFiles = require('../services/documentFiles');
 //  - DELETE /:id/file    → supprimer la pièce jointe (ADMIN, MANAGER)
 //
 // Lecture : tous les comptes rattachés à une organisation (DRIVER inclus).
-// Écriture : réservée aux rôles de gestion. Le statut (OK / SOON / EXPIRED /
-// UNKNOWN) est dérivé de la date d'expiration (db/analytics.documentStatus),
-// jamais stocké.
+// Écriture : réservée aux rôles de gestion. Le statut (OK / SOON / CRITICAL /
+// EXPIRED / UNKNOWN) est dérivé de la date d'expiration (db/analytics.documentStatus),
+// jamais stocké : EXPIRED (< 0 j), CRITICAL (≤ 7 j), SOON (≤ 30 j), OK, UNKNOWN.
 //
 // SÉCURITÉ MULTI-TENANT (prioritaire) : chaque accès fichier recherche le
 // document par (documentId + organizationId) — jamais par le seul documentId.
@@ -37,7 +37,7 @@ const documentFiles = require('../services/documentFiles');
 // sur le dossier uploads).
 // ============================================================
 
-const DOCUMENT_STATUSES = ['OK', 'SOON', 'EXPIRED', 'UNKNOWN'];
+const DOCUMENT_STATUSES = ['OK', 'CRITICAL', 'SOON', 'EXPIRED', 'UNKNOWN'];
 
 function requireOrgUser(req, res, next) {
     if (!req.user || !req.user.organizationId) {

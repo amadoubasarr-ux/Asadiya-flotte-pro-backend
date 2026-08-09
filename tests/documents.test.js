@@ -4,8 +4,8 @@
 // Tests d'intégration de bout en bout (serveur + PostgreSQL) :
 //   - CRUD complet (création véhicule/conducteur, lecture, modification,
 //     suppression)
-//   - statut dérivé de la date d'expiration (OK / SOON ≤ 30 j / EXPIRED /
-//     UNKNOWN)
+//   - statut dérivé de la date d'expiration (OK / CRITICAL ≤ 7 j / SOON ≤ 30 j /
+//     EXPIRED / UNKNOWN)
 //   - filtres (vehicleId, driverId, documentType, status, recherche texte,
 //     expiryFrom / expiryTo), tri et pagination
 //   - permissions (ADMIN / MANAGER en écriture, DRIVER en lecture seule)
@@ -25,7 +25,7 @@ const path = require('node:path');
 const PORT = 4321;
 const BASE = `http://localhost:${PORT}`;
 
-const DOCUMENT_STATUSES = ['OK', 'SOON', 'EXPIRED', 'UNKNOWN'];
+const DOCUMENT_STATUSES = ['OK', 'CRITICAL', 'SOON', 'EXPIRED', 'UNKNOWN'];
 
 let serverChild = null;
 let superToken = null;
@@ -43,6 +43,7 @@ let permisDocId = null;
 let soonDocId = null;
 let expiredDocId = null;
 let unknownDocId = null;
+let criticalDocId = null;
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -205,7 +206,7 @@ test('Création : statuts dérivés SOON, EXPIRED et UNKNOWN', async () => {
     const soon = await api('POST', '/api/documents', { token: adminTokenA, body: { vehicleId: vehicleAId, documentType: 'Vignette', expiryDate: dateInDays(10) } });
     assert.equal(soon.status, 201);
     assert.equal(soon.data.status, 'SOON');
-    assert.ok(soon.data.daysLeft > 0 && soon.data.daysLeft <= 30);
+    assert.ok(soon.data.daysLeft > 7 && soon.data.daysLeft <= 30, `SOON attendu entre 8 et 30 j, reçu ${soon.data.daysLeft}`);
     soonDocId = soon.data.id;
 
     const expired = await api('POST', '/api/documents', { token: adminTokenA, body: { vehicleId: vehicleAId, documentType: 'Contrôle Technique', expiryDate: '2020-01-01' } });
@@ -219,6 +220,34 @@ test('Création : statuts dérivés SOON, EXPIRED et UNKNOWN', async () => {
     assert.equal(unknown.data.status, 'UNKNOWN');
     assert.equal(unknown.data.daysLeft, null);
     unknownDocId = unknown.data.id;
+});
+
+test('Création : statut CRITICAL pour une échéance ≤ 7 jours', async () => {
+    const critical = await api('POST', '/api/documents', { token: adminTokenA, body: { vehicleId: vehicleAId, documentType: 'Assurance', expiryDate: dateInDays(5) } });
+    assert.equal(critical.status, 201, `Création échouée : ${JSON.stringify(critical.data)}`);
+    assert.equal(critical.data.status, 'CRITICAL');
+    assert.ok(critical.data.daysLeft >= 1 && critical.data.daysLeft <= 7, `CRITICAL attendu entre 1 et 7 j, reçu ${critical.data.daysLeft}`);
+    criticalDocId = critical.data.id;
+
+    // Une échéance au-delà de 7 jours reste SOON (jamais CRITICAL).
+    const soon = await api('POST', '/api/documents', { token: adminTokenA, body: { vehicleId: vehicleAId, documentType: 'Vignette', expiryDate: dateInDays(20) } });
+    assert.equal(soon.status, 201);
+    assert.equal(soon.data.status, 'SOON');
+    assert.ok(soon.data.daysLeft > 7);
+});
+
+test('Filtre : status CRITICAL isolé des autres statuts', async () => {
+    const critical = await api('GET', '/api/documents?status=CRITICAL', { token: adminTokenA });
+    assert.equal(critical.status, 200);
+    assert.ok(critical.data.items.some((d) => d.id === criticalDocId), 'le document CRITICAL est filtré');
+    assert.ok(critical.data.items.every((d) => d.status === 'CRITICAL'));
+
+    const soon = await api('GET', '/api/documents?status=SOON', { token: adminTokenA });
+    assert.ok(!soon.data.items.some((d) => d.id === criticalDocId), 'CRITICAL absent du filtre SOON');
+    assert.ok(soon.data.items.some((d) => d.id === soonDocId), 'le document SOON reste dans le filtre SOON');
+
+    const expired = await api('GET', '/api/documents?status=EXPIRED', { token: adminTokenA });
+    assert.ok(!expired.data.items.some((d) => d.id === criticalDocId), 'CRITICAL absent du filtre EXPIRED');
 });
 
 test('Validation : rattachement véhicule OU conducteur obligatoire (et exclusif)', async () => {

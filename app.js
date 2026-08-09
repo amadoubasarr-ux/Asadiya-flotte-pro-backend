@@ -1024,7 +1024,11 @@
                 documentsStatsLoading: false,
                 documentFilters: { search: '', documentType: '', vehicleId: '', driverId: '', status: '', expiryFrom: '', expiryTo: '' },
                 documentPagination: { page: 1, pageSize: 10, total: 0 },
-                documentStats: { total: 0, ok: 0, soon: 0, expired: 0 },
+                // Compteurs officiels /api/documents par statut : EXPIRED (< 0 j),
+                // CRITICAL (≤ 7 j), SOON (≤ 30 j), OK, UNKNOWN.
+                documentStats: { total: 0, ok: 0, critical: 0, soon: 0, expired: 0, unknown: 0 },
+                documentsToRenew: [],        // docs à renouveler (EXPIRED / CRITICAL / SOON), triés par urgence
+                documentsRenewLoading: false,
                 documentTypes: ['Assurance', 'Carte Grise', 'Contrôle Technique', 'Permis', 'Vignette', 'Autorisation', 'Autre'],
                 showDocumentModal: false,
                 documentModalMode: 'create', // 'create' | 'edit' | 'view'
@@ -1152,7 +1156,9 @@
                 },
 
                 // ===== GESTION DES ALERTES DOCUMENTS (Assurance / Carte Grise / Contrôle Technique / Permis) =====
-                // Calcule le statut d'une date de validité : EXPIRED / SOON (≤30j) / OK
+                // Calcule le statut d'une date de validité : EXPIRED (< 0 j) /
+                // CRITICAL (≤ 7 j) / SOON (≤ 30 j) / OK / UNKNOWN. Miroir de la
+                // logique backend db/analytics.documentStatus.
                 getDocumentStatus(dateStr) {
                     if (!dateStr) return { status: 'UNKNOWN', label: 'Non renseignée', color: 'slate', daysLeft: null };
                     const expiry = new Date(dateStr);
@@ -1163,6 +1169,8 @@
                     const daysLeft = Math.round((expiry - today) / (1000 * 60 * 60 * 24));
                     if (daysLeft < 0) {
                         return { status: 'EXPIRED', label: 'Expiré depuis ' + Math.abs(daysLeft) + ' j', color: 'rose', daysLeft };
+                    } else if (daysLeft <= 7) {
+                        return { status: 'CRITICAL', label: 'URGENT (' + daysLeft + ' j restants)', color: 'violet', daysLeft };
                     } else if (daysLeft <= 30) {
                         return { status: 'SOON', label: 'Expire dans ' + daysLeft + ' j', color: 'amber', daysLeft };
                     } else {
@@ -1733,8 +1741,9 @@
 
                 // Conformité documents : véhicules (assurance, carte grise, CT)
                 // + conducteurs (permis). Dénominateur = documents renseignés.
+                // Le niveau CRITICAL (≤ 7 j) est compté séparément de SOON.
                 get pilotCompliance() {
-                    let valid = 0, soon = 0, expired = 0;
+                    let valid = 0, soon = 0, critical = 0, expired = 0;
                     const docs = [];
                     this.vehicles.forEach(v => {
                         ['insuranceExpiry', 'registrationExpiry', 'technicalControlExpiry'].forEach(k => {
@@ -1748,11 +1757,12 @@
                         const st = this.getDocumentStatus(doc.date);
                         if (st.status === 'OK') valid++;
                         else if (st.status === 'SOON') soon++;
+                        else if (st.status === 'CRITICAL') critical++;
                         else if (st.status === 'EXPIRED') expired++;
                     });
-                    const total = valid + soon + expired;
+                    const total = valid + soon + critical + expired;
                     return {
-                        valid, soon, expired, total,
+                        valid, soon, critical, expired, total,
                         rate: total > 0 ? Math.round((valid / total) * 100) : null
                     };
                 },
@@ -1923,13 +1933,14 @@
                     ].filter(s => s.value > 0);
                 },
 
-                // Conformité documents : conformes / proches expiration / expirés.
+                // Conformité documents : conformes / proches expiration / critiques / expirés.
                 get pilotComplianceSplit() {
                     const c = this.pilotCompliance;
                     return [
-                        { label: 'Conformes', value: c.valid, colorKey: 'emerald' },
+                        { label: 'Expirés', value: c.expired, colorKey: 'rose' },
+                        { label: 'Critiques ≤ 7 j', value: c.critical, colorKey: 'violet' },
                         { label: 'Proches expiration', value: c.soon, colorKey: 'amber' },
-                        { label: 'Expirés', value: c.expired, colorKey: 'rose' }
+                        { label: 'Conformes', value: c.valid, colorKey: 'emerald' }
                     ].filter(s => s.value > 0);
                 },
 
@@ -2257,31 +2268,101 @@
                     }
                 },
 
-                // Compteurs réels (Total / Valides / Bientôt expirés / Expirés) :
-                // les valeurs proviennent du champ "total" renvoyé par l'API
-                // /api/documents (filtre par statut inclus) — aucun calcul local.
+                // Compteurs réels (Total / Valides / ≤ 7 j / Bientôt / Expirés /
+                // Sans date) : les valeurs proviennent du champ "total" renvoyé
+                // par l'API /api/documents (filtre par statut inclus) — aucun
+                // calcul local. Le statut CRITICAL (≤ 7 j) est distinct de SOON.
                 async loadDocumentStats() {
                     if (this.isSuperAdmin) return;
                     this.documentsStatsLoading = true;
                     try {
                         const totalOf = (qs) => this.apiFetch('/api/documents?' + qs).then(d => (d && d.total) || 0);
-                        const [total, ok, soon, expired] = await Promise.all([
+                        const [total, ok, critical, soon, expired, unknown] = await Promise.all([
                             totalOf('page=1&pageSize=1'),
                             totalOf('page=1&pageSize=1&status=OK'),
+                            totalOf('page=1&pageSize=1&status=CRITICAL'),
                             totalOf('page=1&pageSize=1&status=SOON'),
-                            totalOf('page=1&pageSize=1&status=EXPIRED')
+                            totalOf('page=1&pageSize=1&status=EXPIRED'),
+                            totalOf('page=1&pageSize=1&status=UNKNOWN')
                         ]);
-                        this.documentStats = { total, ok, soon, expired };
+                        this.documentStats = { total, ok, critical, soon, expired, unknown };
                     } catch (e) {
                         if (e && e.status === 403) return;
-                        this.documentStats = { total: 0, ok: 0, soon: 0, expired: 0 };
+                        this.documentStats = { total: 0, ok: 0, critical: 0, soon: 0, expired: 0, unknown: 0 };
                     } finally {
                         this.documentsStatsLoading = false;
                     }
                 },
 
+                // Nombre de documents réellement urgents (expirés ou ≤ 7 jours) :
+                // utilisé pour le badge de navigation et la cloche de notifications.
+                get documentUrgentCount() {
+                    return (this.documentStats.expired || 0) + (this.documentStats.critical || 0);
+                },
+
+                // Total des documents à renouveler (expirés, critiques et bientôt).
+                get documentRenewalCount() {
+                    return (this.documentStats.expired || 0) + (this.documentStats.critical || 0) + (this.documentStats.soon || 0);
+                },
+
+                // Résumé textuel des urgences pour la cloche de notifications.
+                get documentRenewalSummary() {
+                    const parts = [];
+                    if (this.documentStats.expired) parts.push(this.documentStats.expired + ' expiré(s)');
+                    if (this.documentStats.critical) parts.push(this.documentStats.critical + ' urgent(s) ≤ 7 j');
+                    if (this.documentStats.soon) parts.push(this.documentStats.soon + ' sous 30 j');
+                    return parts.length ? parts.join(' · ') : 'Aucun document à renouveler';
+                },
+
+                // Liste « Documents à renouveler » (EXPIRED / CRITICAL / SOON),
+                // chargée depuis /api/documents (sort=expiry, pageSize max) puis
+                // triée par urgence : expirés d'abord, puis échéance croissante.
+                // Aucun doublon : chaque document n'apparaît qu'une fois.
+                async loadDocumentsToRenew() {
+                    if (this.isSuperAdmin) return;
+                    this.documentsRenewLoading = true;
+                    try {
+                        const fetchStatus = (status) => this.apiFetch('/api/documents?page=1&pageSize=200&sort=expiry&status=' + status)
+                            .then(d => (d && d.items) || []);
+                        const [expired, critical, soon] = await Promise.all([
+                            fetchStatus('EXPIRED'),
+                            fetchStatus('CRITICAL'),
+                            fetchStatus('SOON')
+                        ]);
+                        const priority = { EXPIRED: 0, CRITICAL: 1, SOON: 2 };
+                        const merged = [...expired, ...critical, ...soon].sort((a, b) => {
+                            const pa = priority[a.status] ?? 9;
+                            const pb = priority[b.status] ?? 9;
+                            if (pa !== pb) return pa - pb;
+                            return (a.daysLeft ?? 9999) - (b.daysLeft ?? 9999);
+                        });
+                        this.documentsToRenew = merged;
+                    } catch (e) {
+                        if (e && e.status === 403) return;
+                        this.documentsToRenew = [];
+                    } finally {
+                        this.documentsRenewLoading = false;
+                    }
+                },
+
+                // Compteur cliqué → filtre automatique du tableau par statut
+                // ('' pour le total = aucun filtre).
+                setDocumentStatusFilter(status) {
+                    this.documentFilters.status = status || '';
+                    this.documentPagination.page = 1;
+                    this.loadDocuments();
+                },
+
+                // Ouverture de l'onglet Documentation sur la liste à renouveler.
+                goToDocumentRenewal() {
+                    this.documentFilters.status = '';
+                    this.documentPagination.page = 1;
+                    this.mainTab = 'documents';
+                    this.refreshDocuments();
+                },
+
                 refreshDocuments() {
-                    return Promise.all([this.loadDocuments(), this.loadDocumentStats()]);
+                    return Promise.all([this.loadDocuments(), this.loadDocumentStats(), this.loadDocumentsToRenew()]);
                 },
 
                 applyDocumentFilters() {
@@ -2332,6 +2413,7 @@
 
                 documentStatusMeta(d) {
                     if (d.status === 'OK') return { badge: 'badge-green', label: 'Valide' };
+                    if (d.status === 'CRITICAL') return { badge: 'badge-violet', label: 'Urgent ≤ 7 j' };
                     if (d.status === 'SOON') return { badge: 'badge-amber', label: 'Expire bientôt' };
                     if (d.status === 'EXPIRED') return { badge: 'badge-red', label: 'Expiré' };
                     return { badge: 'badge-slate', label: 'Sans date' };
@@ -2340,6 +2422,7 @@
                 documentStatusDetail(d) {
                     if (!d || d.status === 'UNKNOWN' || d.daysLeft == null) return '';
                     if (d.status === 'EXPIRED') return 'Expiré depuis ' + Math.abs(d.daysLeft) + ' j';
+                    if (d.status === 'CRITICAL') return 'Urgent : expire dans ' + d.daysLeft + ' j';
                     if (d.status === 'SOON') return 'Expire dans ' + d.daysLeft + ' j';
                     return 'Valide (' + d.daysLeft + ' j restants)';
                 },
@@ -2556,7 +2639,7 @@
 
                 get documentStatusPreview() {
                     const s = this.getDocumentStatus(this.documentForm.expiryDate);
-                    const icons = { OK: '🟢', SOON: '🟠', EXPIRED: '🔴', UNKNOWN: '⚪' };
+                    const icons = { OK: '🟢', CRITICAL: '🟣', SOON: '🟠', EXPIRED: '🔴', UNKNOWN: '⚪' };
                     return { ...s, icon: icons[s.status] || '⚪' };
                 },
 
@@ -2564,6 +2647,7 @@
                     const s = this.getDocumentStatus(this.documentForm.expiryDate);
                     if (!s || s.status === 'UNKNOWN' || s.daysLeft == null) return '';
                     if (s.status === 'EXPIRED') return 'Expiré depuis ' + Math.abs(s.daysLeft) + ' j';
+                    if (s.status === 'CRITICAL') return 'Urgent : expire dans ' + s.daysLeft + ' j';
                     if (s.status === 'SOON') return 'Expire dans ' + s.daysLeft + ' j';
                     return 'Valide (' + s.daysLeft + ' j restants)';
                 },
