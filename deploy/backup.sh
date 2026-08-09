@@ -51,10 +51,36 @@ fi
 chmod 600 "$FILE"
 echo "[backup] OK : $(du -h "$FILE" | cut -f1)"
 
-# Rotation : ne conserve que les KEEP fichiers les plus récents.
+# ============================================================
+# Pièces jointes documents (Phase Documentation — Commit 5)
+# ============================================================
+# Le volume Docker « uploads » (/app/uploads, monté dans le conteneur app)
+# contient les fichiers joints aux documents. Il est archivé séparément
+# (même rotation que la base) pour permettre une restauration VPS complète :
+#   PostgreSQL        -> asadiya-YYYY-MM-DD.sql.gz
+#   Pièces jointes    -> asadiya-uploads-YYYY-MM-DD.tar.gz
+# Si le conteneur app n'est pas démarré, l'archive est simplement sautée
+# (la sauvegarde de la base reste prioritaire et non bloquante).
+UPLOADS_FILE="$BACKUP_DIR/asadiya-uploads-${STAMP}.tar.gz"
+echo "[backup] Archive des pièces jointes (uploads) vers ${UPLOADS_FILE} ..."
+if "${COMPOSE[@]}" exec -T app sh -c 'test -d /app/uploads' >/dev/null 2>&1; then
+  "${COMPOSE[@]}" exec -T app tar -czf - -C /app uploads > "$UPLOADS_FILE" 2>/dev/null || true
+  if [ ! -s "$UPLOADS_FILE" ]; then
+    rm -f "$UPLOADS_FILE"
+    echo "[backup] (aucune pièce jointe : archive non créée)"
+  else
+    chmod 600 "$UPLOADS_FILE"
+    echo "[backup] OK : $(du -h "$UPLOADS_FILE" | cut -f1)"
+  fi
+else
+  echo "[backup] (conteneur app indisponible : pièces jointes non sauvegardées)"
+fi
+
+# Rotation : ne conserve que les KEEP fichiers les plus récents
+# (dumps PostgreSQL et archives uploads confondues).
 OLD_COUNT=0
-while [ "$(find "$BACKUP_DIR" -maxdepth 1 -name 'asadiya-*.sql.gz' | wc -l)" -gt "$KEEP" ]; do
-  OLDEST="$(find "$BACKUP_DIR" -maxdepth 1 -name 'asadiya-*.sql.gz' -print0 | xargs -0 ls -1t | tail -n1)"
+while [ "$(find "$BACKUP_DIR" -maxdepth 1 \( -name 'asadiya-*.sql.gz' -o -name 'asadiya-uploads-*.tar.gz' \) | wc -l)" -gt "$KEEP" ]; do
+  OLDEST="$(find "$BACKUP_DIR" -maxdepth 1 \( -name 'asadiya-*.sql.gz' -o -name 'asadiya-uploads-*.tar.gz' \) -print0 | xargs -0 ls -1t | tail -n1)"
   if [ -z "$OLDEST" ]; then
     break
   fi

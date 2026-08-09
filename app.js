@@ -1036,6 +1036,10 @@
                 documentFormSaving: false,
                 documentFormError: '',
                 documentDeleting: false,
+                documentFileSelected: null,
+                documentFileProgress: 0,
+                documentFileError: '',
+                documentFileUploading: false,
 
                 // --- ÉTAT ET LOGIQUE DU LECTEUR VIDÉO ---
                 videoTab: 'player', // 'player', 'script'
@@ -2376,6 +2380,135 @@
                     this.documentFormInitial = null;
                 },
 
+                // ===== PIÈCE JOINTE DOCUMENT (Phase Documentation — Commit 5) =====
+                resetDocumentFileState() {
+                    this.documentFileSelected = null;
+                    this.documentFileProgress = 0;
+                    this.documentFileError = '';
+                    this.documentFileUploading = false;
+                },
+
+                onDocumentFileSelect(event) {
+                    this.documentFileError = '';
+                    this.documentFileSelected = null;
+                    const input = event && event.target;
+                    const file = input && input.files && input.files[0];
+                    if (!file) return;
+                    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+                    const allowedExt = /\.(pdf|jpe?g|png|webp)$/i.test(file.name);
+                    if (!allowedTypes.includes(file.type) || !allowedExt) {
+                        this.documentFileError = 'Format non autorisé. Formats acceptés : PDF, JPG, PNG, WEBP (10 Mo max).';
+                        if (input) input.value = '';
+                        return;
+                    }
+                    if (file.size > 10 * 1024 * 1024) {
+                        this.documentFileError = 'Fichier trop volumineux (10 Mo max).';
+                        if (input) input.value = '';
+                        return;
+                    }
+                    this.documentFileSelected = file;
+                },
+
+                async uploadDocumentFile(documentId) {
+                    if (!this.documentFileSelected || !documentId) return;
+                    this.documentFileUploading = true;
+                    this.documentFileError = '';
+                    this.documentFileProgress = 0;
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', this.documentFileSelected);
+                        await new Promise((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+                            xhr.open('POST', this.apiUrl('/api/documents/' + documentId + '/file'));
+                            xhr.setRequestHeader('Authorization', 'Bearer ' + this.authToken);
+                            xhr.upload.onprogress = (e) => {
+                                if (e.lengthComputable) this.documentFileProgress = Math.round((e.loaded / e.total) * 100);
+                            };
+                            xhr.onload = () => {
+                                if (xhr.status >= 200 && xhr.status < 300) {
+                                    this.documentFileProgress = 100;
+                                    resolve();
+                                    return;
+                                }
+                                let msg = 'Upload échoué (statut ' + xhr.status + ').';
+                                try {
+                                    const d = JSON.parse(xhr.responseText);
+                                    if (d && d.error) msg = d.error;
+                                } catch (err) { /* corps non JSON */ }
+                                reject(new Error(msg));
+                            };
+                            xhr.onerror = () => reject(new Error('Erreur réseau pendant l’envoi du fichier.'));
+                            xhr.send(formData);
+                        });
+                    } catch (e) {
+                        this.documentFileError = e.message || 'Upload impossible.';
+                        throw e;
+                    } finally {
+                        this.documentFileUploading = false;
+                    }
+                },
+
+                async fetchDocumentFile(documentId, mode) {
+                    if (!this.authToken || !documentId) return;
+                    this.documentFileError = '';
+                    try {
+                        const res = await fetch(this.apiUrl('/api/documents/' + documentId + '/file'), {
+                            headers: { 'Authorization': 'Bearer ' + this.authToken },
+                        });
+                        if (res.status === 404) {
+                            this.documentFileError = 'Pièce jointe introuvable (document sans fichier ?).';
+                            return;
+                        }
+                        if (!res.ok) {
+                            let msg = 'Téléchargement impossible (statut ' + res.status + ').';
+                            try {
+                                const d = await res.json();
+                                if (d && d.error) msg = d.error;
+                            } catch (err) { /* pas de corps JSON */ }
+                            throw new Error(msg);
+                        }
+                        const blob = await res.blob();
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        const name = (this.documentSelected && this.documentSelected.id === documentId && this.documentSelected.fileName) || '';
+                        if (mode === 'download' && name) link.download = name;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        setTimeout(() => URL.revokeObjectURL(url), 10000);
+                    } catch (e) {
+                        this.documentFileError = e.message || 'Impossible de récupérer le fichier.';
+                    }
+                },
+
+                viewDocumentFile(doc) {
+                    this.fetchDocumentFile(doc && doc.id, 'view');
+                },
+
+                downloadDocumentFile(doc) {
+                    this.fetchDocumentFile(doc && doc.id, 'download');
+                },
+
+                async deleteDocumentFile(doc) {
+                    if (!doc || !doc.id) return;
+                    if (!confirm('Supprimer la pièce jointe de ce document ?')) return;
+                    this.documentFileError = '';
+                    try {
+                        await this.apiFetch('/api/documents/' + doc.id + '/file', { method: 'DELETE' });
+                        const fresh = (this.documents || []).find((d) => d.id === doc.id);
+                        if (this.documentSelected && this.documentSelected.id === doc.id) {
+                            this.documentSelected = fresh || Object.assign({}, doc, { fileName: null, mimeType: null, fileSize: null, filePath: null });
+                        }
+                        await this.refreshDocuments();
+                        alert('Pièce jointe supprimée.');
+                    } catch (e) {
+                        this.documentFileError = this.documentApiError(e, 'supprimer la pièce jointe');
+                    }
+                },
+
                 openDocumentModal(mode, document) {
                     if (!['create', 'edit', 'view'].includes(mode)) return;
                     if (this.documentFormSaving) return; // ouverture bloquée pendant l'enregistrement
@@ -2396,6 +2529,7 @@
                         };
                     }
                     this.documentFormInitial = JSON.parse(JSON.stringify(this.documentForm));
+                    this.resetDocumentFileState();
                     this.showDocumentModal = true;
                 },
 
@@ -2405,6 +2539,7 @@
                         if (!confirm('Des modifications non enregistrées vont être perdues. Fermer quand même ?')) return;
                     }
                     this.showDocumentModal = false;
+                    this.resetDocumentFileState();
                 },
 
                 setDocumentOwnerType(type) {
@@ -2478,12 +2613,24 @@
                         notes: f.notes.trim()
                     };
                     try {
+                        let savedDocId = null;
                         if (this.documentModalMode === 'edit' && this.documentSelected) {
                             await this.apiFetch('/api/documents/' + this.documentSelected.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                            savedDocId = this.documentSelected.id;
                             alert('Document modifié avec succès.');
                         } else {
-                            await this.apiFetch('/api/documents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                            const created = await this.apiFetch('/api/documents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                            savedDocId = created && created.id;
                             alert('Document ajouté avec succès.');
+                        }
+                        if (this.documentFileSelected && savedDocId) {
+                            try {
+                                await this.uploadDocumentFile(savedDocId);
+                            } catch (e) {
+                                alert('Document enregistré, mais la pièce jointe n’a pas pu être envoyée : ' + ((e && e.message) || 'erreur inconnue.'));
+                            }
+                            this.documentFileSelected = null;
+                            this.documentFileProgress = 0;
                         }
                         this.showDocumentModal = false;
                         await this.refreshDocuments();

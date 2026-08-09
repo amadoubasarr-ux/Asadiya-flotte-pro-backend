@@ -6,9 +6,10 @@
 ## Ce qu'il faut sauvegarder
 
 1. **Base de données PostgreSQL** (données métier) — le point critique.
-2. **Fichier d'environnement** `.env.docker` (secrets : JWT, Postgres, Wave/Orange/Stripe) — sans lui, aucune restauration n'est possible.
-3. **Code source** (version déployée : `git tag` suffit).
-4. *(Optionnel)* volume `pgdata` complet (voir section Docker).
+2. **Pièces jointes documents** (volume `uploads`, Phase Documentation — Commit 5).
+3. **Fichier d'environnement** `.env.docker` (secrets : JWT, Postgres, Wave/Orange/Stripe) — sans lui, aucune restauration n'est possible.
+4. **Code source** (version déployée : `git tag` suffit).
+5. *(Optionnel)* volume `pgdata` complet (voir section Docker).
 
 ## 1. Sauvegarde de la base (dump)
 
@@ -27,6 +28,25 @@ Ce que fait le script :
 - Vérifie que le fichier n'est pas vide (échec ⇒ suppression + exit 1).
 - **Rotation automatique** : conserve `KEEP=14` fichiers (variable d'env),
   supprime les plus anciens.
+
+## 1bis. Sauvegarde des pièces jointes (volume `uploads`)
+
+Le même script `deploy/backup.sh` archive le volume des pièces jointes
+documents (monté dans le conteneur `app` sur `/app/uploads`) :
+
+```bash
+./deploy/backup.sh /opt/asadiya/backups
+# => /opt/asadiya/backups/asadiya-2026-08-07.sql.gz
+# => /opt/asadiya/backups/asadiya-uploads-2026-08-07.tar.gz
+```
+
+- Archive `tar.gz` du contenu de `uploads/` (chemins internes
+  `documents/<organizationId>/<documentId>/document_*.pdf`).
+- Incluse dans la même rotation `KEEP=14`.
+- Si le conteneur `app` est arrêté, l'archive est simplement sautée (la
+  sauvegarde de la base reste prioritaire et non bloquante).
+- Restauration : extraire l'archive à la racine du volume `uploads` avant de
+  relancer le conteneur (voir [restore.md](./restore.md)).
 
 ## 2. Sauvegarde du fichier d'environnement
 

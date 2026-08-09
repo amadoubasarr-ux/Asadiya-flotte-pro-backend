@@ -2,6 +2,8 @@
 // (le chargement du .env doit rester silencieux au démarrage).
 require('dotenv').config({ quiet: true });
 
+const path = require('path');
+
 function parseIntEnv(name, fallback) {
     const value = parseInt(process.env[name], 10);
     return Number.isNaN(value) ? fallback : value;
@@ -69,6 +71,14 @@ const config = {
     // Liste d'origines autorisées (CORS_ORIGIN peut contenir plusieurs valeurs
     // séparées par des virgules). En développement, '*' autorise tout.
     corsOrigins: normalizeCorsOrigins(parseCorsOrigins(process.env.CORS_ORIGIN || '*')),
+
+    // ===== Pièces jointes documents (Phase Documentation — Commit 5) =====
+    // Répertoire racine de stockage des fichiers. Jamais exposé en statique :
+    // l'accès passe toujours par l'API authentifiée (/api/documents/:id/file).
+    // Volume Docker persistant « uploads » pour la sauvegarde / restauration VPS.
+    uploadsDir: process.env.UPLOADS_DIR || path.join(__dirname, 'uploads'),
+    // Taille maximale d'une pièce jointe (octets). Défaut : 10 MB.
+    documentMaxFileSize: parseIntEnv('DOCUMENT_MAX_FILE_SIZE', 10 * 1024 * 1024),
 
     // Reverse proxy : nombre de sauts de proxy de confiance pour la lecture de
     // l'adresse IP réelle du client (requis derrière nginx/Caddy pour le rate limiting).
@@ -282,6 +292,11 @@ function assertProductionConfig() {
     // Taille maximale des corps JSON (body-parser).
     if (!/^\d+(\.\d+)?\s*(b|kb|mb|gb)?$/i.test(String(config.jsonLimit).trim())) {
         failures.push(`JSON_LIMIT="${process.env.JSON_LIMIT}" est invalide (ex: "15mb", "1048576").`);
+    }
+
+    // Taille maximale d'une pièce jointe document (octets, > 0).
+    if (!Number.isInteger(config.documentMaxFileSize) || config.documentMaxFileSize < 1) {
+        failures.push(`DOCUMENT_MAX_FILE_SIZE="${process.env.DOCUMENT_MAX_FILE_SIZE}" doit être un entier positif (octets).`);
     }
 
     // Durée de la période d'essai.

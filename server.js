@@ -15,6 +15,7 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { requestContext } = require('./middleware/requestContext');
 const monitoringRouter = require('./routes/monitoring');
 const { startPerformanceReporter } = require('./monitoring/performance');
+const documentFiles = require('./services/documentFiles');
 const logger = require('./utils/logger');
 
 assertProductionConfig();
@@ -230,6 +231,10 @@ async function refreshExpiredSubscriptions() {
 
 async function start() {
     try {
+        // Répertoire de stockage des pièces jointes (uploads) : créé au
+        // démarrage, requis avant toute écriture de fichier.
+        documentFiles.ensureBaseDir();
+
         // Crée automatiquement les tables au démarrage (idempotent)
         await migrate();
         logger.info('db.migrated');

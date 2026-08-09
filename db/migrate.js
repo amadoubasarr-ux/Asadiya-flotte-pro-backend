@@ -325,6 +325,7 @@ CREATE TABLE IF NOT EXISTS documents (
     file_path       TEXT,
     mime_type       TEXT,
     file_size       INTEGER CHECK (file_size IS NULL OR file_size >= 0),
+    file_uploaded_at TIMESTAMPTZ,
     organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT documents_single_owner CHECK (num_nonnulls(vehicle_id, driver_id) = 1)
@@ -409,6 +410,21 @@ CREATE INDEX IF NOT EXISTS idx_fuel_logs_date   ON fuel_logs(organization_id, da
 CREATE INDEX IF NOT EXISTS idx_fuel_logs_vehicle ON fuel_logs(vehicle_id);
 CREATE INDEX IF NOT EXISTS idx_fuel_budgets_organization ON fuel_budgets(organization_id);
 CREATE INDEX IF NOT EXISTS idx_fuel_budgets_month ON fuel_budgets(organization_id, month);
+`;
+
+// ============================================================
+// Migration des bases existantes — pièces jointes documents
+// (Phase Documentation, Commit 5)
+// ============================================================
+
+// La table documents possède déjà file_name / file_path / mime_type /
+// file_size (métadonnées de fichier, Commit 1). On ajoute uniquement la
+// date d'upload. file_name conserve le NOM ORIGINAL du fichier (affichage
+// côté client) ; file_path stocke le chemin INTERNE sécurisé relatif à la
+// racine « uploads » (jamais exposé directement). Strictement idempotent :
+// les documents existants ne sont jamais altérés.
+const UPGRADE_DOCUMENTS_FILES_SQL = `
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_uploaded_at TIMESTAMPTZ;
 `;
 
 // ============================================================
@@ -524,6 +540,7 @@ async function migrate() {
     await pool.query(SCHEMA);
     await pool.query(UPGRADE_INVOICES_SQL);
     await pool.query(UPGRADE_FUEL_SQL);
+    await pool.query(UPGRADE_DOCUMENTS_FILES_SQL);
     await upgradeExistingSubscriptions();
     await seedDefaultPlans();
 }

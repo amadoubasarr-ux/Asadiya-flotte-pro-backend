@@ -23,6 +23,12 @@ WORKDIR /app
 # Utilisateur applicatif non privilégié (compte dédié, pas de droits root).
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
+# Répertoire de stockage des pièces jointes (upload) : créé avec les droits
+# de l'utilisateur applicatif. En production, le volume nommé « uploads »
+# (docker-compose.yml) est monté sur /app/uploads : les fichiers survivent
+# aux redémarrages et rebuilds, et sont inclus dans la sauvegarde VPS.
+RUN mkdir -p /app/uploads && chown -R appuser:appgroup /app/uploads
+
 # Copie des dépendances (étape 1) puis du code source uniquement.
 # data/, tests/, .env... sont exclus via .dockerignore (aucune donnée sensible).
 COPY --from=deps --chown=appuser:appgroup /app/node_modules ./node_modules

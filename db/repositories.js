@@ -123,6 +123,7 @@ const FIELD_MAPS = {
         filePath: 'file_path',
         mimeType: 'mime_type',
         fileSize: 'file_size',
+        fileUploadedAt: 'file_uploaded_at',
     },
 };
 
@@ -305,6 +306,47 @@ documents.findAllByOrg = async function findAllByOrg(orgId, filters = {}) {
         params
     );
     return mapRows(result.rows);
+};
+
+// ============================================================
+// Documents — pièces jointes (Phase Documentation, Commit 5)
+// ============================================================
+// Métadonnées de fichier écrites UNIQUEMENT par le serveur (routes
+// /api/documents/:id/file) : le chemin stocké est le chemin interne sûr,
+// le nom est le nom original (affichage), jamais utilisé pour construire
+// un chemin système. Toujours filtrées par organization_id.
+// ============================================================
+
+/** Enregistre (ou remplace) les métadonnées de fichier d'un document. */
+documents.setFileMetadata = async function setFileMetadata(orgId, id, meta) {
+    const result = await query(
+        `UPDATE documents
+         SET file_path = $1, file_name = $2, mime_type = $3,
+             file_size = $4, file_uploaded_at = $5
+         WHERE organization_id = $6 AND id = $7
+         RETURNING *`,
+        [
+            meta.filePath ?? null,
+            meta.fileName ?? null,
+            meta.mimeType ?? null,
+            meta.fileSize ?? null,
+            meta.fileUploadedAt ?? null,
+            orgId,
+            id,
+        ]
+    );
+    return mapRow(result.rows[0] || null);
+};
+
+/** Efface les métadonnées de fichier (sans toucher au document). */
+documents.clearFileMetadata = async function clearFileMetadata(orgId, id) {
+    return documents.setFileMetadata(orgId, id, {
+        filePath: null,
+        fileName: null,
+        mimeType: null,
+        fileSize: null,
+        fileUploadedAt: null,
+    });
 };
 
 // ============================================================

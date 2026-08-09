@@ -3065,6 +3065,7 @@
                                             <th>Émission</th>
                                             <th>Expiration</th>
                                             <th>Statut</th>
+                                            <th>Pièce jointe</th>
                                             <th class="text-right">Actions</th>
                                         </tr>
                                     </thead>
@@ -3094,6 +3095,14 @@
                                                 </td>
                                                 <td>
                                                     <span class="badge" :class="documentStatusMeta(d).badge" x-text="documentStatusMeta(d).label"></span>
+                                                </td>
+                                                <td>
+                                                    <span x-show="d.fileName">
+                                                        <button @click.stop="viewDocumentFile(d)" title="Voir la pièce jointe" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                                            <i class="fa-solid fa-paperclip text-xs"></i>
+                                                        </button>
+                                                    </span>
+                                                    <span x-show="!d.fileName" class="text-slate-300">—</span>
                                                 </td>
                                                 <td class="text-right">
                                                     <div class="flex items-center justify-end gap-1.5">
@@ -4011,6 +4020,17 @@
                                     <span class="text-[10px] text-slate-400" x-show="documentSelected.mimeType" x-text="documentSelected.mimeType"></span>
                                     <span class="text-[10px] text-slate-400" x-show="documentSelected.fileSize != null" x-text="fmtFileSize(documentSelected.fileSize)"></span>
                                 </p>
+                                <div class="flex flex-wrap gap-2 mt-2">
+                                    <button type="button" @click="viewDocumentFile(documentSelected)" class="btn btn-xs btn-primary">
+                                        <i class="fa-solid fa-eye mr-1"></i> Voir le fichier
+                                    </button>
+                                    <button type="button" @click="downloadDocumentFile(documentSelected)" class="btn btn-xs btn-secondary">
+                                        <i class="fa-solid fa-download mr-1"></i> Télécharger
+                                    </button>
+                                    <button type="button" @click="deleteDocumentFile(documentSelected)" class="btn btn-xs btn-secondary !text-rose-600" x-show="canManageFleet">
+                                        <i class="fa-solid fa-trash mr-1"></i> Supprimer
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -4084,6 +4104,48 @@
                                     <label class="label">Notes</label>
                                     <textarea x-model="documentForm.notes" rows="3" placeholder="Remarques éventuelles..." maxlength="4000" class="input resize-none"></textarea>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Pièce jointe (Phase Documentation — Commit 5) -->
+                        <div class="pt-2 border-t border-slate-200 space-y-2">
+                            <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500 flex items-center gap-1.5">
+                                <i class="fa-solid fa-paperclip text-indigo-500"></i> Pièce jointe
+                            </p>
+
+                            <!-- Fichier existant (mode modifier) -->
+                            <div x-show="documentModalMode === 'edit' && documentSelected && documentSelected.fileName" class="flex flex-wrap items-center gap-2 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                                <i class="fa-solid fa-file-lines text-indigo-500"></i>
+                                <span class="font-semibold text-slate-700 truncate" x-text="documentSelected.fileName"></span>
+                                <span class="text-[10px] text-slate-400" x-show="documentSelected.fileSize != null" x-text="fmtFileSize(documentSelected.fileSize)"></span>
+                                <span class="ml-auto flex items-center gap-1">
+                                    <button type="button" @click="viewDocumentFile(documentSelected)" title="Voir le fichier" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                        <i class="fa-solid fa-eye text-xs"></i>
+                                    </button>
+                                    <button type="button" @click="downloadDocumentFile(documentSelected)" title="Télécharger" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                        <i class="fa-solid fa-download text-xs"></i>
+                                    </button>
+                                    <button type="button" @click="deleteDocumentFile(documentSelected)" title="Supprimer la pièce jointe" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-rose-500">
+                                        <i class="fa-solid fa-trash-can text-xs"></i>
+                                    </button>
+                                </span>
+                            </div>
+
+                            <!-- Sélecteur de fichier (création / remplacement) -->
+                            <label class="flex items-center justify-center gap-2 border-2 border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/40 rounded-xl px-4 py-3 cursor-pointer transition text-xs text-slate-500">
+                                <i class="fa-solid fa-upload"></i>
+                                <span x-text="documentFileSelected ? documentFileSelected.name : 'Choisir un fichier (PDF, JPG, PNG, WEBP — 10 Mo max)'"></span>
+                                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" class="hidden" @change="onDocumentFileSelect($event)">
+                            </label>
+
+                            <p class="text-xs text-rose-600" x-show="documentFileError" x-text="documentFileError"></p>
+
+                            <!-- Barre de progression -->
+                            <div x-show="documentFileUploading" class="space-y-1">
+                                <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-indigo-500 rounded-full transition-all" :style="'width: ' + documentFileProgress + '%'"></div>
+                                </div>
+                                <p class="text-[10px] text-slate-400 text-right" x-text="documentFileProgress + ' %'"></p>
                             </div>
                         </div>
 

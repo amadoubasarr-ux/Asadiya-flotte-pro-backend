@@ -104,6 +104,11 @@ services:
     ports:
       # Exposé vers l'hôte (nginx sur le même hôte, ou accès direct).
       - "${APP_PORT:-4000}:${PORT:-4000}"
+    volumes:
+      # Pièces jointes documents : volume persistant, partagé avec la
+      # sauvegarde VPS. Les fichiers survivent à `docker compose down` et
+      # aux rebuilds de l'image.
+      - uploads:/app/uploads
     networks:
       - asadiya_net
 
@@ -116,3 +121,7 @@ volumes:
   # Volume persistant PostgreSQL : les données sont conservées
   # entre les redémarrages (docker compose down) et les reconstructions.
   pgdata:
+  # Volume persistant des pièces jointes documents (Phase Documentation —
+  # Commit 5). JAMAIS exposé en statique : la lecture passe par l'API
+  # authentifiée (/api/documents/:id/file).
+  uploads:

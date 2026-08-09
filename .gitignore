@@ -3,6 +3,9 @@ node_modules/
 .env.docker
 data/db.json.bak
 
+# Pièces jointes téléversées (volume Docker persistant « uploads »)
+uploads/
+
 # Fichiers temporaires de développement / de test
 _tmp_*
 *.log

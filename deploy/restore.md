@@ -39,6 +39,23 @@ gzip -dc backups/asadiya-2026-08-07.sql.gz \
 docker compose --env-file .env.docker restart app
 ```
 
+## Restauration des pièces jointes (volume `uploads`)
+
+Les fichiers joints aux documents sont sauvegardés séparément par
+`deploy/backup.sh` (`asadiya-uploads-<date>.tar.gz`). Pour les restaurer :
+
+```bash
+docker run --rm \
+  -v asadiya-flotte-pro-backend_uploads:/uploads \
+  -v /opt/asadiya/backups:/backups \
+  alpine sh -c "rm -rf /uploads/* && tar xzf /backups/asadiya-uploads-2026-08-07.tar.gz -C /uploads --strip-components=1"
+```
+
+> L'archive contient le dossier `uploads/` à la racine ; `--strip-components=1`
+> l'extrait directement dans le volume (structure `documents/<orgId>/<docId>/...`
+> restaurée à l'identique). Les métadonnées en base pointent vers ces mêmes
+> chemins internes : la restauration base + uploads est cohérente.
+
 ## Restauration d'un dump SQL « plain »
 
 Si le dump est au format texte (`pg_dump` sans `--format=custom`) :
