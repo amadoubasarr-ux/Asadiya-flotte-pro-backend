@@ -9,6 +9,7 @@ function mapPgError(err) {
                 'Cette valeur est déjà utilisée (contrainte d\'unicité).'
             );
         case '23503': // foreign_key_violation
+        case '23001': // restrict_violation (ON DELETE RESTRICT)
             return AppError.conflict(
                 'Cette action est impossible : la ressource est référencée par d\'autres données.'
             );

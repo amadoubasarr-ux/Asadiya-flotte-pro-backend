@@ -335,6 +335,79 @@ CREATE INDEX IF NOT EXISTS idx_documents_organization ON documents(organization_
 CREATE INDEX IF NOT EXISTS idx_documents_vehicle      ON documents(vehicle_id);
 CREATE INDEX IF NOT EXISTS idx_documents_driver       ON documents(driver_id);
 CREATE INDEX IF NOT EXISTS idx_documents_expiry       ON documents(expiry_date);
+
+-- ============================================================
+-- Ventes de véhicules (Phase 7.7) — une ligne = une vente
+-- ============================================================
+-- L'acheteur est interne (buyer_id -> drivers) OU externe (buyer_name et
+-- coordonnées en texte libre) : la contrainte exige qu'au moins une des deux
+-- références soit renseignée, et buyer_type explicite le cas (INTERNAL /
+-- EXTERNAL). Le numéro de vente (sale_number) est généré par le serveur au
+-- format VS-AAAA-NNNNNN, unique par organisation et par année. Le prix total
+-- (total_price) est toujours calculé côté serveur (prix + taxes + frais) et le
+-- prix est strictement positif. Les instantanés (vehicle, title, mileage,
+-- year) sont figés au moment de la vente pour préserver l'historique comptable.
+-- Statuts de vente : DRAFT / IN_PROGRESS / COMPLETED / CANCELLED ; paiement
+-- PENDING / PARTIAL / PAID / REFUNDED ; livraison PENDING / DELIVERED.
+-- Cycle du véhicule piloté par la vente : AVAILABLE -> RESERVED -> SOLD
+-- (le statut du véhicule lié est mis à jour par le serveur, jamais par le
+-- client). Les métadonnées de pièce jointe (file_*) sont écrites uniquement
+-- par le serveur (phase ultérieure).
+CREATE TABLE IF NOT EXISTS vehicle_sales (
+    id                SERIAL PRIMARY KEY,
+    sale_number       TEXT NOT NULL,
+    vehicle_id        INTEGER NOT NULL REFERENCES vehicles(id) ON DELETE RESTRICT,
+    vehicle           TEXT,
+    title             TEXT,
+    description       TEXT,
+    mileage           INTEGER CHECK (mileage IS NULL OR mileage >= 0),
+    year              INTEGER CHECK (year IS NULL OR (year >= 1900 AND year <= 2100)),
+    buyer_id          INTEGER REFERENCES drivers(id) ON DELETE SET NULL,
+    buyer_type        TEXT CHECK (buyer_type IS NULL OR buyer_type IN ('INTERNAL', 'EXTERNAL')),
+    buyer_name        TEXT,
+    buyer_phone       TEXT,
+    buyer_email       TEXT,
+    buyer_address     TEXT,
+    buyer_id_card     TEXT,
+    broker_id         INTEGER REFERENCES drivers(id) ON DELETE SET NULL,
+    salesperson_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    sale_date         DATE NOT NULL,
+    currency          TEXT NOT NULL DEFAULT 'XOF'
+                      CHECK (currency IN ('XOF', 'EUR', 'USD')),
+    price             NUMERIC(12, 0) NOT NULL DEFAULT 0
+                      CONSTRAINT vehicle_sales_price_positive CHECK (price > 0),
+    tax               NUMERIC(12, 0) NOT NULL DEFAULT 0 CHECK (tax >= 0),
+    fees              NUMERIC(12, 0) NOT NULL DEFAULT 0 CHECK (fees >= 0),
+    total_price       NUMERIC(12, 0) NOT NULL DEFAULT 0 CHECK (total_price >= 0),
+    payment_method    TEXT,
+    payment_status    TEXT NOT NULL DEFAULT 'PENDING'
+                      CHECK (payment_status IN ('PENDING', 'PARTIAL', 'PAID', 'REFUNDED')),
+    paid_amount       NUMERIC(12, 0) NOT NULL DEFAULT 0 CHECK (paid_amount >= 0),
+    delivery_status   TEXT NOT NULL DEFAULT 'PENDING'
+                      CHECK (delivery_status IN ('PENDING', 'DELIVERED')),
+    delivery_date     DATE,
+    status            TEXT NOT NULL DEFAULT 'DRAFT'
+                      CHECK (status IN ('DRAFT', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
+    notes             TEXT,
+    file_name         TEXT,
+    file_path         TEXT,
+    mime_type         TEXT,
+    file_size         INTEGER CHECK (file_size IS NULL OR file_size >= 0),
+    file_uploaded_at  TIMESTAMPTZ,
+    organization_id   INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT vehicle_sales_buyer_required
+        CHECK (num_nonnulls(buyer_id, buyer_name) >= 1),
+    CONSTRAINT vehicle_sales_org_number_unique UNIQUE (organization_id, sale_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vehicle_sales_organization ON vehicle_sales(organization_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_sales_vehicle      ON vehicle_sales(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_sales_buyer        ON vehicle_sales(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_sales_broker       ON vehicle_sales(broker_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_sales_sale_date    ON vehicle_sales(organization_id, sale_date);
+CREATE INDEX IF NOT EXISTS idx_vehicle_sales_org_status   ON vehicle_sales(organization_id, status);
 `;
 
 // ============================================================
@@ -425,6 +498,44 @@ CREATE INDEX IF NOT EXISTS idx_fuel_budgets_month ON fuel_budgets(organization_i
 // les documents existants ne sont jamais altérés.
 const UPGRADE_DOCUMENTS_FILES_SQL = `
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS file_uploaded_at TIMESTAMPTZ;
+`;
+
+// ============================================================
+// Migration des bases existantes — Ventes de véhicules
+// (Phase 7.7, Commit 2 : validation renforcée)
+// ============================================================
+
+// La table vehicle_sales peut pré-exister avec le schéma du Commit 1 (bases
+// ayant démarré le serveur avant cette montée de version) : le CREATE TABLE
+// IF NOT EXISTS du SCHEMA ne modifie pas une table existante. On ajoute donc
+// idempotemment les colonnes de validation (devise, type d'acheteur, e-mail,
+// instantanés titre/description/kilométrage/année) et on durcit les
+// contraintes nommées (prix strictement positif, devises autorisées). Les
+// DROP CONSTRAINT IF EXISTS garantissent l'idempotence dans les deux cas
+// (base ancienne avec contrainte auto-nommée, ou base récente avec contrainte
+// nommée déjà en place).
+const UPGRADE_VEHICLE_SALES_SQL = `
+ALTER TABLE vehicle_sales ADD COLUMN IF NOT EXISTS currency      TEXT NOT NULL DEFAULT 'XOF';
+ALTER TABLE vehicle_sales ADD COLUMN IF NOT EXISTS buyer_type    TEXT;
+ALTER TABLE vehicle_sales ADD COLUMN IF NOT EXISTS buyer_email   TEXT;
+ALTER TABLE vehicle_sales ADD COLUMN IF NOT EXISTS title         TEXT;
+ALTER TABLE vehicle_sales ADD COLUMN IF NOT EXISTS description   TEXT;
+ALTER TABLE vehicle_sales ADD COLUMN IF NOT EXISTS mileage       INTEGER;
+ALTER TABLE vehicle_sales ADD COLUMN IF NOT EXISTS year          INTEGER;
+
+ALTER TABLE vehicle_sales DROP CONSTRAINT IF EXISTS vehicle_sales_price_check;
+ALTER TABLE vehicle_sales DROP CONSTRAINT IF EXISTS vehicle_sales_price_positive;
+ALTER TABLE vehicle_sales ADD CONSTRAINT vehicle_sales_price_positive CHECK (price > 0);
+
+ALTER TABLE vehicle_sales DROP CONSTRAINT IF EXISTS vehicle_sales_currency_allowed;
+ALTER TABLE vehicle_sales ADD CONSTRAINT vehicle_sales_currency_allowed
+    CHECK (currency IN ('XOF', 'EUR', 'USD'));
+
+ALTER TABLE vehicle_sales DROP CONSTRAINT IF EXISTS vehicle_sales_buyer_type_allowed;
+ALTER TABLE vehicle_sales ADD CONSTRAINT vehicle_sales_buyer_type_allowed
+    CHECK (buyer_type IS NULL OR buyer_type IN ('INTERNAL', 'EXTERNAL'));
+
+CREATE INDEX IF NOT EXISTS idx_vehicle_sales_org_status ON vehicle_sales(organization_id, status);
 `;
 
 // ============================================================
@@ -541,6 +652,7 @@ async function migrate() {
     await pool.query(UPGRADE_INVOICES_SQL);
     await pool.query(UPGRADE_FUEL_SQL);
     await pool.query(UPGRADE_DOCUMENTS_FILES_SQL);
+    await pool.query(UPGRADE_VEHICLE_SALES_SQL);
     await upgradeExistingSubscriptions();
     await seedDefaultPlans();
 }

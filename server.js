@@ -173,6 +173,7 @@ app.use('/api/incidents', requireAuth, subscriptionGuard, require('./routes/inci
 app.use('/api/accidents', requireAuth, subscriptionGuard, require('./routes/accidents'));
 app.use('/api/fuel-logs', requireAuth, subscriptionGuard, require('./routes/fuel'));
 app.use('/api/documents', requireAuth, subscriptionGuard, require('./routes/documents'));
+app.use('/api/vehicle-sales', requireAuth, subscriptionGuard, require('./routes/vehicleSales'));
 app.use('/api/users', requireAuth, subscriptionGuard, require('./routes/users'));
 app.use('/api/organizations', require('./routes/organizations'));
 app.use('/api/plans', require('./routes/plans'));

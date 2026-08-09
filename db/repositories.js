@@ -350,6 +350,391 @@ documents.clearFileMetadata = async function clearFileMetadata(orgId, id) {
 };
 
 // ============================================================
+// Ventes de véhicules (Phase 7.7)
+// ============================================================
+// CRUD cloisonné par organisation. Règles métier appliquées côté serveur :
+//   - sale_number auto-généré (VS-AAAA-NNNNNN, unique par organisation et par
+//     année), jamais fourni par le client ;
+//   - total_price TOUJOURS recalculé = price + tax + fees (le client ne peut
+//     pas imposer un montant différent de la somme) ;
+//   - instantanés « vehicle » et « buyer_name » remplis depuis les tables
+//     liées quand l'écran n'en fournit pas (dénormalisation de confort) ;
+//   - appartenance vérifiée pour vehicle_id / buyer_id / broker_id /
+//     salesperson_id (anti fuite inter-tenant) ;
+//   - un acheteur est exigé (buyer_id OU buyer_name), comme en base ;
+//   - le montant déjà payé (paid_amount) ne peut pas dépasser le prix total.
+const SALES_FIELD_MAP = {
+    vehicleId: 'vehicle_id',
+    vehicle: 'vehicle',
+    title: 'title',
+    description: 'description',
+    mileage: 'mileage',
+    year: 'year',
+    buyerId: 'buyer_id',
+    buyerType: 'buyer_type',
+    buyerName: 'buyer_name',
+    buyerPhone: 'buyer_phone',
+    buyerEmail: 'buyer_email',
+    buyerAddress: 'buyer_address',
+    buyerIdCard: 'buyer_id_card',
+    brokerId: 'broker_id',
+    salespersonId: 'salesperson_id',
+    saleDate: 'sale_date',
+    currency: 'currency',
+    price: 'price',
+    tax: 'tax',
+    fees: 'fees',
+    paymentMethod: 'payment_method',
+    paymentStatus: 'payment_status',
+    paidAmount: 'paid_amount',
+    deliveryStatus: 'delivery_status',
+    deliveryDate: 'delivery_date',
+    status: 'status',
+    notes: 'notes',
+    fileName: 'file_name',
+    filePath: 'file_path',
+    mimeType: 'mime_type',
+    fileSize: 'file_size',
+    fileUploadedAt: 'file_uploaded_at',
+};
+
+function sanitizeSale(data) {
+    const out = {};
+    for (const [camel, column] of Object.entries(SALES_FIELD_MAP)) {
+        if (data[camel] !== undefined) out[column] = data[camel];
+    }
+    return out;
+}
+
+const SALE_REF_COLUMNS = ['vehicle_id', 'buyer_id', 'broker_id', 'salesperson_id'];
+
+function sanitizeSaleRefs(clean) {
+    for (const column of SALE_REF_COLUMNS) {
+        if (clean[column] === '') clean[column] = null;
+    }
+}
+
+// Statuts du cycle de vie du véhicule (pilotés par la vente).
+const VEHICLE_AVAILABLE = 'AVAILABLE';
+const VEHICLE_RESERVED = 'RESERVED';
+const VEHICLE_SOLD = 'SOLD';
+
+// Statuts de vente finaux : plus aucun changement de statut possible.
+const SALE_FINAL_STATUSES = ['COMPLETED', 'CANCELLED'];
+
+/** Charge le véhicule lié et vérifie son appartenance à l'organisation. */
+async function getOwnedVehicle(client, orgId, vehicleId) {
+    const result = await client.query(
+        'SELECT * FROM vehicles WHERE id = $1 AND organization_id = $2',
+        [vehicleId, orgId]
+    );
+    if (result.rowCount === 0) {
+        throw AppError.notFound('Le véhicule lié n\'existe pas dans votre organisation.');
+    }
+    return result.rows[0];
+}
+
+/** Bloque l'utilisation d'un véhicule déjà réservé ou vendu. */
+function requireVehicleAvailable(vehicle) {
+    if (vehicle.status === VEHICLE_SOLD) {
+        throw AppError.conflict('Ce véhicule est déjà vendu (SOLD) : aucune nouvelle vente n\'est possible.');
+    }
+    if (vehicle.status === VEHICLE_RESERVED) {
+        throw AppError.conflict('Ce véhicule est déjà réservé (RESERVED) par une autre vente en cours.');
+    }
+}
+
+/** Libellé d'affichage d'un véhicule (instantané dénormalisé). */
+function vehicleLabel(vehicle) {
+    return [vehicle.plate, vehicle.brand, vehicle.model].filter(Boolean).join(' ');
+}
+
+/**
+ * Instantanés du véhicule figés dans la vente : libellé, titre, kilométrage et
+ * année au moment de la vente. Les valeurs fournies par le client priment ;
+ * sinon on copie le véhicule lié. L'historique comptable ne doit pas bouger si
+ * le véhicule est ensuite modifié.
+ */
+function buildVehicleSnapshots(vehicle, clean) {
+    const snapshots = {};
+    const label = vehicleLabel(vehicle);
+    if (!clean.vehicle) snapshots.vehicle = label;
+    if (!clean.title) snapshots.title = `Vente ${label}`;
+    if (clean.mileage === undefined || clean.mileage === null || clean.mileage === '') {
+        snapshots.mileage = vehicle.mileage != null ? Number(vehicle.mileage) : null;
+    }
+    if (clean.year === undefined || clean.year === null || clean.year === '') {
+        snapshots.year = vehicle.year != null ? Number(vehicle.year) : null;
+    }
+    return snapshots;
+}
+
+/**
+ * Contrôle les transitions de statut de la vente (machine à états) :
+ * COMPLETED et CANCELLED sont terminaux ; les autres transitions (DRAFT /
+ * IN_PROGRESS) sont libres.
+ */
+function assertSaleStatusTransition(currentStatus, newStatus) {
+    if (currentStatus === newStatus) return;
+    if (SALE_FINAL_STATUSES.includes(currentStatus)) {
+        throw AppError.badRequest(
+            `Une vente au statut ${currentStatus} est terminée : aucun changement de statut n'est possible.`
+        );
+    }
+}
+
+/** Applique le statut véhicule correspondant à l'état effectif de la vente. */
+async function applyVehicleStatusFromSale(client, vehicle, saleStatus) {
+    if (saleStatus === 'COMPLETED') {
+        if (vehicle.status !== VEHICLE_SOLD) {
+            await client.query('UPDATE vehicles SET status = $1 WHERE id = $2', [VEHICLE_SOLD, vehicle.id]);
+        }
+    } else if (saleStatus === 'CANCELLED') {
+        if (vehicle.status === VEHICLE_RESERVED) {
+            await client.query('UPDATE vehicles SET status = $1 WHERE id = $2', [VEHICLE_AVAILABLE, vehicle.id]);
+        }
+    } else if (vehicle.status === VEHICLE_AVAILABLE) {
+        await client.query('UPDATE vehicles SET status = $1 WHERE id = $2', [VEHICLE_RESERVED, vehicle.id]);
+    }
+}
+
+/** Nom de l'acheteur interne (instantané dénormalisé depuis drivers). */
+async function snapshotBuyerName(client, orgId, buyerId) {
+    const result = await client.query(
+        'SELECT name FROM drivers WHERE id = $1 AND organization_id = $2',
+        [buyerId, orgId]
+    );
+    if (result.rowCount === 0) {
+        throw AppError.notFound('L\'acheteur lié n\'existe pas dans votre organisation.');
+    }
+    return result.rows[0].name;
+}
+
+/** Prochain numéro de vente de l'année : VS-AAAA-000001 (par organisation). */
+async function nextSaleNumber(client, orgId, year) {
+    const result = await client.query(
+        `SELECT COUNT(*) AS count FROM vehicle_sales
+         WHERE organization_id = $1 AND EXTRACT(YEAR FROM sale_date) = $2`,
+        [orgId, year]
+    );
+    const n = parseInt(result.rows[0].count, 10) + 1;
+    return `VS-${year}-${String(n).padStart(6, '0')}`;
+}
+
+/** Vérifie la présence d'un acheteur (interne OU externe). */
+function assertBuyerPresent(clean) {
+    if (clean.buyer_id == null && !clean.buyer_name) {
+        throw AppError.badRequest(
+            'Un acheteur est requis : renseignez un acheteur interne (buyerId) ou un acheteur externe (buyerName).'
+        );
+    }
+}
+
+const vehicleSales = {
+    async findAllByOrg(orgId, filters = {}) {
+        const { status, paymentStatus, deliveryStatus, vehicleId, search, dateFrom, dateTo } = filters;
+        const conditions = ['organization_id = $1'];
+        const params = [orgId];
+        const param = (value) => {
+            params.push(value);
+            return `$${params.length}`;
+        };
+        if (status) conditions.push(`status = ${param(status)}`);
+        if (paymentStatus) conditions.push(`payment_status = ${param(paymentStatus)}`);
+        if (deliveryStatus) conditions.push(`delivery_status = ${param(deliveryStatus)}`);
+        if (vehicleId != null) conditions.push(`vehicle_id = ${param(vehicleId)}`);
+        if (search) {
+            conditions.push(
+                `(sale_number ILIKE ${param(`%${search}%`)} ` +
+                `OR buyer_name ILIKE ${param(`%${search}%`)} ` +
+                `OR buyer_phone ILIKE ${param(`%${search}%`)} ` +
+                `OR vehicle ILIKE ${param(`%${search}%`)} ` +
+                `OR notes ILIKE ${param(`%${search}%`)})`
+            );
+        }
+        if (dateFrom) conditions.push(`sale_date >= ${param(dateFrom)}`);
+        if (dateTo) conditions.push(`sale_date <= ${param(dateTo)}`);
+        const result = await query(
+            `SELECT * FROM vehicle_sales WHERE ${conditions.join(' AND ')} ORDER BY id`,
+            params
+        );
+        return mapRows(result.rows);
+    },
+
+    async findById(orgId, id) {
+        const result = await query(
+            'SELECT * FROM vehicle_sales WHERE organization_id = $1 AND id = $2',
+            [orgId, id]
+        );
+        return mapRow(result.rows[0] || null);
+    },
+
+    async create(orgId, data) {
+        const clean = sanitizeSale(data);
+        sanitizeSaleRefs(clean);
+        assertBuyerPresent(clean);
+        const price = Number(clean.price) || 0;
+        const tax = Number(clean.tax) || 0;
+        const fees = Number(clean.fees) || 0;
+        clean.total_price = price + tax + fees;
+        if (clean.currency === undefined) clean.currency = 'XOF';
+        if (clean.buyer_type === undefined) clean.buyer_type = clean.buyer_id != null ? 'INTERNAL' : 'EXTERNAL';
+        const saleYear = String(clean.sale_date || '').slice(0, 4) || String(new Date().getFullYear());
+
+        // Le numéro de vente peut entrer en collision sous forte concurrence
+        // (comptage + insertion) : on relance dans ce cas très rare.
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                return await withTransaction(async (client) => {
+                    const vehicle = await getOwnedVehicle(client, orgId, clean.vehicle_id);
+                    // Vérifications d'appartenance AVANT l'état de disponibilité :
+                    // un acheteur / courtier / vendeur d'une autre organisation
+                    // doit être refusé (404) même si le véhicule est réservé.
+                    if (clean.buyer_id != null) {
+                        await assertOwned(client, 'drivers', clean.buyer_id, orgId);
+                        if (!clean.buyer_name) clean.buyer_name = await snapshotBuyerName(client, orgId, clean.buyer_id);
+                    }
+                    if (clean.broker_id != null) await assertOwned(client, 'drivers', clean.broker_id, orgId);
+                    if (clean.salesperson_id != null) await assertOwned(client, 'users', clean.salesperson_id, orgId);
+                    requireVehicleAvailable(vehicle);
+                    Object.assign(clean, buildVehicleSnapshots(vehicle, clean));
+                    clean.sale_number = await nextSaleNumber(client, orgId, saleYear);
+                    const result = await client.query(buildInsert(client, 'vehicle_sales', { orgId, data: clean }));
+                    // La réservation du véhicule suit la création de la vente.
+                    await client.query('UPDATE vehicles SET status = $1 WHERE id = $2', [VEHICLE_RESERVED, vehicle.id]);
+                    return mapRow(result.rows[0] || null);
+                });
+            } catch (err) {
+                if (err.code === '23505' && String(err.constraint).includes('org_number')) continue;
+                throw err;
+            }
+        }
+        throw AppError.internal('Impossible de générer un numéro de vente unique, réessayez.');
+    },
+
+    async update(orgId, id, data) {
+        const clean = sanitizeSale(data);
+        sanitizeSaleRefs(clean);
+        return withTransaction(async (client) => {
+            const existing = await client.query(
+                'SELECT * FROM vehicle_sales WHERE organization_id = $1 AND id = $2',
+                [orgId, id]
+            );
+            const current = existing.rows[0];
+            if (!current) throw AppError.notFound('Vente de véhicule introuvable.');
+
+            const currentStatus = current.status;
+            const newStatus = clean.status !== undefined ? clean.status : currentStatus;
+            assertSaleStatusTransition(currentStatus, newStatus);
+
+            // Changement de véhicule : libérer l'ancien, vérifier le nouveau.
+            const currentVehicleId = current.vehicle_id;
+            const newVehicleId = clean.vehicle_id != null ? clean.vehicle_id : currentVehicleId;
+            if (newVehicleId !== currentVehicleId) {
+                await client.query(
+                    'UPDATE vehicles SET status = $1 WHERE id = $2 AND status = $3',
+                    [VEHICLE_AVAILABLE, currentVehicleId, VEHICLE_RESERVED]
+                );
+            }
+            const vehicle = await getOwnedVehicle(client, orgId, newVehicleId);
+            if (newVehicleId !== currentVehicleId) {
+                requireVehicleAvailable(vehicle);
+            }
+
+            // Une vente passant à COMPLETED sur un véhicule déjà vendu est incohérente.
+            if (newStatus === 'COMPLETED' && currentStatus !== 'COMPLETED' && vehicle.status === VEHICLE_SOLD) {
+                throw AppError.conflict('Ce véhicule a déjà été vendu (SOLD) : la vente ne peut pas être terminée.');
+            }
+
+            // Instantanés figés du véhicule (rafraîchis uniquement si le
+            // véhicule change : l'historique comptable ne doit pas bouger).
+            if (newVehicleId !== currentVehicleId) {
+                Object.assign(clean, buildVehicleSnapshots(vehicle, clean));
+            }
+
+            if (clean.buyer_id != null && clean.buyer_id !== current.buyer_id) {
+                await assertOwned(client, 'drivers', clean.buyer_id, orgId);
+                if (!clean.buyer_name) clean.buyer_name = await snapshotBuyerName(client, orgId, clean.buyer_id);
+            }
+            if (clean.broker_id != null) await assertOwned(client, 'drivers', clean.broker_id, orgId);
+            if (clean.salesperson_id != null) await assertOwned(client, 'users', clean.salesperson_id, orgId);
+
+            // Un acheteur doit toujours rester défini après la mise à jour.
+            const buyerId = clean.buyer_id !== undefined ? clean.buyer_id : current.buyer_id;
+            const buyerName = clean.buyer_name !== undefined ? clean.buyer_name : current.buyer_name;
+            if (buyerId == null && !buyerName) {
+                throw AppError.badRequest(
+                    'Un acheteur est requis : renseignez un acheteur interne (buyerId) ou un acheteur externe (buyerName).'
+                );
+            }
+
+            // Le type d'acheteur suit les changements d'acheteur, sauf si le
+            // client le précise explicitement.
+            if (clean.buyer_type === undefined && (clean.buyer_id !== undefined || clean.buyer_name !== undefined)) {
+                clean.buyer_type = clean.buyer_id != null ? 'INTERNAL' : 'EXTERNAL';
+            }
+            const buyerType = clean.buyer_type !== undefined ? clean.buyer_type : current.buyer_type;
+            if (buyerType === 'INTERNAL' && buyerId == null) {
+                throw AppError.badRequest('Un acheteur interne (buyerType INTERNAL) exige un buyerId.');
+            }
+            if (buyerType === 'EXTERNAL' && !buyerName) {
+                throw AppError.badRequest('Un acheteur externe (buyerType EXTERNAL) exige un buyerName.');
+            }
+
+            // Recalcul systématique du total avec les valeurs effectives.
+            const price = clean.price !== undefined ? Number(clean.price) : Number(current.price) || 0;
+            const tax = clean.tax !== undefined ? Number(clean.tax) : Number(current.tax) || 0;
+            const fees = clean.fees !== undefined ? Number(clean.fees) : Number(current.fees) || 0;
+            clean.total_price = price + tax + fees;
+            if (price <= 0) {
+                throw AppError.badRequest('Le champ "price" doit être strictement positif.');
+            }
+            if (clean.paid_amount !== undefined && Number(clean.paid_amount) > clean.total_price) {
+                throw AppError.badRequest('Le montant déjà payé (paidAmount) ne peut pas dépasser le prix total.');
+            }
+
+            const built = buildUpdate('vehicle_sales', { orgId, id, data: clean });
+            if (!built) {
+                await applyVehicleStatusFromSale(client, vehicle, newStatus);
+                return mapRow(current);
+            }
+            const result = await client.query(built);
+            await applyVehicleStatusFromSale(client, vehicle, newStatus);
+            return mapRow(result.rows[0] || null);
+        });
+    },
+
+    async remove(orgId, id) {
+        return withTransaction(async (client) => {
+            const existing = await client.query(
+                'SELECT * FROM vehicle_sales WHERE organization_id = $1 AND id = $2',
+                [orgId, id]
+            );
+            const current = existing.rows[0];
+            if (!current) return false;
+            // L'historique comptable d'une vente terminée est intouchable.
+            if (current.status === 'COMPLETED') {
+                throw AppError.badRequest(
+                    'Une vente terminée (COMPLETED) ne peut pas être supprimée : elle fait partie de l\'historique comptable.'
+                );
+            }
+            const result = await client.query(
+                'DELETE FROM vehicle_sales WHERE organization_id = $1 AND id = $2 RETURNING id',
+                [orgId, id]
+            );
+            if ((result.rowCount ?? 0) > 0 && current.vehicle_id != null) {
+                // Libère le véhicule si la vente l'avait réservé.
+                await client.query(
+                    'UPDATE vehicles SET status = $1 WHERE id = $2 AND status = $3',
+                    [VEHICLE_AVAILABLE, current.vehicle_id, VEHICLE_RESERVED]
+                );
+            }
+            return (result.rowCount ?? 0) > 0;
+        });
+    },
+};
+
+// ============================================================
 // Budgets carburant (Phase 7.3) — un budget par organisation et par mois
 // ============================================================
 const fuelBudgets = {
@@ -718,6 +1103,7 @@ module.exports = {
     accidents,
     fuelLogs,
     documents,
+    vehicleSales,
     fuelBudgets,
     users,
     organizations,

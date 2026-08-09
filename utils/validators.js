@@ -277,6 +277,134 @@ function validateDocument(body, { partial = false } = {}) {
     return data;
 }
 
+// ===== Ventes de véhicules (Phase 7.7) =====
+
+const VEHICLE_SALE_KEYS = [
+    'vehicleId', 'vehicle', 'title', 'description', 'mileage', 'year',
+    'buyerId', 'buyerType', 'buyerName', 'buyerPhone', 'buyerEmail', 'buyerAddress',
+    'buyerIdCard', 'brokerId', 'salespersonId', 'saleDate', 'currency', 'price', 'tax', 'fees',
+    'paymentMethod', 'paymentStatus', 'paidAmount', 'deliveryStatus', 'deliveryDate',
+    'status', 'notes', 'fileName', 'filePath', 'mimeType', 'fileSize',
+];
+
+const SALE_STATUSES = ['DRAFT', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+const SALE_PAYMENT_METHODS = ['CASH', 'TRANSFER', 'CHECK', 'MOBILE_MONEY', 'OTHER'];
+const SALE_PAYMENT_STATUSES = ['PENDING', 'PARTIAL', 'PAID', 'REFUNDED'];
+const SALE_DELIVERY_STATUSES = ['PENDING', 'DELIVERED'];
+const SALE_CURRENCIES = ['XOF', 'EUR', 'USD'];
+const SALE_BUYER_TYPES = ['INTERNAL', 'EXTERNAL'];
+
+function validateVehicleSale(body, { partial = false } = {}) {
+    const data = pick(body || {}, VEHICLE_SALE_KEYS);
+    // Chaînes vides traitées comme absentes (acheteur / références optionnelles).
+    if (data.buyerId === '') data.buyerId = undefined;
+    if (data.brokerId === '') data.brokerId = undefined;
+    if (data.salespersonId === '') data.salespersonId = undefined;
+
+    if (!partial) {
+        requireFields(data, ['vehicleId', 'saleDate', 'price'], 'une vente de véhicule');
+        const hasInternal = data.buyerId !== undefined && data.buyerId !== null;
+        const hasExternal = data.buyerName !== undefined && String(data.buyerName).trim() !== '';
+        if (!hasInternal && !hasExternal) {
+            throw AppError.badRequest('Un acheteur est requis : renseignez un acheteur interne (buyerId) ou un acheteur externe (buyerName).');
+        }
+    }
+    if (data.vehicleId !== undefined) data.vehicleId = intValue(data.vehicleId, 'vehicleId', { min: 1 });
+    if (data.buyerId !== undefined && data.buyerId !== null) data.buyerId = intValue(data.buyerId, 'buyerId', { min: 1 });
+    if (data.brokerId !== undefined && data.brokerId !== null) data.brokerId = intValue(data.brokerId, 'brokerId', { min: 1 });
+    if (data.salespersonId !== undefined && data.salespersonId !== null) data.salespersonId = intValue(data.salespersonId, 'salespersonId', { min: 1 });
+    if (data.vehicle !== undefined) data.vehicle = textValue(data.vehicle, 'vehicle', { max: 200 });
+    if (data.title !== undefined) {
+        data.title = textValue(data.title, 'title', { max: 200 });
+        if (data.title !== undefined && String(data.title).trim().length < 3) {
+            throw AppError.badRequest('Le champ "title" doit contenir au moins 3 caractères.');
+        }
+    }
+    if (data.description !== undefined) data.description = textValue(data.description, 'description', { max: 2000 });
+    if (data.mileage !== undefined) data.mileage = intValue(data.mileage, 'mileage', { min: 0 });
+    if (data.year !== undefined) {
+        data.year = intValue(data.year, 'year', { min: 1900 });
+        if (data.year > new Date().getFullYear() + 1) {
+            throw AppError.badRequest('Le champ "year" contient une année invalide.');
+        }
+    }
+    if (data.buyerName !== undefined) data.buyerName = textValue(data.buyerName, 'buyerName', { max: 200 });
+    if (data.buyerPhone !== undefined) data.buyerPhone = textValue(data.buyerPhone, 'buyerPhone', { max: 50 });
+    if (data.buyerEmail !== undefined) {
+        data.buyerEmail = textValue(data.buyerEmail, 'buyerEmail', { max: 255 });
+        if (data.buyerEmail !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.buyerEmail)) {
+            throw AppError.badRequest('Le champ "buyerEmail" doit être une adresse e-mail valide.');
+        }
+    }
+    if (data.buyerAddress !== undefined) data.buyerAddress = textValue(data.buyerAddress, 'buyerAddress', { max: 300 });
+    if (data.buyerIdCard !== undefined) data.buyerIdCard = textValue(data.buyerIdCard, 'buyerIdCard', { max: 100 });
+    if (data.notes !== undefined) data.notes = textValue(data.notes, 'notes', { max: 4000 });
+
+    if (data.paymentMethod !== undefined && !SALE_PAYMENT_METHODS.includes(data.paymentMethod)) {
+        throw AppError.badRequest(`Mode de paiement invalide (attendu : ${SALE_PAYMENT_METHODS.join(', ')}).`);
+    }
+    if (data.paymentStatus !== undefined && !SALE_PAYMENT_STATUSES.includes(data.paymentStatus)) {
+        throw AppError.badRequest(`Statut de paiement invalide (attendu : ${SALE_PAYMENT_STATUSES.join(', ')}).`);
+    }
+    if (data.deliveryStatus !== undefined && !SALE_DELIVERY_STATUSES.includes(data.deliveryStatus)) {
+        throw AppError.badRequest(`Statut de livraison invalide (attendu : ${SALE_DELIVERY_STATUSES.join(', ')}).`);
+    }
+    if (data.status !== undefined && !SALE_STATUSES.includes(data.status)) {
+        throw AppError.badRequest(`Statut de vente invalide (attendu : ${SALE_STATUSES.join(', ')}).`);
+    }
+    if (data.currency !== undefined && !SALE_CURRENCIES.includes(data.currency)) {
+        throw AppError.badRequest(`Devise invalide (attendue : ${SALE_CURRENCIES.join(', ')}).`);
+    }
+    if (data.buyerType !== undefined && !SALE_BUYER_TYPES.includes(data.buyerType)) {
+        throw AppError.badRequest(`Type d'acheteur invalide (attendu : ${SALE_BUYER_TYPES.join(', ')}).`);
+    }
+    // Cohérence du type d'acheteur avec les champs fournis dans la requête.
+    if (data.buyerType === 'INTERNAL' && (data.buyerId === undefined || data.buyerId === null)) {
+        throw AppError.badRequest('Un acheteur interne (buyerType INTERNAL) exige un buyerId.');
+    }
+    if (data.buyerType === 'EXTERNAL' && (data.buyerName === undefined || String(data.buyerName).trim() === '')) {
+        throw AppError.badRequest('Un acheteur externe (buyerType EXTERNAL) exige un buyerName.');
+    }
+    if (data.buyerType === 'EXTERNAL' && data.buyerId !== undefined && data.buyerId !== null) {
+        throw AppError.badRequest('Un acheteur externe (buyerType EXTERNAL) ne peut pas avoir de buyerId : utilisez buyerName.');
+    }
+
+    if (data.price !== undefined) data.price = numberValue(data.price, 'price', { min: 0 });
+    if (data.tax !== undefined) data.tax = numberValue(data.tax, 'tax', { min: 0 });
+    if (data.fees !== undefined) data.fees = numberValue(data.fees, 'fees', { min: 0 });
+    if (data.paidAmount !== undefined) data.paidAmount = numberValue(data.paidAmount, 'paidAmount', { min: 0 });
+    if (data.price !== undefined && Number(data.price) <= 0) {
+        throw AppError.badRequest('Le champ "price" doit être strictement positif.');
+    }
+    if (data.saleDate !== undefined) data.saleDate = dateValue(data.saleDate, 'saleDate', { required: !partial });
+    if (data.deliveryDate !== undefined) data.deliveryDate = dateValue(data.deliveryDate, 'deliveryDate');
+
+    // Dates cohérentes : la livraison ne peut pas précéder la vente.
+    if (data.saleDate !== undefined && data.deliveryDate !== undefined) {
+        if (String(data.deliveryDate) < String(data.saleDate)) {
+            throw AppError.badRequest('La date de livraison (deliveryDate) ne peut pas précéder la date de vente (saleDate).');
+        }
+    }
+
+    // Un versement ne peut pas dépasser le total (vérifié quand tous les
+    // montants sont présents dans la requête ; recalculé aussi côté serveur).
+    if (
+        data.paidAmount !== undefined &&
+        data.price !== undefined && data.tax !== undefined && data.fees !== undefined
+    ) {
+        const total = (Number(data.price) || 0) + (Number(data.tax) || 0) + (Number(data.fees) || 0);
+        if (Number(data.paidAmount) > total) {
+            throw AppError.badRequest('Le montant déjà payé (paidAmount) ne peut pas dépasser le prix total.');
+        }
+    }
+
+    if (data.fileName !== undefined) data.fileName = textValue(data.fileName, 'fileName', { max: 255 });
+    if (data.filePath !== undefined) data.filePath = textValue(data.filePath, 'filePath', { max: 2000 });
+    if (data.mimeType !== undefined) data.mimeType = textValue(data.mimeType, 'mimeType', { max: 100 });
+    if (data.fileSize !== undefined) data.fileSize = intValue(data.fileSize, 'fileSize', { min: 0 });
+    return data;
+}
+
 // ===== Réservations =====
 
 const RESERVATION_KEYS = ['vehicleId', 'vehicle', 'driverId', 'driver', 'start', 'end', 'purpose', 'status'];
@@ -362,9 +490,16 @@ module.exports = {
     validateAccident,
     validateFuelLog,
     validateDocument,
+    validateVehicleSale,
     validateReservation,
     validateUser,
     validateOrganization,
     VALID_ROLES,
     DOCUMENT_TYPES,
+    SALE_STATUSES,
+    SALE_PAYMENT_METHODS,
+    SALE_PAYMENT_STATUSES,
+    SALE_DELIVERY_STATUSES,
+    SALE_CURRENCIES,
+    SALE_BUYER_TYPES,
 };
