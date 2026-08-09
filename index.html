@@ -1427,6 +1427,15 @@
                     Carburant
                 </button>
 
+                <p class="sidebar-group-label">Documentation</p>
+                <button @click="mainTab = 'documents'"
+                        :class="mainTab === 'documents' ? 'active' : ''"
+                        class="sidebar-item mb-0.5">
+                    <span x-show="mainTab === 'documents'" class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-indigo-600"></span>
+                    <span class="nav-ico"><i class="fa-solid fa-folder-open"></i></span>
+                    Documents
+                </button>
+
                 <p class="sidebar-group-label">Sécurité & Sinistres</p>
                 <button @click="mainTab = 'incidents'"
                         :class="mainTab === 'incidents' ? 'active' : ''"
@@ -1513,6 +1522,10 @@
                     <button @click="mainTab = 'fuel'; sidebarOpen = false" :class="mainTab === 'fuel' ? 'active' : ''" class="sidebar-item mb-0.5">
                         <span class="nav-ico"><i class="fa-solid fa-gas-pump"></i></span> Carburant
                     </button>
+                    <p class="sidebar-group-label">Documentation</p>
+                    <button @click="mainTab = 'documents'; sidebarOpen = false" :class="mainTab === 'documents' ? 'active' : ''" class="sidebar-item mb-0.5">
+                        <span class="nav-ico"><i class="fa-solid fa-folder-open"></i></span> Documents
+                    </button>
                     <p class="sidebar-group-label">Sécurité & Sinistres</p>
                     <button @click="mainTab = 'incidents'; sidebarOpen = false" :class="mainTab === 'incidents' ? 'active' : ''" class="sidebar-item mb-0.5">
                         <span class="nav-ico"><i class="fa-solid fa-triangle-exclamation"></i></span> Signalements
@@ -1552,7 +1565,7 @@
                         </button>
                         <div class="min-w-0">
                             <h1 class="text-sm md:text-base font-bold text-slate-900 truncate"
-                                x-text="({ dashboard: 'Tableau de Bord', vehicles: 'Parc Automobile', drivers: 'Conducteurs', users: 'Utilisateurs', reservations: 'Planning des Missions', maintenance: 'Entretien & Vidanges', fuel: 'Carburant', incidents: 'Signalements', accidents: 'Sinistres & Accidents', video: 'Vidéo & Script', settings: 'Paramètres' })[mainTab] || 'Tableau de Bord'"></h1>
+                                x-text="({ dashboard: 'Tableau de Bord', vehicles: 'Parc Automobile', drivers: 'Conducteurs', users: 'Utilisateurs', reservations: 'Planning des Missions', maintenance: 'Entretien & Vidanges', fuel: 'Carburant', incidents: 'Signalements', accidents: 'Sinistres & Accidents', documents: 'Documentation', video: 'Vidéo & Script', settings: 'Paramètres' })[mainTab] || 'Tableau de Bord'"></h1>
                             <p class="text-[11px] text-slate-400 font-medium truncate" x-text="currentUser.organizationName || 'Gestion Intelligente de Flotte Automobile'"></p>
                         </div>
                     </div>
@@ -2904,6 +2917,218 @@
                         </template>
                     </div>
                     <p x-show="accidents.length === 0" class="text-sm text-slate-500 text-center py-10">Aucun accident enregistré.</p>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- VUE 8bis : GESTION DE LA DOCUMENTATION     -->
+                <!-- ========================================== -->
+                <div x-show="mainTab === 'documents'" class="space-y-6" x-cloak>
+
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-folder-open text-indigo-500"></i> Documentation
+                            </h2>
+                            <p class="text-xs text-slate-500">Gérez les documents administratifs de votre flotte et de vos conducteurs.</p>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <button @click="refreshDocuments()" class="btn btn-secondary btn-sm" title="Recharger les documents">
+                                <i class="fa-solid fa-rotate-right mr-1" :class="documentsLoading || documentsStatsLoading ? 'fa-spin' : ''"></i> Actualiser
+                            </button>
+                            <button x-show="canManageFleet" @click="openDocumentAdd()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : ''" class="btn btn-primary btn-sm">
+                                + Ajouter un document
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- KPI rapides (données officielles /api/documents) -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="card card-hover card-pad">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Total Documents</p>
+                                <i class="fa-solid fa-folder-open text-indigo-500"></i>
+                            </div>
+                            <p class="text-xl font-bold text-slate-900 font-mono mt-1" x-text="documentsStatsLoading ? '…' : documentStats.total"></p>
+                        </div>
+                        <div class="card card-hover card-pad">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Documents Valides</p>
+                                <i class="fa-solid fa-shield-halved text-emerald-500"></i>
+                            </div>
+                            <p class="text-xl font-bold text-slate-900 font-mono mt-1" x-text="documentsStatsLoading ? '…' : documentStats.ok"></p>
+                        </div>
+                        <div class="card card-hover card-pad">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Expirent Bientôt</p>
+                                <i class="fa-solid fa-clock text-amber-500"></i>
+                            </div>
+                            <p class="text-xl font-bold text-slate-900 font-mono mt-1" x-text="documentsStatsLoading ? '…' : documentStats.soon"></p>
+                        </div>
+                        <div class="card card-hover card-pad">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Expirés</p>
+                                <i class="fa-solid fa-circle-exclamation text-rose-500"></i>
+                            </div>
+                            <p class="text-xl font-bold text-slate-900 font-mono mt-1" x-text="documentsStatsLoading ? '…' : documentStats.expired"></p>
+                        </div>
+                    </div>
+
+                    <!-- Barre de filtres compacte (paramètres de l'API /api/documents) -->
+                    <div class="card card-pad">
+                        <div class="flex flex-wrap items-end gap-2">
+                            <div class="relative flex-grow min-w-[180px]">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                <input type="text" x-model="documentFilters.search" placeholder="Rechercher un numéro ou une note..." class="input pl-9" @keyup.enter="applyDocumentFilters()">
+                            </div>
+                            <select x-model="documentFilters.documentType" class="input !w-auto" @change="applyDocumentFilters()" title="Type de document">
+                                <option value="">Tous les types</option>
+                                <template x-for="t in documentTypes" :key="t">
+                                    <option :value="t" x-text="t"></option>
+                                </template>
+                            </select>
+                            <select x-model="documentFilters.vehicleId" class="input !w-auto" @change="applyDocumentFilters()" title="Véhicule">
+                                <option value="">Tous les véhicules</option>
+                                <template x-for="v in vehicles" :key="v.id">
+                                    <option :value="v.id" x-text="v.brand + ' ' + v.model + ' — ' + v.plate"></option>
+                                </template>
+                            </select>
+                            <select x-model="documentFilters.driverId" class="input !w-auto" @change="applyDocumentFilters()" title="Conducteur">
+                                <option value="">Tous les conducteurs</option>
+                                <template x-for="d in drivers" :key="d.id">
+                                    <option :value="d.id" x-text="d.name"></option>
+                                </template>
+                            </select>
+                            <select x-model="documentFilters.status" class="input !w-auto" @change="applyDocumentFilters()" title="Statut">
+                                <option value="">Tous les statuts</option>
+                                <option value="OK">Valide</option>
+                                <option value="SOON">Bientôt expiré</option>
+                                <option value="EXPIRED">Expiré</option>
+                                <option value="UNKNOWN">Sans date</option>
+                            </select>
+                            <label class="flex items-center gap-1 text-[11px] text-slate-600 font-semibold whitespace-nowrap">
+                                <i class="fa-solid fa-calendar-days text-indigo-500"></i> Expiration :
+                            </label>
+                            <input type="date" x-model="documentFilters.expiryFrom" class="input !w-auto" @change="applyDocumentFilters()" title="Expire après cette date">
+                            <span class="text-[10px] text-slate-400">→</span>
+                            <input type="date" x-model="documentFilters.expiryTo" class="input !w-auto" @change="applyDocumentFilters()" title="Expire avant cette date">
+                            <button @click="resetDocumentFilters()" class="btn btn-secondary btn-sm" title="Réinitialiser les filtres">
+                                <i class="fa-solid fa-rotate-left mr-1"></i> Réinitialiser
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Liste des documents -->
+                    <div class="card card-pad space-y-4">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-folder-open text-indigo-500"></i> Documents
+                            </h3>
+                            <span class="text-[11px] text-slate-500" x-text="documentPageInfo"></span>
+                        </div>
+
+                        <!-- État : chargement -->
+                        <div x-show="documentsLoading" class="flex items-center justify-center gap-3 text-slate-500 text-sm py-10">
+                            <i class="fa-solid fa-spinner fa-spin text-lg text-indigo-500"></i>
+                            <span>Chargement des documents...</span>
+                        </div>
+
+                        <!-- État : erreur -->
+                        <div x-show="!documentsLoading && documentsError" class="flex flex-col items-center justify-center gap-3 py-10 text-center">
+                            <i class="fa-solid fa-triangle-exclamation text-rose-500 text-2xl"></i>
+                            <p class="text-sm text-rose-600" x-text="documentsError"></p>
+                            <button @click="refreshDocuments()" class="btn btn-danger btn-sm">
+                                <i class="fa-solid fa-rotate-right mr-1"></i> Réessayer
+                            </button>
+                        </div>
+
+                        <!-- État : aucun document -->
+                        <div x-show="!documentsLoading && !documentsError && documents.length === 0" class="flex flex-col items-center justify-center gap-3 py-10 text-center">
+                            <div class="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                                <i class="fa-solid fa-folder-open text-2xl text-slate-400"></i>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-700">Aucun document enregistré</p>
+                            <p class="text-xs text-slate-500 max-w-md">Ajoutez les documents administratifs de vos véhicules et conducteurs (assurance, carte grise, contrôle technique, permis...).</p>
+                            <button x-show="canManageFleet" @click="openDocumentAdd()" class="btn btn-primary btn-sm">
+                                + Ajouter un document
+                            </button>
+                        </div>
+
+                        <!-- État : données (tableau compact, scroll horizontal sur tablette/mobile) -->
+                        <div x-show="!documentsLoading && !documentsError && documents.length > 0" class="table-wrap shadow-sm">
+                            <div class="overflow-x-auto">
+                                <table class="app-table min-w-[980px]">
+                                    <thead>
+                                        <tr>
+                                            <th>Document</th>
+                                            <th>Type</th>
+                                            <th>Véhicule/Conducteur</th>
+                                            <th>Émission</th>
+                                            <th>Expiration</th>
+                                            <th>Statut</th>
+                                            <th class="text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <template x-for="d in documents" :key="d.id">
+                                            <tr>
+                                                <td>
+                                                    <div class="min-w-0">
+                                                        <p class="font-bold text-slate-900 truncate" x-text="d.documentNumber || '—'"></p>
+                                                        <p class="text-[10px] text-slate-400 truncate" x-show="d.fileName" x-text="d.fileName"></p>
+                                                    </div>
+                                                </td>
+                                                <td class="whitespace-nowrap">
+                                                    <span class="inline-flex items-center gap-1.5">
+                                                        <i class="fa-solid text-indigo-500" :class="documentTypeIcon(d.documentType)"></i>
+                                                        <span x-text="d.documentType"></span>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <p class="text-slate-700" x-text="documentOwnerLabel(d)"></p>
+                                                    <p class="text-[10px] text-slate-400" x-text="documentOwnerKind(d)"></p>
+                                                </td>
+                                                <td class="font-mono text-slate-500 whitespace-nowrap" x-text="fmtDate(d.issueDate)"></td>
+                                                <td class="whitespace-nowrap">
+                                                    <p class="font-mono text-slate-600" x-text="fmtDate(d.expiryDate)"></p>
+                                                    <p class="text-[10px] text-slate-400" x-show="documentStatusDetail(d)" x-text="documentStatusDetail(d)"></p>
+                                                </td>
+                                                <td>
+                                                    <span class="badge" :class="documentStatusMeta(d).badge" x-text="documentStatusMeta(d).label"></span>
+                                                </td>
+                                                <td class="text-right">
+                                                    <div class="flex items-center justify-end gap-1.5">
+                                                        <button @click="openDocumentView(d)" title="Voir" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                                            <i class="fa-solid fa-eye text-xs"></i>
+                                                        </button>
+                                                        <button x-show="canManageFleet" @click="openDocumentEdit(d)" title="Modifier" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                                            <i class="fa-solid fa-pen text-xs"></i>
+                                                        </button>
+                                                        <button x-show="canManageFleet" @click="deleteDocument(d)" title="Supprimer" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-rose-500">
+                                                            <i class="fa-solid fa-trash-can text-xs"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Pagination (page / pageSize / total renvoyés par /api/documents) -->
+                        <div x-show="!documentsLoading && !documentsError && documentPagination.total > 0" class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                            <p class="text-xs text-slate-500" x-text="documentPageInfo"></p>
+                            <div class="flex items-center gap-2">
+                                <button @click="goToDocumentPage(documentPagination.page - 1)" :disabled="documentPagination.page <= 1" class="btn btn-secondary btn-sm">
+                                    <i class="fa-solid fa-chevron-left mr-1"></i> Précédent
+                                </button>
+                                <span class="text-xs text-slate-500 font-mono" x-text="'Page ' + documentPagination.page + ' / ' + documentTotalPages"></span>
+                                <button @click="goToDocumentPage(documentPagination.page + 1)" :disabled="documentPagination.page >= documentTotalPages" class="btn btn-secondary btn-sm">
+                                    Suivant <i class="fa-solid fa-chevron-right ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ========================================== -->

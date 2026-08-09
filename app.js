@@ -1,7 +1,7 @@
         function asadiyaFlotteApp() {
             return {
                 // Navigation principale
-                mainTab: 'dashboard', // 'dashboard', 'vehicles', 'drivers', 'reservations', 'maintenance', 'incidents', 'accidents', 'video'
+                mainTab: 'dashboard', // 'dashboard', 'vehicles', 'drivers', 'reservations', 'maintenance', 'incidents', 'accidents', 'documents', 'video'
 
                 // ===== AUTHENTIFICATION & RÔLES (via API backend) =====
                 currentUser: null, // { id, username, name, role, title }
@@ -134,6 +134,15 @@
                     const d = new Date(value);
                     if (isNaN(d.getTime())) return '—';
                     return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                },
+
+                fmtDate(value) {
+                    if (!value) return '—';
+                    const bare = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    if (bare) return bare[3] + '/' + bare[2] + '/' + bare[1];
+                    const d = new Date(value);
+                    if (isNaN(d.getTime())) return '—';
+                    return d.toLocaleDateString('fr-FR');
                 },
 
                 signupPlanId() {
@@ -1001,6 +1010,19 @@
                 fuelBudgetSaving: false,
                 fuelBudgetError: '',
 
+                // --- ONGLET DOCUMENTATION (module documents) ---
+                documents: [],
+                documentsLoading: false,
+                documentsError: '',
+                documentsStatsLoading: false,
+                documentFilters: { search: '', documentType: '', vehicleId: '', driverId: '', status: '', expiryFrom: '', expiryTo: '' },
+                documentPagination: { page: 1, pageSize: 10, total: 0 },
+                documentStats: { total: 0, ok: 0, soon: 0, expired: 0 },
+                documentTypes: ['Assurance', 'Carte Grise', 'Contrôle Technique', 'Permis', 'Vignette', 'Autorisation', 'Autre'],
+                showDocumentModal: false,
+                documentModalMode: 'create',
+                selectedDocument: null,
+
                 // --- ÉTAT ET LOGIQUE DU LECTEUR VIDÉO ---
                 videoTab: 'player', // 'player', 'script'
                 isPlaying: false,
@@ -1519,6 +1541,9 @@
                         }
                         if (tab === 'users') {
                             this.loadOrgUsers();
+                        }
+                        if (tab === 'documents') {
+                            this.refreshDocuments();
                         }
                     });
 
@@ -2173,6 +2198,177 @@
                 // ===== FIN STATISTIQUES CARBURANT =====
 
                 // ===== FIN CONNEXION À L'API =====
+
+                // ===== ONGLET DOCUMENTATION (module documents / Phase 8) =====
+                // Liste paginée et statistiques fournies par /api/documents.
+                // Le statut (OK / SOON / EXPIRED / UNKNOWN) et le nombre de jours
+                // restants sont dérivés côté backend : le frontend les affiche
+                // sans dupliquer la logique métier.
+                documentQueryString() {
+                    const f = this.documentFilters;
+                    const p = this.documentPagination;
+                    const parts = ['page=' + p.page, 'pageSize=' + p.pageSize];
+                    if (f.search) parts.push('search=' + encodeURIComponent(f.search));
+                    if (f.documentType) parts.push('documentType=' + encodeURIComponent(f.documentType));
+                    if (f.vehicleId) parts.push('vehicleId=' + encodeURIComponent(f.vehicleId));
+                    if (f.driverId) parts.push('driverId=' + encodeURIComponent(f.driverId));
+                    if (f.status) parts.push('status=' + encodeURIComponent(f.status));
+                    if (f.expiryFrom) parts.push('expiryFrom=' + encodeURIComponent(f.expiryFrom));
+                    if (f.expiryTo) parts.push('expiryTo=' + encodeURIComponent(f.expiryTo));
+                    return parts.join('&');
+                },
+
+                async loadDocuments() {
+                    if (this.isSuperAdmin) return;
+                    this.documentsLoading = true;
+                    this.documentsError = '';
+                    try {
+                        const data = await this.apiFetch('/api/documents?' + this.documentQueryString());
+                        this.documents = (data && data.items) || [];
+                        this.documentPagination = {
+                            page: (data && data.page) || 1,
+                            pageSize: (data && data.pageSize) || this.documentPagination.pageSize,
+                            total: (data && data.total) || 0
+                        };
+                    } catch (e) {
+                        if (e && e.status === 403) return;
+                        this.documentsError = (e && e.message) || 'Impossible de charger les documents.';
+                        this.documents = [];
+                    } finally {
+                        this.documentsLoading = false;
+                    }
+                },
+
+                // Compteurs réels (Total / Valides / Bientôt expirés / Expirés) :
+                // les valeurs proviennent du champ "total" renvoyé par l'API
+                // /api/documents (filtre par statut inclus) — aucun calcul local.
+                async loadDocumentStats() {
+                    if (this.isSuperAdmin) return;
+                    this.documentsStatsLoading = true;
+                    try {
+                        const totalOf = (qs) => this.apiFetch('/api/documents?' + qs).then(d => (d && d.total) || 0);
+                        const [total, ok, soon, expired] = await Promise.all([
+                            totalOf('page=1&pageSize=1'),
+                            totalOf('page=1&pageSize=1&status=OK'),
+                            totalOf('page=1&pageSize=1&status=SOON'),
+                            totalOf('page=1&pageSize=1&status=EXPIRED')
+                        ]);
+                        this.documentStats = { total, ok, soon, expired };
+                    } catch (e) {
+                        if (e && e.status === 403) return;
+                        this.documentStats = { total: 0, ok: 0, soon: 0, expired: 0 };
+                    } finally {
+                        this.documentsStatsLoading = false;
+                    }
+                },
+
+                refreshDocuments() {
+                    return Promise.all([this.loadDocuments(), this.loadDocumentStats()]);
+                },
+
+                applyDocumentFilters() {
+                    this.documentPagination.page = 1;
+                    this.loadDocuments();
+                },
+
+                resetDocumentFilters() {
+                    this.documentFilters = { search: '', documentType: '', vehicleId: '', driverId: '', status: '', expiryFrom: '', expiryTo: '' };
+                    this.documentPagination.page = 1;
+                    this.loadDocuments();
+                },
+
+                goToDocumentPage(target) {
+                    const bounded = Math.min(Math.max(1, target), this.documentTotalPages);
+                    if (bounded === this.documentPagination.page) return;
+                    this.documentPagination.page = bounded;
+                    this.loadDocuments();
+                },
+
+                get documentTotalPages() {
+                    return Math.max(1, Math.ceil(this.documentPagination.total / this.documentPagination.pageSize));
+                },
+
+                get documentPageInfo() {
+                    const { page, pageSize, total } = this.documentPagination;
+                    if (!total) return '0 document';
+                    const start = (page - 1) * pageSize + 1;
+                    const end = Math.min(page * pageSize, total);
+                    return start + '–' + end + ' sur ' + total + (total > 1 ? ' documents' : ' document');
+                },
+
+                documentOwnerLabel(d) {
+                    if (d.vehicleId) {
+                        const v = this.vehicles.find(x => x.id === d.vehicleId);
+                        return v ? v.brand + ' ' + v.model + ' — ' + v.plate : 'Véhicule #' + d.vehicleId;
+                    }
+                    if (d.driverId) {
+                        const dr = this.drivers.find(x => x.id === d.driverId);
+                        return dr ? dr.name : 'Conducteur #' + d.driverId;
+                    }
+                    return '—';
+                },
+
+                documentOwnerKind(d) {
+                    return d.vehicleId ? 'Véhicule' : 'Conducteur';
+                },
+
+                documentStatusMeta(d) {
+                    if (d.status === 'OK') return { badge: 'badge-green', label: 'Valide' };
+                    if (d.status === 'SOON') return { badge: 'badge-amber', label: 'Expire bientôt' };
+                    if (d.status === 'EXPIRED') return { badge: 'badge-red', label: 'Expiré' };
+                    return { badge: 'badge-slate', label: 'Sans date' };
+                },
+
+                documentStatusDetail(d) {
+                    if (!d || d.status === 'UNKNOWN' || d.daysLeft == null) return '';
+                    if (d.status === 'EXPIRED') return 'Expiré depuis ' + Math.abs(d.daysLeft) + ' j';
+                    if (d.status === 'SOON') return 'Expire dans ' + d.daysLeft + ' j';
+                    return 'Valide (' + d.daysLeft + ' j restants)';
+                },
+
+                documentTypeIcon(type) {
+                    const icons = {
+                        'Assurance': 'fa-shield-halved',
+                        'Carte Grise': 'fa-id-card',
+                        'Contrôle Technique': 'fa-clipboard-check',
+                        'Permis': 'fa-id-card-clip',
+                        'Vignette': 'fa-tag',
+                        'Autorisation': 'fa-file-circle-check',
+                        'Autre': 'fa-file-lines'
+                    };
+                    return icons[type] || 'fa-file-lines';
+                },
+
+                async deleteDocument(doc) {
+                    if (!this.canManageFleet || !doc) return;
+                    if (!confirm('Supprimer le document « ' + (doc.documentNumber || doc.documentType) + ' » ? Cette action est irréversible.')) return;
+                    try {
+                        await this.apiFetch('/api/documents/' + doc.id, { method: 'DELETE' });
+                        await this.refreshDocuments();
+                    } catch (e) {
+                        alert((e && e.message) || 'Impossible de supprimer le document.');
+                    }
+                },
+
+                // Modale Ajouter / Modifier / Voir — activée au Commit 4.
+                openDocumentAdd() {
+                    this.documentModalMode = 'create';
+                    this.selectedDocument = null;
+                    this.showDocumentModal = true;
+                },
+
+                openDocumentEdit(doc) {
+                    this.documentModalMode = 'edit';
+                    this.selectedDocument = doc;
+                    this.showDocumentModal = true;
+                },
+
+                openDocumentView(doc) {
+                    this.documentModalMode = 'view';
+                    this.selectedDocument = doc;
+                    this.showDocumentModal = true;
+                },
+                // ===== FIN ONGLET DOCUMENTATION =====
 
                 // Garantit que Chart.js est chargé avant de créer les graphiques.
                 // Si le script CDN n'est pas encore disponible, le charge dynamiquement
