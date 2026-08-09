@@ -145,6 +145,13 @@
                     return d.toLocaleDateString('fr-FR');
                 },
 
+                fmtFileSize(bytes) {
+                    if (bytes == null || isNaN(bytes)) return '';
+                    if (bytes < 1024) return bytes + ' o';
+                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' Ko';
+                    return (bytes / (1024 * 1024)).toFixed(1) + ' Mo';
+                },
+
                 signupPlanId() {
                     const plan = this.publicPlans.find((p) => p.code === this.signupForm.planCode);
                     return plan ? plan.id : null;
@@ -1020,8 +1027,15 @@
                 documentStats: { total: 0, ok: 0, soon: 0, expired: 0 },
                 documentTypes: ['Assurance', 'Carte Grise', 'Contrôle Technique', 'Permis', 'Vignette', 'Autorisation', 'Autre'],
                 showDocumentModal: false,
-                documentModalMode: 'create',
-                selectedDocument: null,
+                documentModalMode: 'create', // 'create' | 'edit' | 'view'
+                documentSelected: null,
+                documentForm: { vehicleId: '', driverId: '', documentType: '', documentNumber: '', issueDate: '', expiryDate: '', notes: '' },
+                documentFormInitial: null, // instantané du formulaire à l'ouverture (détection de modifications)
+                documentOwnerType: 'vehicle', // 'vehicle' | 'driver' (sélection exclusif)
+                documentFormLoading: false,
+                documentFormSaving: false,
+                documentFormError: '',
+                documentDeleting: false,
 
                 // --- ÉTAT ET LOGIQUE DU LECTEUR VIDÉO ---
                 videoTab: 'player', // 'player', 'script'
@@ -2341,32 +2355,143 @@
 
                 async deleteDocument(doc) {
                     if (!this.canManageFleet || !doc) return;
+                    if (this.documentDeleting) return; // anti double-clic
                     if (!confirm('Supprimer le document « ' + (doc.documentNumber || doc.documentType) + ' » ? Cette action est irréversible.')) return;
+                    this.documentDeleting = true;
                     try {
                         await this.apiFetch('/api/documents/' + doc.id, { method: 'DELETE' });
                         await this.refreshDocuments();
+                        alert('Document supprimé avec succès.');
                     } catch (e) {
-                        alert((e && e.message) || 'Impossible de supprimer le document.');
+                        alert(this.documentApiError(e, 'supprimer le document'));
+                    } finally {
+                        this.documentDeleting = false;
                     }
                 },
 
-                // Modale Ajouter / Modifier / Voir — activée au Commit 4.
-                openDocumentAdd() {
-                    this.documentModalMode = 'create';
-                    this.selectedDocument = null;
+                resetDocumentForm() {
+                    this.documentForm = { vehicleId: '', driverId: '', documentType: '', documentNumber: '', issueDate: '', expiryDate: '', notes: '' };
+                    this.documentOwnerType = 'vehicle';
+                    this.documentFormError = '';
+                    this.documentFormInitial = null;
+                },
+
+                openDocumentModal(mode, document) {
+                    if (!['create', 'edit', 'view'].includes(mode)) return;
+                    if (this.documentFormSaving) return; // ouverture bloquée pendant l'enregistrement
+                    this.resetDocumentForm();
+                    this.documentModalMode = mode;
+                    this.documentSelected = document || null;
+                    if (mode !== 'create' && this.documentSelected) {
+                        const d = this.documentSelected;
+                        this.documentOwnerType = d.vehicleId ? 'vehicle' : 'driver';
+                        this.documentForm = {
+                            vehicleId: d.vehicleId ? String(d.vehicleId) : '',
+                            driverId: d.driverId ? String(d.driverId) : '',
+                            documentType: d.documentType || '',
+                            documentNumber: d.documentNumber || '',
+                            issueDate: d.issueDate || '',
+                            expiryDate: d.expiryDate || '',
+                            notes: d.notes || ''
+                        };
+                    }
+                    this.documentFormInitial = JSON.parse(JSON.stringify(this.documentForm));
                     this.showDocumentModal = true;
                 },
 
-                openDocumentEdit(doc) {
-                    this.documentModalMode = 'edit';
-                    this.selectedDocument = doc;
-                    this.showDocumentModal = true;
+                closeDocumentModal() {
+                    if (this.documentFormSaving) return; // fermeture bloquée pendant la sauvegarde
+                    if (this.documentModalMode !== 'view' && this.documentFormDirty) {
+                        if (!confirm('Des modifications non enregistrées vont être perdues. Fermer quand même ?')) return;
+                    }
+                    this.showDocumentModal = false;
                 },
 
-                openDocumentView(doc) {
-                    this.documentModalMode = 'view';
-                    this.selectedDocument = doc;
-                    this.showDocumentModal = true;
+                setDocumentOwnerType(type) {
+                    if (!['vehicle', 'driver'].includes(type)) return;
+                    this.documentOwnerType = type;
+                    this.documentForm.vehicleId = '';
+                    this.documentForm.driverId = '';
+                },
+
+                get documentFormDirty() {
+                    if (!this.documentFormInitial) return false;
+                    return JSON.stringify(this.documentForm) !== JSON.stringify(this.documentFormInitial);
+                },
+
+                get documentStatusPreview() {
+                    const s = this.getDocumentStatus(this.documentForm.expiryDate);
+                    const icons = { OK: '🟢', SOON: '🟠', EXPIRED: '🔴', UNKNOWN: '⚪' };
+                    return { ...s, icon: icons[s.status] || '⚪' };
+                },
+
+                get documentStatusDetailText() {
+                    const s = this.getDocumentStatus(this.documentForm.expiryDate);
+                    if (!s || s.status === 'UNKNOWN' || s.daysLeft == null) return '';
+                    if (s.status === 'EXPIRED') return 'Expiré depuis ' + Math.abs(s.daysLeft) + ' j';
+                    if (s.status === 'SOON') return 'Expire dans ' + s.daysLeft + ' j';
+                    return 'Valide (' + s.daysLeft + ' j restants)';
+                },
+
+                validateDocumentForm() {
+                    const f = this.documentForm;
+                    if (!f.documentType) return 'Le type de document est obligatoire.';
+                    const hasVehicle = !!f.vehicleId;
+                    const hasDriver = !!f.driverId;
+                    if (hasVehicle && hasDriver) return 'Un document doit être rattaché soit à un véhicule, soit à un conducteur, mais pas aux deux.';
+                    if (!hasVehicle && !hasDriver) return 'Le document doit être rattaché à un véhicule ou à un conducteur.';
+                    if (f.documentNumber && f.documentNumber.length > 100) return 'Le numéro du document est trop long (100 caractères max).';
+                    if (f.notes && f.notes.length > 4000) return 'Les notes sont trop longues (4000 caractères max).';
+                    if (f.issueDate && f.expiryDate && f.expiryDate < f.issueDate) return 'La date d\'expiration ne peut pas être antérieure à la date d\'émission.';
+                    return '';
+                },
+
+                documentApiError(e, action) {
+                    const status = e && e.status;
+                    const msg = e && e.message;
+                    if (status === 400) return 'Données invalides : ' + (msg || 'la requête a été rejetée par le serveur.');
+                    if (status === 401) return 'Session expirée. Reconnectez-vous puis réessayez.';
+                    if (status === 403) return 'Vous n\'avez pas les droits nécessaires pour ' + action + '.';
+                    if (status === 404) return 'Document introuvable. Il a peut-être été supprimé entre-temps.';
+                    if (status === 409) return 'Conflit avec les données existantes : ' + (msg || 'réessayez.');
+                    if (status === 500) return 'Erreur serveur. Réessayez dans quelques instants.';
+                    return (msg || ('Impossible de ' + action + '.'));
+                },
+
+                async saveDocumentSubmit() {
+                    if (this.documentFormSaving) return; // anti double-clic
+                    this.documentFormError = '';
+                    const validation = this.validateDocumentForm();
+                    if (validation) {
+                        this.documentFormError = validation;
+                        return;
+                    }
+                    this.documentFormSaving = true;
+                    const f = this.documentForm;
+                    const payload = {
+                        vehicleId: f.vehicleId ? Number(f.vehicleId) : null,
+                        driverId: f.driverId ? Number(f.driverId) : null,
+                        documentType: f.documentType.trim(),
+                        documentNumber: f.documentNumber.trim(),
+                        issueDate: f.issueDate || null,
+                        expiryDate: f.expiryDate || null,
+                        notes: f.notes.trim()
+                    };
+                    try {
+                        if (this.documentModalMode === 'edit' && this.documentSelected) {
+                            await this.apiFetch('/api/documents/' + this.documentSelected.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                            alert('Document modifié avec succès.');
+                        } else {
+                            await this.apiFetch('/api/documents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                            alert('Document ajouté avec succès.');
+                        }
+                        this.showDocumentModal = false;
+                        await this.refreshDocuments();
+                    } catch (e) {
+                        this.documentFormError = this.documentApiError(e, 'enregistrer le document');
+                    } finally {
+                        this.documentFormSaving = false;
+                    }
                 },
                 // ===== FIN ONGLET DOCUMENTATION =====
 

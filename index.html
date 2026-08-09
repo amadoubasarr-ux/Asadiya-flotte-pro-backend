@@ -2935,7 +2935,7 @@
                             <button @click="refreshDocuments()" class="btn btn-secondary btn-sm" title="Recharger les documents">
                                 <i class="fa-solid fa-rotate-right mr-1" :class="documentsLoading || documentsStatsLoading ? 'fa-spin' : ''"></i> Actualiser
                             </button>
-                            <button x-show="canManageFleet" @click="openDocumentAdd()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : ''" class="btn btn-primary btn-sm">
+                            <button x-show="canManageFleet" @click="openDocumentModal('create')" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : ''" class="btn btn-primary btn-sm">
                                 + Ajouter un document
                             </button>
                         </div>
@@ -3048,7 +3048,7 @@
                             </div>
                             <p class="text-sm font-semibold text-slate-700">Aucun document enregistré</p>
                             <p class="text-xs text-slate-500 max-w-md">Ajoutez les documents administratifs de vos véhicules et conducteurs (assurance, carte grise, contrôle technique, permis...).</p>
-                            <button x-show="canManageFleet" @click="openDocumentAdd()" class="btn btn-primary btn-sm">
+                            <button x-show="canManageFleet" @click="openDocumentModal('create')" class="btn btn-primary btn-sm">
                                 + Ajouter un document
                             </button>
                         </div>
@@ -3097,13 +3097,13 @@
                                                 </td>
                                                 <td class="text-right">
                                                     <div class="flex items-center justify-end gap-1.5">
-                                                        <button @click="openDocumentView(d)" title="Voir" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                                        <button @click="openDocumentModal('view', d)" title="Voir" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
                                                             <i class="fa-solid fa-eye text-xs"></i>
                                                         </button>
-                                                        <button x-show="canManageFleet" @click="openDocumentEdit(d)" title="Modifier" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
+                                                        <button x-show="canManageFleet" @click="openDocumentModal('edit', d)" title="Modifier" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-indigo-600">
                                                             <i class="fa-solid fa-pen text-xs"></i>
                                                         </button>
-                                                        <button x-show="canManageFleet" @click="deleteDocument(d)" title="Supprimer" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-rose-500">
+                                                        <button x-show="canManageFleet" @click="deleteDocument(d)" :disabled="documentDeleting" title="Supprimer" class="btn btn-ghost btn-xs !text-slate-500 hover:!text-rose-500">
                                                             <i class="fa-solid fa-trash-can text-xs"></i>
                                                         </button>
                                                     </div>
@@ -3934,6 +3934,196 @@
                     </div>
                 </div>
             </footer>
+        </div>
+
+        <!-- MODALE : AJOUTER / MODIFIER / VOIR UN DOCUMENT -->
+        <div x-show="showDocumentModal" x-cloak class="modal-backdrop">
+            <div class="modal-card p-6 space-y-4 max-w-2xl max-h-[90vh] overflow-y-auto">
+                <!-- En-tête -->
+                <div class="flex items-center justify-between gap-3">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-folder-open text-indigo-500"></i>
+                        <span x-text="documentModalMode === 'edit' ? 'Modifier le document' : (documentModalMode === 'view' ? 'Détails du document' : 'Ajouter un document')"></span>
+                    </h3>
+                    <button @click="closeDocumentModal()" :disabled="documentFormSaving" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition" title="Fermer">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Erreur de formulaire -->
+                <div x-show="documentFormError" class="bg-rose-50 border border-rose-200 rounded-xl px-3 py-2.5 text-xs text-rose-600 flex items-start gap-2">
+                    <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                    <span x-text="documentFormError"></span>
+                </div>
+
+                <!-- MODE VOIR : fiche détaillée en lecture seule -->
+                <template x-if="documentModalMode === 'view' && documentSelected">
+                    <div class="space-y-4">
+                        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                            <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fa-solid text-xl" :class="documentTypeIcon(documentSelected.documentType)"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-bold text-slate-900 truncate" x-text="documentSelected.documentNumber || 'Document sans numéro'"></p>
+                                <p class="text-xs text-slate-500" x-text="documentSelected.documentType"></p>
+                            </div>
+                            <div class="flex flex-col items-start sm:items-end gap-1">
+                                <span class="badge" :class="documentStatusMeta(documentSelected).badge" x-text="documentStatusMeta(documentSelected).label"></span>
+                                <span class="text-[10px] text-slate-500" x-show="documentStatusDetail(documentSelected)" x-text="documentStatusDetail(documentSelected)"></span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div class="card p-3 bg-slate-50/60 border-slate-200">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Propriétaire</p>
+                                <p class="font-bold text-slate-800 mt-1" x-text="documentOwnerLabel(documentSelected)"></p>
+                                <p class="text-[10px] text-slate-400" x-text="documentOwnerKind(documentSelected)"></p>
+                            </div>
+                            <div class="card p-3 bg-slate-50/60 border-slate-200">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Type de document</p>
+                                <p class="font-bold text-slate-800 mt-1" x-text="documentSelected.documentType"></p>
+                            </div>
+                            <div class="card p-3 bg-slate-50/60 border-slate-200">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Date d'émission</p>
+                                <p class="font-mono text-slate-800 mt-1" x-text="fmtDate(documentSelected.issueDate)"></p>
+                            </div>
+                            <div class="card p-3 bg-slate-50/60 border-slate-200">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Date d'expiration</p>
+                                <p class="font-mono text-slate-800 mt-1" x-text="fmtDate(documentSelected.expiryDate)"></p>
+                            </div>
+                            <div class="card p-3 bg-slate-50/60 border-slate-200">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Jours restants</p>
+                                <p class="font-mono text-slate-800 mt-1" x-text="documentSelected.daysLeft != null ? (documentSelected.daysLeft < 0 ? Math.abs(documentSelected.daysLeft) + ' j de retard' : documentSelected.daysLeft + ' j') : '—'"></p>
+                            </div>
+                            <div class="card p-3 bg-slate-50/60 border-slate-200">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Créé le</p>
+                                <p class="text-slate-700 mt-1" x-text="formatDateTime(documentSelected.createdAt)"></p>
+                            </div>
+                            <div class="card p-3 bg-slate-50/60 border-slate-200 sm:col-span-2" x-show="documentSelected.notes">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Notes</p>
+                                <p class="text-slate-700 mt-1 whitespace-pre-wrap" x-text="documentSelected.notes"></p>
+                            </div>
+                            <div class="card p-3 bg-slate-50/60 border-slate-200 sm:col-span-2" x-show="documentSelected.fileName">
+                                <p class="text-[10px] text-slate-500 font-semibold uppercase">Fichier joint</p>
+                                <p class="flex flex-wrap items-center gap-2 text-slate-700 mt-1">
+                                    <i class="fa-solid fa-paperclip text-indigo-500"></i>
+                                    <span class="font-semibold" x-text="documentSelected.fileName"></span>
+                                    <span class="text-[10px] text-slate-400" x-show="documentSelected.mimeType" x-text="documentSelected.mimeType"></span>
+                                    <span class="text-[10px] text-slate-400" x-show="documentSelected.fileSize != null" x-text="fmtFileSize(documentSelected.fileSize)"></span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- MODES CRÉER / MODIFIER : formulaire -->
+                <template x-if="documentModalMode !== 'view'">
+                    <div class="space-y-4">
+                        <!-- Propriétaire : véhicule OU conducteur (exclusif) -->
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2 flex items-center gap-1.5">
+                                <i class="fa-solid fa-user-tag text-indigo-500"></i> Propriétaire du document
+                            </p>
+                            <div class="flex items-center gap-2 mb-2">
+                                <button type="button" @click="setDocumentOwnerType('vehicle')" :class="documentOwnerType === 'vehicle' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/30' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-car"></i> Véhicule
+                                </button>
+                                <button type="button" @click="setDocumentOwnerType('driver')" :class="documentOwnerType === 'driver' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/30' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'" class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-id-card"></i> Conducteur
+                                </button>
+                            </div>
+
+                            <div x-show="documentOwnerType === 'vehicle'">
+                                <label class="label">Véhicule *</label>
+                                <select x-model="documentForm.vehicleId" class="input">
+                                    <option value="">Sélectionner un véhicule...</option>
+                                    <template x-for="v in vehicles" :key="v.id">
+                                        <option :value="v.id" x-text="v.brand + ' ' + v.model + ' — ' + v.plate"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div x-show="documentOwnerType === 'driver'">
+                                <label class="label">Conducteur *</label>
+                                <select x-model="documentForm.driverId" class="input">
+                                    <option value="">Sélectionner un conducteur...</option>
+                                    <template x-for="d in drivers" :key="d.id">
+                                        <option :value="d.id" x-text="d.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Informations du document -->
+                        <div class="pt-2 border-t border-slate-200 space-y-3">
+                            <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500 flex items-center gap-1.5">
+                                <i class="fa-solid fa-file-lines text-indigo-500"></i> Informations du document
+                            </p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div class="sm:col-span-2">
+                                    <label class="label">Type de document *</label>
+                                    <select x-model="documentForm.documentType" class="input">
+                                        <option value="">Sélectionner un type...</option>
+                                        <template x-for="t in documentTypes" :key="t">
+                                            <option :value="t" x-text="t"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="label">Numéro du document</label>
+                                    <input type="text" x-model="documentForm.documentNumber" placeholder="ex: 2026/ASD/001234" maxlength="100" class="input">
+                                </div>
+                                <div>
+                                    <label class="label">Date d'émission</label>
+                                    <input type="date" x-model="documentForm.issueDate" class="input">
+                                </div>
+                                <div>
+                                    <label class="label">Date d'expiration</label>
+                                    <input type="date" x-model="documentForm.expiryDate" class="input">
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="label">Notes</label>
+                                    <textarea x-model="documentForm.notes" rows="3" placeholder="Remarques éventuelles..." maxlength="4000" class="input resize-none"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Aperçu du statut -->
+                        <div class="pt-2 border-t border-slate-200">
+                            <div class="rounded-xl border px-4 py-3 flex items-center justify-between gap-3 flex-wrap" :class="{
+                                'border-emerald-200 bg-emerald-50': documentStatusPreview.status === 'OK',
+                                'border-amber-200 bg-amber-50': documentStatusPreview.status === 'SOON',
+                                'border-rose-200 bg-rose-50': documentStatusPreview.status === 'EXPIRED',
+                                'border-slate-200 bg-slate-50': documentStatusPreview.status === 'UNKNOWN'
+                            }">
+                                <div class="flex items-center gap-2 text-xs font-semibold" :class="{
+                                    'text-emerald-700': documentStatusPreview.status === 'OK',
+                                    'text-amber-700': documentStatusPreview.status === 'SOON',
+                                    'text-rose-700': documentStatusPreview.status === 'EXPIRED',
+                                    'text-slate-600': documentStatusPreview.status === 'UNKNOWN'
+                                }">
+                                    <span x-text="documentStatusPreview.icon"></span>
+                                    <span x-text="documentStatusPreview.label"></span>
+                                </div>
+                                <span x-show="documentStatusDetailText" class="text-[11px] text-slate-500" x-text="documentStatusDetailText"></span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Pied : actions -->
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button x-show="documentModalMode === 'view' && canManageFleet" @click="openDocumentModal('edit', documentSelected)" class="btn btn-secondary" :disabled="documentFormSaving">
+                        <i class="fa-solid fa-pen mr-1"></i> Modifier
+                    </button>
+                    <button @click="closeDocumentModal()" class="btn btn-secondary" :disabled="documentFormSaving">
+                        <span x-text="documentModalMode === 'view' ? 'Fermer' : 'Annuler'"></span>
+                    </button>
+                    <button x-show="documentModalMode !== 'view'" @click="saveDocumentSubmit()" class="btn btn-primary" :disabled="documentFormSaving">
+                        <i class="fa-solid fa-spinner fa-spin mr-1" x-show="documentFormSaving"></i>
+                        <span x-text="documentFormSaving ? 'Enregistrement...' : 'Enregistrer'"></span>
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- MODALE : ENREGISTRER UNE VIDANGE EFFECTUÉE -->
