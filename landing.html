@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark" class="no-js">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asadiya Flotte PRO — Gestion de flotte, maintenance, carburant & ventes de véhicules</title>
+    <meta name="description" content="Asadiya Flotte PRO centralise la gestion de vos véhicules, conducteurs, maintenance, carburant, documents et ventes dans une seule plateforme moderne et sécurisée.">
+    <!-- FontAwesome CDN (autorisé par la CSP : cdnjs.cloudflare.com) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Tailwind CSS CDN (autorisé par la CSP : cdn.tailwindcss.com) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- ============================================================
+         PHASE LANDING PAGE — Asadiya Flotte PRO
+         Design system « SaaS automobile premium » : bleu nuit profond
+         + accent jaune/or, surfaces claires, coins arrondis, ombres douces.
+
+         NB CSP : aucun script inline autorisé (script-src sans
+         'unsafe-inline') → tout le comportement vit dans landing.js.
+         Les visuels sont des SVG/placeholders autoportants : pour les
+         remplacer par de vraies photos, il suffit d'échanger les blocs
+         <svg> (sections « sales », « hero ») par des <img src="...">.
+         ============================================================ -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+        :root {
+            --bg: #070c1a;
+            --bg-2: #0b1326;
+            --surface: #101a33;
+            --surface-2: #16223f;
+            --surface-3: #1d2b4f;
+            --border: rgba(148, 163, 184, 0.16);
+            --border-strong: rgba(148, 163, 184, 0.3);
+            --text: #eef2f9;
+            --text-soft: #c4cee2;
+            --text-muted: #8b99b8;
+            --gold: #f7b733;
+            --gold-2: #ffd25e;
+            --gold-ink: #211603;
+            --glow: rgba(247, 183, 51, 0.35);
+            --shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.65);
+            --shadow-soft: 0 10px 30px -16px rgba(0, 0, 0, 0.5);
+            --grad-navy: linear-gradient(160deg, #0e1a3a 0%, #0a0f22 100%);
+            --grad-gold: linear-gradient(135deg, #ffd25e 0%, #f0a500 100%);
+        }
+
+        [data-theme="light"] {
+            --bg: #f4f7fc;
+            --bg-2: #ffffff;
+            --surface: #ffffff;
+            --surface-2: #f0f4fb;
+            --surface-3: #e5ecf6;
+            --border: rgba(15, 23, 42, 0.12);
+            --border-strong: rgba(15, 23, 42, 0.22);
+            --text: #0b1526;
+            --text-soft: #33415c;
+            --text-muted: #5b6b85;
+            --gold: #e79b0c;
+            --gold-2: #c47f00;
+            --gold-ink: #ffffff;
+            --glow: rgba(231, 155, 12, 0.28);
+            --shadow: 0 24px 55px -30px rgba(11, 21, 38, 0.3);
+            --shadow-soft: 0 10px 28px -18px rgba(11, 21, 38, 0.2);
+            --grad-navy: linear-gradient(160deg, #eef3fb 0%, #e3ebf7 100%);
+            --grad-gold: linear-gradient(135deg, #f5b93e 0%, #d98e06 100%);
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::selection { background: var(--gold); color: var(--gold-ink); }
+
+        /* ---- Utilitaires de thème ---- */
+        .text-soft { color: var(--text-soft); }
+        .text-muted { color: var(--text-muted); }
+        .text-gold { color: var(--gold); }
+        .surface { background: var(--surface); border: 1px solid var(--border); }
+        .surface-2 { background: var(--surface-2); }
+        .hairline { border-color: var(--border); }
+        .body-bg { background: var(--bg); }
+
+        /* ---- Boutons ---- */
+        .btn-gold {
+            display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+            background: var(--grad-gold); color: var(--gold-ink);
+            font-weight: 700; border-radius: .85rem; padding: .9rem 1.6rem;
+            box-shadow: 0 12px 30px -12px var(--glow);
+            transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+        }
+        .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 18px 38px -14px var(--glow); filter: brightness(1.04); }
+        .btn-gold:active { transform: translateY(0); }
+        .btn-ghost {
+            display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+            background: transparent; color: var(--text);
+            font-weight: 600; border-radius: .85rem; padding: .9rem 1.6rem;
+            border: 1px solid var(--border-strong);
+            transition: border-color .18s ease, background .18s ease, transform .18s ease;
+        }
+        .btn-ghost:hover { border-color: var(--gold); color: var(--gold); transform: translateY(-2px); }
+
+        /* ---- Navigation ---- */
+        .nav-glass {
+            background: color-mix(in srgb, var(--bg) 82%, transparent);
+            -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+            border-bottom: 1px solid var(--border);
+            transition: background .3s ease, border-color .3s ease;
+        }
+        .nav-link {
+            color: var(--text-soft); font-size: .875rem; font-weight: 500;
+            transition: color .15s ease; position: relative;
+        }
+        .nav-link:hover { color: var(--gold); }
+        .nav-link::after {
+            content: ""; position: absolute; left: 0; bottom: -6px; height: 2px; width: 0;
+            background: var(--gold); border-radius: 2px; transition: width .2s ease;
+        }
+        .nav-link:hover::after { width: 100%; }
+
+        /* ---- Cartes ---- */
+        .card-lift {
+            transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+        }
+        .card-lift:hover {
+            transform: translateY(-6px);
+            border-color: var(--border-strong);
+            box-shadow: var(--shadow-soft);
+        }
+        .card-glow:hover { box-shadow: 0 20px 50px -22px var(--glow); }
+
+        /* ---- Badges / chips ---- */
+        .eyebrow {
+            display: inline-flex; align-items: center; gap: .5rem;
+            font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+            color: var(--gold); padding: .4rem 1rem; border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent);
+            background: color-mix(in srgb, var(--gold) 10%, transparent);
+        }
+        .chip {
+            display: inline-flex; align-items: center; gap: .4rem; font-size: .72rem; font-weight: 600;
+            color: var(--text-soft); background: var(--surface-2);
+            border: 1px solid var(--border); border-radius: 999px; padding: .3rem .7rem;
+        }
+        .badge-dot { width: .5rem; height: .5rem; border-radius: 999px; display: inline-block; }
+
+        /* ---- Fonds décoratifs ---- */
+        .hero-grid {
+            background-image:
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 46px 46px;
+            -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 30%, transparent 75%);
+            mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 30%, transparent 75%);
+        }
+        .glow-orb {
+            position: absolute; border-radius: 9999px; filter: blur(90px); pointer-events: none;
+        }
+
+        /* ---- Animations au scroll (discrètes) ---- */
+        .reveal { opacity: 0; transform: translateY(22px); transition: opacity .6s ease, transform .6s ease; }
+        .reveal.in, .reveal.in-view { opacity: 1; transform: none; }
+        .reveal-delay-1 { transition-delay: .08s; }
+        .reveal-delay-2 { transition-delay: .16s; }
+        .reveal-delay-3 { transition-delay: .24s; }
+        .no-js .reveal { opacity: 1; transform: none; }
+
+        /* ---- Barre de navigation au scroll ---- */
+        .nav-scrolled { border-bottom-color: var(--border-strong); box-shadow: 0 10px 30px -18px rgba(0, 0, 0, .5); }
+
+        /* ---- KPI (aperçu dashboard) ---- */
+        .kpi-value { font-size: 1.35rem; font-weight: 800; letter-spacing: -.02em; }
+        .tick-up { color: #34d399; }
+        .tick-down { color: #f87171; }
+
+        /* ---- Barres de graphique (aperçu) ---- */
+        .bar {
+            border-radius: 6px 6px 2px 2px;
+            background: linear-gradient(180deg, var(--gold) 0%, color-mix(in srgb, var(--gold) 55%, transparent) 100%);
+            transition: filter .2s ease;
+        }
+        .bar:hover { filter: brightness(1.15); }
+        .bar-soft {
+            background: color-mix(in srgb, var(--text-muted) 32%, transparent);
+            border-radius: 6px 6px 2px 2px;
+        }
+
+        /* ---- FAQ (accordéon natif accessible) ---- */
+        .faq-item { border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); transition: border-color .2s ease; }
+        .faq-item[open] { border-color: color-mix(in srgb, var(--gold) 50%, transparent); }
+        .faq-summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.3rem; font-weight: 700; color: var(--text); }
+        .faq-summary::-webkit-details-marker { display: none; }
+        .faq-summary .faq-icon, .faq-summary .faq-chevron {
+            flex-shrink: 0; width: 1.7rem; height: 1.7rem; border-radius: .6rem;
+            display: grid; place-items: center; font-size: .75rem; color: var(--gold);
+            border: 1px solid var(--border-strong); transition: transform .25s ease, background .25s ease;
+        }
+        .faq-item[open] .faq-icon, .faq-item[open] .faq-chevron { transform: rotate(180deg); background: color-mix(in srgb, var(--gold) 16%, transparent); }
+        .faq-body { padding: 0 1.3rem 1.2rem; color: var(--text-soft); font-size: .92rem; line-height: 1.7; }
+
+        /* ---- Avatars (témoignages) ---- */
+        .avatar {
+            width: 2.6rem; height: 2.6rem; border-radius: 999px; flex-shrink: 0;
+            display: grid; place-items: center; font-size: .78rem; font-weight: 800;
+            color: var(--gold-ink); background: var(--grad-gold);
+        }
+        .avatar-lg { width: 3.4rem; height: 3.4rem; font-size: 1rem; }
+
+        /* ---- CTA final ---- */
+        .cta-glow { box-shadow: 0 40px 90px -40px var(--glow); }
+
+        /* ---- Pied de page ---- */
+        .social-btn {
+            width: 2.4rem; height: 2.4rem; border-radius: .75rem; display: grid; place-items: center;
+            font-size: .9rem; color: var(--text-soft); border: 1px solid var(--border);
+            background: var(--surface-2); transition: color .2s ease, border-color .2s ease, transform .2s ease;
+        }
+        .social-btn:hover { color: var(--gold); border-color: var(--gold); transform: translateY(-2px); }
+        .footer-link { color: var(--text-soft); transition: color .15s ease; }
+        .footer-link:hover { color: var(--gold); }
+
+        /* ---- Prix ---- */
+        .plan-feature { display: flex; align-items: flex-start; gap: .6rem; color: var(--text-soft); font-size: .86rem; }
+        .plan-feature i { color: var(--gold); margin-top: .18rem; font-size: .72rem; }
+        .plan-popular {
+            border-color: color-mix(in srgb, var(--gold) 55%, transparent) !important;
+            box-shadow: 0 30px 70px -30px var(--glow);
+        }
+
+        /* ---- Toggle clair/sombre ---- */
+        .theme-toggle {
+            width: 2.4rem; height: 2.4rem; border-radius: .8rem;
+            display: grid; place-items: center; color: var(--text-soft);
+            border: 1px solid var(--border-strong); background: transparent;
+            transition: color .2s ease, border-color .2s ease;
+        }
+        .theme-toggle:hover { color: var(--gold); border-color: var(--gold); }
+        [data-theme="dark"] .theme-toggle .fa-sun { display: none; }
+        [data-theme="light"] .theme-toggle .fa-moon { display: none; }
+
+        /* ---- Menu mobile ---- */
+        .mobile-menu { transition: opacity .22s ease, transform .22s ease; transform-origin: top right; }
+        .mobile-menu.open { opacity: 1; transform: translateY(0) scale(1); }
+        .mobile-menu.closed { opacity: 0; transform: translateY(-8px) scale(.98); pointer-events: none; }
+
+        /* ---- Appareils (aperçu) ---- */
+        .screen-shadow { box-shadow: var(--shadow); }
+        .phone-frame { border: 6px solid #20293f; border-radius: 2.2rem; overflow: hidden; box-shadow: var(--shadow); }
+
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            .reveal { opacity: 1; transform: none; transition: none; }
+        }
+    </style>
+
+    <!-- Tout le comportement de la Landing Page (thème, menu, FAQ, plans,
+         animations) vit ici : aucun script inline (CSP), aucun secret. -->
+    <script src="/landing.js" defer></script>
+</head>
+<body class="body-bg min-h-screen antialiased">
+
+    <!-- ============================================================
+         1. NAVBAR
+         ============================================================ -->
+    <header id="navbar" class="nav-glass fixed top-0 inset-x-0 z-50">
+        <nav class="max-w-7xl mx-auto px-4 md:px-6 flex items-center justify-between h-16" aria-label="Navigation principale">
+            <!-- Logo -->
+            <a href="#top" class="flex items-center gap-2.5" aria-label="Asadiya Flotte PRO — accueil">
+                <span class="w-9 h-9 rounded-xl grid place-items-center text-[#211603] font-extrabold text-sm" style="background: var(--grad-gold); box-shadow: 0 8px 22px -8px var(--glow);">
+                    <i class="fa-solid fa-car"></i>
+                </span>
+                <span class="leading-tight">
+                    <span class="block font-extrabold text-[15px] tracking-tight">Asadiya Flotte <span class="text-gold">PRO</span></span>
+                    <span class="block text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">Gestion de flotte</span>
+                </span>
+            </a>
+
+            <!-- Liens desktop -->
+            <div class="hidden lg:flex items-center gap-8">
+                <a href="#fonctionnalites" class="nav-link">Fonctionnalités</a>
+                <a href="#plateforme" class="nav-link">Solutions</a>
+                <a href="#tarifs" class="nav-link">Tarifs</a>
+                <a href="#securite" class="nav-link">À propos</a>
+                <a href="#faq" class="nav-link">FAQ</a>
+            </div>
+
+            <!-- Actions -->
+            <div class="hidden lg:flex items-center gap-3">
+                <button type="button" class="theme-toggle" data-action="toggle-theme" aria-label="Basculer le thème clair/sombre">
+                    <i class="fa-solid fa-moon"></i>
+                    <i class="fa-solid fa-sun"></i>
+                </button>
+                <a href="/app?view=login" class="nav-link !no-underline flex items-center gap-1.5">
+                    <i class="fa-solid fa-right-to-bracket"></i> Connexion
+                </a>
+                <a href="/app?view=signup" class="btn-gold !py-2.5 !px-5 text-sm">
+                    <i class="fa-solid fa-bolt"></i> Commencer gratuitement
+                </a>
+            </div>
+
+            <!-- Menu mobile : burger -->
+            <div class="lg:hidden flex items-center gap-2">
+                <button type="button" class="theme-toggle" data-action="toggle-theme" aria-label="Basculer le thème clair/sombre">
+                    <i class="fa-solid fa-moon"></i>
+                    <i class="fa-solid fa-sun"></i>
+                </button>
+                <button type="button" class="w-10 h-10 grid place-items-center rounded-xl border" style="border-color: var(--border-strong); color: var(--text);" data-action="toggle-menu" aria-label="Ouvrir le menu" aria-expanded="false">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Panneau mobile -->
+        <div class="lg:hidden px-4 pb-4 hidden" data-mobile-menu>
+            <div class="mobile-menu closed surface rounded-2xl p-4 space-y-1 flex flex-col">
+                <a href="#fonctionnalites" class="nav-link px-3 py-2.5 rounded-xl hover:bg-white/5" data-close-menu>Fonctionnalités</a>
+                <a href="#plateforme" class="nav-link px-3 py-2.5 rounded-xl hover:bg-white/5" data-close-menu>Solutions</a>
+                <a href="#tarifs" class="nav-link px-3 py-2.5 rounded-xl hover:bg-white/5" data-close-menu>Tarifs</a>
+                <a href="#securite" class="nav-link px-3 py-2.5 rounded-xl hover:bg-white/5" data-close-menu>À propos</a>
+                <a href="#faq" class="nav-link px-3 py-2.5 rounded-xl hover:bg-white/5" data-close-menu>FAQ</a>
+                <div class="h-px my-2" style="background: var(--border);"></div>
+                <a href="/app?view=login" class="btn-ghost text-sm" data-close-menu><i class="fa-solid fa-right-to-bracket"></i> Connexion</a>
+                <a href="/app?view=signup" class="btn-gold text-sm" data-close-menu><i class="fa-solid fa-bolt"></i> Commencer gratuitement</a>
+            </div>
+        </div>
+    </header>
+
+    <main id="top" class="pt-16">
+
+        <!-- ============================================================
+             2. HERO
+             ============================================================ -->
+        <section class="relative overflow-hidden">
+            <!-- fond décoratif -->
+            <div class="hero-grid absolute inset-0" aria-hidden="true"></div>
+            <div class="glow-orb w-[520px] h-[520px] -top-40 left-1/2 -translate-x-1/2" style="background: radial-gradient(circle, color-mix(in srgb, var(--gold) 16%, transparent), transparent 70%);" aria-hidden="true"></div>
+            <div class="glow-orb w-[420px] h-[420px] top-40 -right-40" style="background: radial-gradient(circle, color-mix(in srgb, #3b82f6 22%, transparent), transparent 70%);" aria-hidden="true"></div>
+
+            <div class="relative max-w-7xl mx-auto px-4 md:px-6 pt-16 md:pt-24 pb-10 md:pb-16 grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-10 items-center">
+                <!-- Texte -->
+                <div class="text-center lg:text-left">
+                    <span class="eyebrow reveal">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Une plateforme. Toute votre flotte.
+                    </span>
+                    <h1 class="reveal reveal-delay-1 mt-5 text-4xl sm:text-5xl xl:text-6xl font-extrabold leading-[1.08] tracking-tight">
+                        Pilotez votre flotte.<br>
+                        <span class="text-gold">Développez votre activité.</span>
+                    </h1>
+                    <p class="reveal reveal-delay-2 mt-6 text-base md:text-lg text-soft max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                        Asadiya Flotte PRO centralise la gestion de vos véhicules, conducteurs, maintenance,
+                        carburant, documents et ventes dans une seule plateforme.
+                    </p>
+                    <div class="reveal reveal-delay-3 mt-8 flex flex-wrap items-center justify-center lg:justify-start gap-3">
+                        <a href="/app?view=signup" class="btn-gold">
+                            <i class="fa-solid fa-bolt"></i> Commencer gratuitement
+                            <i class="fa-solid fa-arrow-right text-xs"></i>
+                        </a>
+                        <a href="#plateforme" class="btn-ghost">
+                            <i class="fa-solid fa-play"></i> Découvrir la plateforme
+                        </a>
+                    </div>
+                    <p class="reveal reveal-delay-3 mt-5 text-[13px] text-muted flex items-center justify-center lg:justify-start gap-2">
+                        <i class="fa-solid fa-circle-check text-gold"></i> Essai gratuit de 14 jours
+                        <span style="color: var(--border-strong);">•</span>
+                        <i class="fa-solid fa-circle-check text-gold"></i> Sans carte bancaire
+                    </p>
+                </div>
+
+                <!-- Visuel premium : aperçu du dashboard + appareils -->
+                <div class="reveal reveal-delay-1 relative" aria-hidden="false">
+                    <div class="relative">
+                        <!-- Fenêtre navigateur -->
+                        <div class="surface rounded-3xl screen-shadow overflow-hidden">
+                            <div class="flex items-center gap-2 px-4 py-3 border-b" style="border-color: var(--border);">
+                                <span class="w-2.5 h-2.5 rounded-full" style="background:#f87171;"></span>
+                                <span class="w-2.5 h-2.5 rounded-full" style="background:#fbbf24;"></span>
+                                <span class="w-2.5 h-2.5 rounded-full" style="background:#34d399;"></span>
+                                <span class="ml-3 flex-1 max-w-[200px] text-[11px] text-muted surface-2 border hairline rounded-full px-3 py-1 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-lock text-[9px]"></i> app.asadiya-flotte.pro
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-[52px_1fr] md:grid-cols-[168px_1fr]">
+                                <!-- Sidebar -->
+                                <div class="hidden md:flex flex-col gap-1 p-3 border-r" style="border-color: var(--border); background: var(--surface-2);">
+                                    <div class="flex items-center gap-2 px-2 py-2">
+                                        <span class="w-6 h-6 rounded-lg grid place-items-center text-[10px] text-[#211603]" style="background: var(--grad-gold);"><i class="fa-solid fa-car"></i></span>
+                                        <span class="text-[11px] font-bold">Asadiya PRO</span>
+                                    </div>
+                                    <div class="mt-1 space-y-1 text-[11px]">
+                                        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg" style="background: color-mix(in srgb, var(--gold) 18%, transparent); color: var(--gold);"><i class="fa-solid fa-gauge-high w-4 text-center"></i> Pilotage</div>
+                                        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-muted"><i class="fa-solid fa-car w-4 text-center"></i> Véhicules</div>
+                                        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-muted"><i class="fa-solid fa-users w-4 text-center"></i> Conducteurs</div>
+                                        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-muted"><i class="fa-solid fa-screwdriver-wrench w-4 text-center"></i> Maintenance</div>
+                                        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-muted"><i class="fa-solid fa-gas-pump w-4 text-center"></i> Carburant</div>
+                                        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-muted"><i class="fa-solid fa-file-shield w-4 text-center"></i> Documents</div>
+                                        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-muted"><i class="fa-solid fa-tags w-4 text-center"></i> Ventes</div>
+                                    </div>
+                                </div>
+                                <!-- Contenu -->
+                                <div class="p-3 md:p-4 space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-[10px] text-muted font-semibold uppercase tracking-wider">Centre de pilotage</p>
+                                            <p class="text-sm font-extrabold">Tableau de bord</p>
+                                        </div>
+                                        <span class="chip !text-[10px]"><span class="badge-dot" style="background:#34d399;"></span> En ligne</span>
+                                    </div>
+                                    <!-- Cartes KPI -->
+                                    <div class="grid grid-cols-2 gap-2 md:gap-2.5">
+                                        <div class="surface-2 border hairline rounded-xl p-2.5 md:p-3">
+                                            <p class="text-[10px] text-muted font-semibold">Véhicules actifs</p>
+                                            <p class="kpi-value">128</p>
+                                            <p class="text-[10px] tick-up font-semibold"><i class="fa-solid fa-arrow-trend-up"></i> +6 ce mois</p>
+                                        </div>
+                                        <div class="surface-2 border hairline rounded-xl p-2.5 md:p-3">
+                                            <p class="text-[10px] text-muted font-semibold">Disponibles</p>
+                                            <p class="kpi-value text-gold">32</p>
+                                            <p class="text-[10px] text-muted font-semibold">Parc : 128</p>
+                                        </div>
+                                        <div class="surface-2 border hairline rounded-xl p-2.5 md:p-3">
+                                            <p class="text-[10px] text-muted font-semibold">En maintenance</p>
+                                            <p class="kpi-value">7</p>
+                                            <p class="text-[10px] text-muted font-semibold">3 échéances à venir</p>
+                                        </div>
+                                        <div class="surface-2 border hairline rounded-xl p-2.5 md:p-3">
+                                            <p class="text-[10px] text-muted font-semibold">Coût carburant</p>
+                                            <p class="kpi-value">12,4M</p>
+                                            <p class="text-[10px] tick-down font-semibold"><i class="fa-solid fa-arrow-trend-down"></i> -8 %</p>
+                                        </div>
+                                    </div>
+                                    <!-- Graphique d'évolution -->
+                                    <div class="surface-2 border hairline rounded-xl p-3">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <p class="text-[11px] font-bold">Évolution des coûts (FCFA)</p>
+                                            <span class="text-[10px] text-muted font-semibold">6 derniers mois</span>
+                                        </div>
+                                        <div class="flex items-end gap-1.5 h-20" role="img" aria-label="Graphique d'évolution des coûts sur 6 mois : croissance régulière">
+                                            <div class="bar-soft flex-1 h-[38%]"></div>
+                                            <div class="bar-soft flex-1 h-[52%]"></div>
+                                            <div class="bar-soft flex-1 h-[46%]"></div>
+                                            <div class="bar flex-1 h-[64%]"></div>
+                                            <div class="bar flex-1 h-[78%]"></div>
+                                            <div class="bar flex-1 h-[95%]"></div>
+                                        </div>
+                                        <div class="flex justify-between mt-1.5 text-[9px] text-muted font-semibold">
+                                            <span>Janv.</span><span>Févr.</span><span>Mars</span><span>Avr.</span><span>Mai</span><span>Juin</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Carte flottante : vente conclue -->
+                        <div class="absolute -left-3 -bottom-6 hidden sm:block surface rounded-2xl p-3 shadow-[var(--shadow-soft)] max-w-[210px]">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-9 h-9 rounded-xl grid place-items-center text-sm" style="background: color-mix(in srgb, #34d399 20%, transparent); color:#34d399;"><i class="fa-solid fa-check"></i></span>
+                                <div>
+                                    <p class="text-[11px] font-bold leading-tight">Vente conclue</p>
+                                    <p class="text-[10px] text-muted">Toyota Corolla · 8 720 000 F</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Carte flottante : maintenance planifiée -->
+                        <div class="absolute -right-2 -top-5 hidden sm:block surface rounded-2xl p-3 shadow-[var(--shadow-soft)] max-w-[200px]">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-9 h-9 rounded-xl grid place-items-center text-sm" style="background: color-mix(in srgb, var(--gold) 20%, transparent); color: var(--gold);"><i class="fa-solid fa-bell"></i></span>
+                                <div>
+                                    <p class="text-[11px] font-bold leading-tight">Maintenance</p>
+                                    <p class="text-[10px] text-muted">3 interventions prévues</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             3. BANDEAU DE CONFIANCE
+             ============================================================ -->
+        <section class="relative max-w-7xl mx-auto px-4 md:px-6 py-8">
+            <div class="reveal surface rounded-2xl px-6 py-6 grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+                <div class="space-y-1.5">
+                    <i class="fa-solid fa-building text-lg text-gold"></i>
+                    <p class="font-bold text-sm">Gestion multi-entreprises</p>
+                    <p class="text-xs text-muted">Des espaces isolés par organisation</p>
+                </div>
+                <div class="space-y-1.5">
+                    <i class="fa-solid fa-shield-halved text-lg text-gold"></i>
+                    <p class="font-bold text-sm">Données sécurisées</p>
+                    <p class="text-xs text-muted">Authentification & contrôle des rôles</p>
+                </div>
+                <div class="space-y-1.5">
+                    <i class="fa-solid fa-chart-line text-lg text-gold"></i>
+                    <p class="font-bold text-sm">Dashboard en temps réel</p>
+                    <p class="text-xs text-muted">KPIs, tendances & alertes</p>
+                </div>
+                <div class="space-y-1.5">
+                    <i class="fa-solid fa-mobile-screen-button text-lg text-gold"></i>
+                    <p class="font-bold text-sm">Ordinateur & mobile</p>
+                    <p class="text-xs text-muted">Pilotez votre flotte partout</p>
+                </div>
+            </div>
+        </section>
+        <!-- ============================================================
+             4. UNE SEULE PLATEFORME
+             ============================================================ -->
+        <section id="fonctionnalites" class="relative max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24 scroll-mt-20">
+            <div class="text-center max-w-2xl mx-auto">
+                <span class="eyebrow reveal"><i class="fa-solid fa-cubes"></i> Une seule plateforme</span>
+                <h2 class="reveal reveal-delay-1 mt-4 text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                    Tous vos modules, <span class="text-gold">sans friction.</span>
+                </h2>
+                <p class="reveal reveal-delay-2 mt-4 text-soft text-base">
+                    Véhicules, conducteurs, maintenance, carburant, documents, ventes : une source de vérité unique
+                    pour votre parc, consultable par vos équipes selon leurs rôles.
+                </p>
+            </div>
+
+            <div class="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <!-- Gestion de flotte -->
+                <article class="reveal card-lift surface rounded-3xl p-6">
+                    <span class="w-12 h-12 rounded-2xl grid place-items-center text-lg mb-4" style="background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold);">
+                        <i class="fa-solid fa-car-side"></i>
+                    </span>
+                    <h3 class="font-extrabold text-lg">Gestion de flotte</h3>
+                    <p class="mt-2 text-sm text-soft leading-relaxed">
+                        Gestion des véhicules, conducteurs, affectations et disponibilité. Suivez chaque véhicule,
+                        son état et son conducteur attitré.
+                    </p>
+                    <ul class="mt-4 space-y-2 text-[13px] text-soft">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Fiches véhicules détaillées</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Conducteurs & affectations</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Planning & réservations</li>
+                    </ul>
+                </article>
+
+                <!-- Maintenance -->
+                <article class="reveal reveal-delay-1 card-lift surface rounded-3xl p-6">
+                    <span class="w-12 h-12 rounded-2xl grid place-items-center text-lg mb-4" style="background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold);">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                    </span>
+                    <h3 class="font-extrabold text-lg">Maintenance</h3>
+                    <p class="mt-2 text-sm text-soft leading-relaxed">
+                        Suivi des interventions, échéances, coûts et historique complet pour chaque véhicule du parc.
+                    </p>
+                    <ul class="mt-4 space-y-2 text-[13px] text-soft">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Vidanges & interventions</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Alertes d'échéance</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Suivi des coûts réels</li>
+                    </ul>
+                </article>
+
+                <!-- Carburant -->
+                <article class="reveal reveal-delay-2 card-lift surface rounded-3xl p-6">
+                    <span class="w-12 h-12 rounded-2xl grid place-items-center text-lg mb-4" style="background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold);">
+                        <i class="fa-solid fa-gas-pump"></i>
+                    </span>
+                    <h3 class="font-extrabold text-lg">Carburant</h3>
+                    <p class="mt-2 text-sm text-soft leading-relaxed">
+                        Consommation, dépenses, anomalies, budget et statistiques pour maîtriser votre poste carburant.
+                    </p>
+                    <ul class="mt-4 space-y-2 text-[13px] text-soft">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Pleins & consommation</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Détection d'anomalies</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Budgets & statistiques</li>
+                    </ul>
+                </article>
+
+                <!-- Documentation -->
+                <article class="reveal card-lift surface rounded-3xl p-6">
+                    <span class="w-12 h-12 rounded-2xl grid place-items-center text-lg mb-4" style="background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold);">
+                        <i class="fa-solid fa-file-shield"></i>
+                    </span>
+                    <h3 class="font-extrabold text-lg">Documentation</h3>
+                    <p class="mt-2 text-sm text-soft leading-relaxed">
+                        Assurances, cartes grises, contrôles techniques, permis et pièces jointes centralisés et alertés.
+                    </p>
+                    <ul class="mt-4 space-y-2 text-[13px] text-soft">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Documents par véhicule</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Pièces jointes sécurisées</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Alertes de validité</li>
+                    </ul>
+                </article>
+
+                <!-- Centre de pilotage -->
+                <article class="reveal reveal-delay-1 card-lift surface rounded-3xl p-6">
+                    <span class="w-12 h-12 rounded-2xl grid place-items-center text-lg mb-4" style="background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold);">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </span>
+                    <h3 class="font-extrabold text-lg">Centre de pilotage</h3>
+                    <p class="mt-2 text-sm text-soft leading-relaxed">
+                        KPI, tendances, coûts, disponibilité, conformité et performance de l'ensemble de votre parc.
+                    </p>
+                    <ul class="mt-4 space-y-2 text-[13px] text-soft">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Tableau de bord en temps réel</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Fleet Health Score</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Export PDF / Excel</li>
+                    </ul>
+                </article>
+
+                <!-- Vente de véhicules -->
+                <article class="reveal reveal-delay-2 card-lift surface rounded-3xl p-6">
+                    <span class="w-12 h-12 rounded-2xl grid place-items-center text-lg mb-4" style="background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold);">
+                        <i class="fa-solid fa-tags"></i>
+                    </span>
+                    <h3 class="font-extrabold text-lg">Vente de véhicules</h3>
+                    <p class="mt-2 text-sm text-soft leading-relaxed">
+                        Catalogue, photos, prix, description, acheteurs et historique des ventes de vos véhicules.
+                    </p>
+                    <ul class="mt-4 space-y-2 text-[13px] text-soft">
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Annonces avec photos</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Gestion des acheteurs</li>
+                        <li class="flex items-center gap-2"><i class="fa-solid fa-check text-gold text-xs"></i> Historique des ventes</li>
+                    </ul>
+                </article>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             5. CENTRE DE PILOTAGE
+             ============================================================ -->
+        <section id="plateforme" class="relative overflow-hidden py-16 md:py-24 scroll-mt-20" style="background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+            <div class="max-w-7xl mx-auto px-4 md:px-6 grid lg:grid-cols-2 gap-12 items-center">
+                <div>
+                    <span class="eyebrow reveal"><i class="fa-solid fa-gauge-high"></i> Centre de pilotage</span>
+                    <h2 class="reveal reveal-delay-1 mt-4 text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                        Toute la santé de votre flotte, <span class="text-gold">en un coup d'œil.</span>
+                    </h2>
+                    <p class="reveal reveal-delay-2 mt-4 text-soft leading-relaxed">
+                        Véhicules disponibles, véhicules en panne, coût carburant, maintenance, conformité :
+                        le centre de pilotage agrège vos données en temps réel pour des décisions rapides et éclairées.
+                    </p>
+                    <ul class="reveal reveal-delay-2 mt-6 space-y-3 text-sm text-soft">
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-circle-check text-gold mt-0.5"></i> Indicateurs clés (véhicules, conducteurs, disponibilité, conformité)</li>
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-circle-check text-gold mt-0.5"></i> Évolution des coûts carburant et de maintenance</li>
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-circle-check text-gold mt-0.5"></i> Alertes proactives : vidanges, documents, assurances, permis</li>
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-circle-check text-gold mt-0.5"></i> Export des rapports (PDF / Excel) pour vos réunions</li>
+                    </ul>
+                    <div class="reveal reveal-delay-3 mt-8">
+                        <a href="/app?view=signup" class="btn-gold"><i class="fa-solid fa-bolt"></i> Commencer gratuitement</a>
+                    </div>
+                </div>
+
+                <!-- Aperçu visuel du centre de pilotage (données fictives uniquement) -->
+                <div class="reveal reveal-delay-2 relative">
+                    <div class="surface rounded-3xl screen-shadow overflow-hidden">
+                        <div class="flex items-center justify-between px-5 py-4 border-b" style="border-color: var(--border);">
+                            <div>
+                                <p class="text-[10px] uppercase tracking-wider text-muted font-bold">Aperçu du module</p>
+                                <p class="font-extrabold text-sm">Centre de pilotage</p>
+                            </div>
+                            <span class="chip !text-[10px]"><span class="badge-dot" style="background:#34d399;"></span> Données fictives</span>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <!-- Santé globale -->
+                            <div class="grid grid-cols-3 gap-3">
+                                <div class="surface-2 border hairline rounded-2xl p-3 text-center">
+                                    <p class="text-[10px] text-muted font-semibold">Disponibilité</p>
+                                    <p class="kpi-value text-lg">93 %</p>
+                                    <p class="text-[10px] tick-up font-semibold">+2 pts</p>
+                                </div>
+                                <div class="surface-2 border hairline rounded-2xl p-3 text-center">
+                                    <p class="text-[10px] text-muted font-semibold">Véhicules en panne</p>
+                                    <p class="kpi-value text-lg">9</p>
+                                    <p class="text-[10px] text-muted font-semibold">sur 128</p>
+                                </div>
+                                <div class="surface-2 border hairline rounded-2xl p-3 text-center">
+                                    <p class="text-[10px] text-muted font-semibold">Conformité docs</p>
+                                    <p class="kpi-value text-lg">96 %</p>
+                                    <p class="text-[10px] tick-up font-semibold">4 alertes</p>
+                                </div>
+                            </div>
+                            <!-- Répartition des coûts -->
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="surface-2 border hairline rounded-2xl p-4">
+                                    <p class="text-[11px] font-bold mb-1">Coût carburant (mois)</p>
+                                    <p class="kpi-value text-gold text-lg">8,2M F</p>
+                                    <div class="mt-2 h-2 rounded-full overflow-hidden" style="background: var(--surface-3);">
+                                        <div class="h-full rounded-full" style="width: 68%; background: var(--grad-gold);"></div>
+                                    </div>
+                                    <p class="text-[10px] text-muted mt-1.5">Budget : 12M F</p>
+                                </div>
+                                <div class="surface-2 border hairline rounded-2xl p-4 space-y-2.5">
+                                    <p class="text-[11px] font-bold mb-1">Maintenance (mois)</p>
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-muted">Interventions</span><span class="font-bold">24</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-muted">Coût total</span><span class="font-bold">3,1M F</span>
+                                    </div>
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-muted">Échéances</span><span class="font-bold text-gold">3 à venir</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Graphique d'évolution -->
+                            <div class="surface-2 border hairline rounded-2xl p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <p class="text-[11px] font-bold">Évolution du parc (véhicules)</p>
+                                    <span class="text-[10px] text-muted font-semibold">Semaines</span>
+                                </div>
+                                <div class="flex items-end gap-1.5 h-20" role="img" aria-label="Graphique fictif de l'évolution du parc, tendance à la hausse">
+                                    <div class="bar-soft flex-1 h-[30%]"></div>
+                                    <div class="bar-soft flex-1 h-[42%]"></div>
+                                    <div class="bar-soft flex-1 h-[38%]"></div>
+                                    <div class="bar-soft flex-1 h-[55%]"></div>
+                                    <div class="bar flex-1 h-[70%]"></div>
+                                    <div class="bar flex-1 h-[82%]"></div>
+                                    <div class="bar flex-1 h-[96%]"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             6. GESTION DES VENTES
+             ============================================================ -->
+        <section class="relative max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24 scroll-mt-20">
+            <div class="grid lg:grid-cols-[1fr_1.1fr] gap-12 items-center">
+                <div class="order-2 lg:order-1">
+                    <span class="eyebrow reveal"><i class="fa-solid fa-tags"></i> Nouveau module</span>
+                    <h2 class="reveal reveal-delay-1 mt-4 text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                        Transformez vos véhicules disponibles<br>
+                        en <span class="text-gold">opportunités commerciales.</span>
+                    </h2>
+                    <p class="reveal reveal-delay-2 mt-4 text-soft leading-relaxed">
+                        Publiez vos véhicules avec photos, prix et description, gérez les acheteurs et
+                        suivez l'historique complet de vos ventes depuis la plateforme.
+                    </p>
+                    <ul class="reveal reveal-delay-2 mt-6 grid sm:grid-cols-2 gap-x-6 gap-y-3 text-sm text-soft">
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-circle-check text-gold mt-0.5"></i> Catalogue avec photos</li>
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-circle-check text-gold mt-0.5"></i> Prix & caractéristiques</li>
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-circle-check text-gold mt-0.5"></i> Disponibilité en temps réel</li>
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-circle-check text-gold mt-0.5"></i> Gestion des acheteurs</li>
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-circle-check text-gold mt-0.5"></i> Historique des ventes</li>
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-circle-check text-gold mt-0.5"></i> Statuts & suivi complet</li>
+                    </ul>
+                    <div class="reveal reveal-delay-3 mt-8">
+                        <a href="/app?view=signup" class="btn-gold"><i class="fa-solid fa-arrow-right"></i> Découvrir la gestion des ventes</a>
+                    </div>
+                </div>
+
+                <!-- Cartes véhicules (visuels SVG remplaçables) -->
+                <div class="order-1 lg:order-2 grid sm:grid-cols-2 gap-4">
+                    <!-- Véhicule 1 -->
+                    <article class="reveal reveal-delay-1 card-lift surface rounded-3xl overflow-hidden">
+                        <div class="relative h-36 grid place-items-center" style="background: linear-gradient(150deg, #17305e 0%, #0b1a38 100%);">
+                            <svg viewBox="0 0 320 130" class="w-4/5 h-auto" role="img" aria-label="Illustration Toyota Corolla">
+                                <defs>
+                                    <linearGradient id="carGrad1" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0" stop-color="#e2e8f0"/><stop offset="1" stop-color="#94a3b8"/>
+                                    </linearGradient>
+                                </defs>
+                                <path d="M30 95 L38 62 Q40 58 46 57 L110 50 Q115 34 132 32 L205 30 Q225 30 236 46 L258 50 Q274 52 278 60 L292 68 Q298 72 298 82 L298 95 Q298 99 294 99 L58 99 Q54 99 54 95 Z" fill="url(#carGrad1)"/>
+                                <path d="M118 55 L128 38 Q132 35 138 35 L200 35 Q206 35 209 40 L232 55 Z" fill="rgba(255,255,255,0.25)"/>
+                                <circle cx="95" cy="99" r="18" fill="#0b1a38"/><circle cx="95" cy="99" r="8" fill="#64748b"/>
+                                <circle cx="235" cy="99" r="18" fill="#0b1a38"/><circle cx="235" cy="99" r="8" fill="#64748b"/>
+                            </svg>
+                            <span class="absolute top-3 left-3 chip !bg-emerald-500/15 !border-emerald-400/30 !text-emerald-300"><span class="badge-dot" style="background:#34d399;"></span> Disponible</span>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <h3 class="font-extrabold text-sm">Toyota Corolla</h3>
+                                    <p class="text-xs text-muted">2021 · 45 200 km</p>
+                                </div>
+                                <p class="font-extrabold text-sm text-gold whitespace-nowrap">8 720 000 F</p>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-1.5">
+                                <span class="chip !text-[10px]"><i class="fa-solid fa-gas-pump"></i> Essence</span>
+                                <span class="chip !text-[10px]"><i class="fa-solid fa-gears"></i> Automatique</span>
+                                <span class="chip !text-[10px]"><i class="fa-solid fa-palette"></i> Gris</span>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Véhicule 2 -->
+                    <article class="reveal reveal-delay-2 card-lift surface rounded-3xl overflow-hidden">
+                        <div class="relative h-36 grid place-items-center" style="background: linear-gradient(150deg, #123a33 0%, #0a1f2a 100%);">
+                            <svg viewBox="0 0 320 130" class="w-4/5 h-auto" role="img" aria-label="Illustration Renault Clio">
+                                <defs>
+                                    <linearGradient id="carGrad2" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#d97706"/>
+                                    </linearGradient>
+                                </defs>
+                                <path d="M30 95 L38 62 Q40 58 46 57 L110 50 Q115 34 132 32 L205 30 Q225 30 236 46 L258 50 Q274 52 278 60 L292 68 Q298 72 298 82 L298 95 Q298 99 294 99 L58 99 Q54 99 54 95 Z" fill="url(#carGrad2)"/>
+                                <path d="M118 55 L128 38 Q132 35 138 35 L200 35 Q206 35 209 40 L232 55 Z" fill="rgba(15,23,42,0.28)"/>
+                                <circle cx="95" cy="99" r="18" fill="#0a1f2a"/><circle cx="95" cy="99" r="8" fill="#64748b"/>
+                                <circle cx="235" cy="99" r="18" fill="#0a1f2a"/><circle cx="235" cy="99" r="8" fill="#64748b"/>
+                            </svg>
+                            <span class="absolute top-3 left-3 chip !bg-amber-500/15 !border-amber-400/30 !text-amber-300"><span class="badge-dot" style="background:#fbbf24;"></span> En négociation</span>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <h3 class="font-extrabold text-sm">Renault Clio</h3>
+                                    <p class="text-xs text-muted">2019 · 58 900 km</p>
+                                </div>
+                                <p class="font-extrabold text-sm text-gold whitespace-nowrap">4 950 000 F</p>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-1.5">
+                                <span class="chip !text-[10px]"><i class="fa-solid fa-gas-pump"></i> Diesel</span>
+                                <span class="chip !text-[10px]"><i class="fa-solid fa-gears"></i> Manuelle</span>
+                                <span class="chip !text-[10px]"><i class="fa-solid fa-palette"></i> Or</span>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Véhicule 3 -->
+                    <article class="reveal reveal-delay-1 card-lift surface rounded-3xl overflow-hidden">
+                        <div class="relative h-36 grid place-items-center" style="background: linear-gradient(150deg, #3b0f1e 0%, #1c0a14 100%);">
+                            <svg viewBox="0 0 320 130" class="w-4/5 h-auto" role="img" aria-label="Illustration Peugeot 208">
+                                <defs>
+                                    <linearGradient id="carGrad3" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0" stop-color="#cbd5e1"/><stop offset="1" stop-color="#475569"/>
+                                    </linearGradient>
+                                </defs>
+                                <path d="M30 95 L38 62 Q40 58 46 57 L110 50 Q115 34 132 32 L205 30 Q225 30 236 46 L258 50 Q274 52 278 60 L292 68 Q298 72 298 82 L298 95 Q298 99 294 99 L58 99 Q54 99 54 95 Z" fill="url(#carGrad3)"/>
+                                <path d="M118 55 L128 38 Q132 35 138 35 L200 35 Q206 35 209 40 L232 55 Z" fill="rgba(255,255,255,0.2)"/>
+                                <circle cx="95" cy="99" r="18" fill="#1c0a14"/><circle cx="95" cy="99" r="8" fill="#64748b"/>
+                                <circle cx="235" cy="99" r="18" fill="#1c0a14"/><circle cx="235" cy="99" r="8" fill="#64748b"/>
+                            </svg>
+                            <span class="absolute top-3 left-3 chip !bg-slate-500/15 !border-slate-400/30 !text-slate-300"><span class="badge-dot" style="background:#94a3b8;"></span> Vendu</span>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <h3 class="font-extrabold text-sm">Peugeot 208</h3>
+                                    <p class="text-xs text-muted">2020 · 39 400 km</p>
+                                </div>
+                                <p class="font-extrabold text-sm text-gold whitespace-nowrap">6 300 000 F</p>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-1.5">
+                                <span class="chip !text-[10px]"><i class="fa-solid fa-gas-pump"></i> Essence</span>
+                                <span class="chip !text-[10px]"><i class="fa-solid fa-user-check"></i> Acheteur interne</span>
+                                <span class="chip !text-[10px]"><i class="fa-solid fa-palette"></i> Gris</span>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Statistique mini -->
+                    <article class="reveal reveal-delay-2 card-lift surface rounded-3xl p-5 flex flex-col justify-center">
+                        <p class="text-[11px] text-muted font-bold uppercase tracking-wider">Historique des ventes</p>
+                        <p class="mt-3 kpi-value text-lg text-gold">14 ventes</p>
+                        <p class="text-xs text-soft mt-1">ce trimestre · 96,4M F</p>
+                        <div class="mt-4 h-1.5 rounded-full overflow-hidden" style="background: var(--surface-3);">
+                            <div class="h-full rounded-full" style="width: 74%; background: var(--grad-gold);"></div>
+                        </div>
+                        <p class="text-[10px] text-muted mt-2">Objectif trimestriel : 68 % atteint</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+        <!-- ============================================================
+             7. TÉMOIGNAGES
+             ============================================================ -->
+        <section class="relative py-16 md:py-24 scroll-mt-20" style="background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+            <div class="max-w-7xl mx-auto px-4 md:px-6">
+                <div class="text-center max-w-2xl mx-auto">
+                    <span class="eyebrow reveal"><i class="fa-solid fa-star"></i> Ils nous font confiance</span>
+                    <h2 class="reveal reveal-delay-1 mt-4 text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                        Des flottes qui <span class="text-gold">roulent mieux.</span>
+                    </h2>
+                    <p class="reveal reveal-delay-2 mt-4 text-soft text-base">
+                        Garages, transporteurs et gestionnaires de parcs : voici ce qu'ils en disent.
+                    </p>
+                </div>
+
+                <div class="mt-12 grid md:grid-cols-3 gap-5">
+                    <figure class="reveal card-lift surface rounded-3xl p-6">
+                        <div class="flex gap-1 text-gold text-sm">
+                            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                        </div>
+                        <blockquote class="mt-4 text-sm text-soft leading-relaxed">
+                            « Nous avons réduit de 18 % notre budget carburant en six mois. La détection
+                            des anomalies nous a permis de repérer des dérives immédiatement. »
+                        </blockquote>
+                        <figcaption class="mt-5 flex items-center gap-3">
+                            <span class="avatar">AS</span>
+                            <div>
+                                <p class="font-bold text-sm">Amadou S.</p>
+                                <p class="text-xs text-muted">Directeur d'un parc de 45 véhicules</p>
+                            </div>
+                        </figcaption>
+                    </figure>
+
+                    <figure class="reveal reveal-delay-1 card-lift surface rounded-3xl p-6">
+                        <div class="flex gap-1 text-gold text-sm">
+                            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                        </div>
+                        <blockquote class="mt-4 text-sm text-soft leading-relaxed">
+                            « Plus aucun document égaré : assurances, contrôles techniques et cartes grises
+                            sont centralisés, avec des alertes avant chaque échéance. »
+                        </blockquote>
+                        <figcaption class="mt-5 flex items-center gap-3">
+                            <span class="avatar">MD</span>
+                            <div>
+                                <p class="font-bold text-sm">Mariam D.</p>
+                                <p class="text-xs text-muted">Responsable logistique</p>
+                            </div>
+                        </figcaption>
+                    </figure>
+
+                    <figure class="reveal reveal-delay-2 card-lift surface rounded-3xl p-6">
+                        <div class="flex gap-1 text-gold text-sm">
+                            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                        </div>
+                        <blockquote class="mt-4 text-sm text-soft leading-relaxed">
+                            « La gestion des ventes nous a permis de vendre nos véhicules disponibles en
+                            toute transparence, avec un historique complet de chaque transaction. »
+                        </blockquote>
+                        <figcaption class="mt-5 flex items-center gap-3">
+                            <span class="avatar">KT</span>
+                            <div>
+                                <p class="font-bold text-sm">Karim T.</p>
+                                <p class="text-xs text-muted">Gérant de garage</p>
+                            </div>
+                        </figcaption>
+                    </figure>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             8. À PROPOS / SÉCURITÉ
+             ============================================================ -->
+        <section id="securite" class="relative max-w-7xl mx-auto px-4 md:px-6 py-16 md:py-24 scroll-mt-20">
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div>
+                    <span class="eyebrow reveal"><i class="fa-solid fa-shield-halved"></i> À propos</span>
+                    <h2 class="reveal reveal-delay-1 mt-4 text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                        Une plateforme fiable, <span class="text-gold">conçue pour durer.</span>
+                    </h2>
+                    <p class="reveal reveal-delay-2 mt-4 text-soft leading-relaxed">
+                        Asadiya Flotte PRO accompagne les organisations de toutes tailles — PME, garages,
+                        transporteurs, administrations — dans la gestion quotidienne de leurs véhicules,
+                        de leur entretien et de leur vente.
+                    </p>
+                    <div class="reveal reveal-delay-2 mt-6 grid sm:grid-cols-2 gap-4">
+                        <div class="surface rounded-2xl p-4">
+                            <i class="fa-solid fa-user-lock text-xl text-gold"></i>
+                            <p class="mt-3 font-bold text-sm">Authentification & rôles</p>
+                            <p class="mt-1 text-xs text-muted">Gestionnaires, conducteurs et administrateurs disposent d'accès distincts.</p>
+                        </div>
+                        <div class="surface rounded-2xl p-4">
+                            <i class="fa-solid fa-database text-xl text-gold"></i>
+                            <p class="mt-3 font-bold text-sm">Données sécurisées</p>
+                            <p class="mt-1 text-xs text-muted">Vos informations sont protégées et sauvegardées.</p>
+                        </div>
+                        <div class="surface rounded-2xl p-4">
+                            <i class="fa-solid fa-file-export text-xl text-gold"></i>
+                            <p class="mt-3 font-bold text-sm">Exports & rapports</p>
+                            <p class="mt-1 text-xs text-muted">Générez des rapports PDF et Excel pour vos analyses.</p>
+                        </div>
+                        <div class="surface rounded-2xl p-4">
+                            <i class="fa-solid fa-headset text-xl text-gold"></i>
+                            <p class="mt-3 font-bold text-sm">Accompagnement</p>
+                            <p class="mt-1 text-xs text-muted">Une équipe disponible pour vous aider à prendre en main la plateforme.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="reveal reveal-delay-2 relative">
+                    <div class="surface rounded-3xl screen-shadow p-6 md:p-8">
+                        <div class="flex items-center gap-3">
+                            <span class="avatar avatar-lg">AF</span>
+                            <div>
+                                <p class="font-extrabold">Asadiya Flotte PRO</p>
+                                <p class="text-xs text-muted">Pilotez votre flotte avec confiance</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 space-y-4">
+                            <div class="flex items-center justify-between border-b border-dashed pb-3" style="border-color: var(--border);">
+                                <span class="text-sm text-soft"><i class="fa-solid fa-car mr-2 text-gold"></i>Gestion de flotte complète</span>
+                                <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                            </div>
+                            <div class="flex items-center justify-between border-b border-dashed pb-3" style="border-color: var(--border);">
+                                <span class="text-sm text-soft"><i class="fa-solid fa-gas-pump mr-2 text-gold"></i>Suivi carburant & anomalies</span>
+                                <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                            </div>
+                            <div class="flex items-center justify-between border-b border-dashed pb-3" style="border-color: var(--border);">
+                                <span class="text-sm text-soft"><i class="fa-solid fa-screwdriver-wrench mr-2 text-gold"></i>Maintenance prédictive</span>
+                                <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-soft"><i class="fa-solid fa-tags mr-2 text-gold"></i>Module vente de véhicules</span>
+                                <i class="fa-solid fa-circle-check text-emerald-500"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             9. TARIFS
+             ============================================================ -->
+        <section id="tarifs" class="relative py-16 md:py-24 scroll-mt-20" style="background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+            <div class="max-w-7xl mx-auto px-4 md:px-6">
+                <div class="text-center max-w-2xl mx-auto">
+                    <span class="eyebrow reveal"><i class="fa-solid fa-credit-card"></i> Tarifs</span>
+                    <h2 class="reveal reveal-delay-1 mt-4 text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                        Des offres simples, <span class="text-gold">sans engagement.</span>
+                    </h2>
+                    <p class="reveal reveal-delay-2 mt-4 text-soft text-base">
+                        Commencez gratuitement, passez au niveau supérieur quand votre flotte grandit.
+                    </p>
+                </div>
+
+                <div class="mt-12 grid md:grid-cols-3 gap-5 items-start max-w-5xl mx-auto">
+                    <!-- Plan Starter -->
+                    <article class="reveal surface rounded-3xl p-6">
+                        <h3 class="font-extrabold text-lg">Starter</h3>
+                        <p class="text-xs text-muted mt-1">Pour les petites flottes</p>
+                        <p class="mt-5"><span class="text-4xl font-extrabold">0 F</span><span class="text-sm text-muted">/mois</span></p>
+                        <ul class="mt-6 space-y-3 text-sm text-soft">
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Jusqu'à 5 véhicules</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Gestion de flotte essentielle</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Documents & alertes</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Support communautaire</li>
+                        </ul>
+                        <a href="/app?view=signup" class="btn-ghost mt-8 w-full justify-center !py-3 text-sm">Commencer gratuitement</a>
+                    </article>
+
+                    <!-- Plan Pro (recommandé) -->
+                    <article class="reveal reveal-delay-1 card-lift rounded-3xl p-6 relative text-white" style="background: var(--grad-navy-card, linear-gradient(150deg, #101f3d 0%, #0b1630 100%)); border: 1px solid rgba(245,185,62,.45);">
+                        <span class="absolute -top-3 right-6 chip !bg-[#f7b733] !text-[#211603] !border-transparent"><i class="fa-solid fa-crown"></i> Recommandé</span>
+                        <h3 class="font-extrabold text-lg">Pro</h3>
+                        <p class="text-xs text-white/60 mt-1">Pour les flottes en croissance</p>
+                        <p class="mt-5"><span class="text-4xl font-extrabold">15 000 F</span><span class="text-sm text-white/60">/mois</span></p>
+                        <ul class="mt-6 space-y-3 text-sm text-white/85">
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Jusqu'à 100 véhicules</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Maintenance & carburant avancés</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Centre de pilotage complet</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Module vente de véhicules</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Exports PDF / Excel illimités</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Support prioritaire</li>
+                        </ul>
+                        <a href="/app?view=signup" class="btn-gold mt-8 w-full justify-center !py-3 text-sm">Choisir Pro</a>
+                    </article>
+
+                    <!-- Plan Entreprise -->
+                    <article class="reveal reveal-delay-2 surface rounded-3xl p-6">
+                        <h3 class="font-extrabold text-lg">Entreprise</h3>
+                        <p class="text-xs text-muted mt-1">Sur mesure</p>
+                        <p class="mt-5"><span class="text-4xl font-extrabold">Sur devis</span></p>
+                        <ul class="mt-6 space-y-3 text-sm text-soft">
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Flottes illimitées</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Multi-agences & rôles avancés</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Intégrations & API</li>
+                            <li class="flex items-center gap-2.5"><i class="fa-solid fa-check text-gold"></i> Accompagnement dédié</li>
+                        </ul>
+                        <a href="/app?view=signup" class="btn-ghost mt-8 w-full justify-center !py-3 text-sm">Nous contacter</a>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             10. FAQ
+             ============================================================ -->
+        <section id="faq" class="relative max-w-3xl mx-auto px-4 md:px-6 py-16 md:py-24 scroll-mt-20">
+            <div class="text-center">
+                <span class="eyebrow reveal"><i class="fa-solid fa-circle-question"></i> FAQ</span>
+                <h2 class="reveal reveal-delay-1 mt-4 text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                    Vos questions, <span class="text-gold">nos réponses.</span>
+                </h2>
+            </div>
+
+            <div class="mt-10 space-y-3">
+                <details class="reveal faq-item surface rounded-2xl" open>
+                    <summary class="faq-summary"><span>Comment démarrer avec Asadiya Flotte PRO ?</span><i class="fa-solid fa-chevron-down faq-chevron"></i></summary>
+                    <p class="faq-body text-sm text-soft leading-relaxed">
+                        Créez un compte gratuit, ajoutez vos véhicules et vos conducteurs, puis commencez à suivre
+                        votre flotte immédiatement. Aucune carte bancaire n'est requise pour l'essai.
+                    </p>
+                </details>
+
+                <details class="reveal faq-item surface rounded-2xl">
+                    <summary class="faq-summary"><span>Puis-je changer de formule à tout moment ?</span><i class="fa-solid fa-chevron-down faq-chevron"></i></summary>
+                    <p class="faq-body text-sm text-soft leading-relaxed">
+                        Oui, vous pouvez passer au plan supérieur ou revenir au plan Starter à tout moment depuis
+                        vos paramètres. Vos données sont conservées quelle que soit votre formule.
+                    </p>
+                </details>
+
+                <details class="reveal faq-item surface rounded-2xl">
+                    <summary class="faq-summary"><span>La plateforme fonctionne-t-elle sur mobile ?</span><i class="fa-solid fa-chevron-down faq-chevron"></i></summary>
+                    <p class="faq-body text-sm text-soft leading-relaxed">
+                        Absolument. Asadiya Flotte PRO est accessible depuis un ordinateur, une tablette ou un
+                        téléphone, pour piloter votre flotte où que vous soyez.
+                    </p>
+                </details>
+
+                <details class="reveal faq-item surface rounded-2xl">
+                    <summary class="faq-summary"><span>Mes données sont-elles sécurisées ?</span><i class="fa-solid fa-chevron-down faq-chevron"></i></summary>
+                    <p class="faq-body text-sm text-soft leading-relaxed">
+                        Oui. La plateforme repose sur une authentification sécurisée avec des rôles distincts
+                        (administrateur, gestionnaire, conducteur) et des sauvegardes régulières de vos données.
+                    </p>
+                </details>
+
+                <details class="reveal faq-item surface rounded-2xl">
+                    <summary class="faq-summary"><span>Puis-je vendre mes véhicules depuis la plateforme ?</span><i class="fa-solid fa-chevron-down faq-chevron"></i></summary>
+                    <p class="faq-body text-sm text-soft leading-relaxed">
+                        Oui. Le module Vente de véhicules vous permet de publier des annonces avec photos, prix et
+                        description, de gérer les acheteurs et de suivre l'historique complet de vos ventes.
+                    </p>
+                </details>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             11. APPEL À L'ACTION FINAL
+             ============================================================ -->
+        <section class="relative max-w-7xl mx-auto px-4 md:px-6 pb-16 md:pb-24">
+            <div class="reveal cta-glow relative overflow-hidden rounded-3xl px-6 py-14 md:p-16 text-center text-white" style="background: linear-gradient(140deg, #14274e 0%, #0b1a38 55%, #0d2040 100%);">
+                <i class="fa-solid fa-route absolute -top-8 -left-8 text-[9rem] opacity-10 rotate-12" aria-hidden="true"></i>
+                <i class="fa-solid fa-car absolute -bottom-10 -right-6 text-[9rem] opacity-10 -rotate-6" aria-hidden="true"></i>
+                <span class="eyebrow !text-gold relative"><i class="fa-solid fa-rocket"></i> Prêt à démarrer ?</span>
+                <h2 class="relative mt-4 text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">
+                    Simplifiez la gestion de votre flotte<br class="hidden md:block">
+                    dès aujourd'hui.
+                </h2>
+                <p class="relative mt-4 text-white/70 max-w-xl mx-auto">
+                    Rejoignez des centaines d'organisations qui pilotent déjà leur parc avec Asadiya Flotte PRO.
+                </p>
+                <div class="relative mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <a href="/app?view=signup" class="btn-gold !px-8 !py-4 text-base"><i class="fa-solid fa-rocket"></i> Créer un compte gratuit</a>
+                    <a href="/app?view=login" class="btn-ghost !border-white/20 !text-white hover:!bg-white/5 !px-8 !py-4 text-base"><i class="fa-solid fa-right-to-bracket"></i> Se connecter</a>
+                </div>
+                <p class="relative mt-6 text-xs text-white/50">Sans carte bancaire · Annulable à tout moment</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- ============================================================
+         PIED DE PAGE
+         ============================================================ -->
+    <footer class="border-t border-gold/20 pt-14 pb-8" style="background: var(--bg-2);">
+        <div class="max-w-7xl mx-auto px-4 md:px-6">
+            <div class="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+                <div>
+                    <a href="#top" class="inline-flex items-center gap-2.5 font-extrabold text-lg tracking-tight">
+                        <span class="w-9 h-9 rounded-xl grid place-items-center" style="background: var(--grad-gold); color: var(--gold-ink);"><i class="fa-solid fa-car-side"></i></span>
+                        Asadiya Flotte <span class="text-gold">PRO</span>
+                    </a>
+                    <p class="mt-4 text-sm text-soft max-w-xs leading-relaxed">
+                        La plateforme complète pour gérer votre flotte de véhicules : maintenance, carburant,
+                        documents, ventes et pilotage.
+                    </p>
+                    <div class="mt-5 flex gap-3">
+                        <a href="#" aria-label="Facebook" class="social-btn"><i class="fa-brands fa-facebook-f"></i></a>
+                        <a href="#" aria-label="X" class="social-btn"><i class="fa-brands fa-x-twitter"></i></a>
+                        <a href="#" aria-label="LinkedIn" class="social-btn"><i class="fa-brands fa-linkedin-in"></i></a>
+                        <a href="#" aria-label="WhatsApp" class="social-btn"><i class="fa-brands fa-whatsapp"></i></a>
+                    </div>
+                </div>
+                <nav aria-label="Produit">
+                    <p class="font-bold text-sm">Produit</p>
+                    <ul class="mt-4 space-y-2.5 text-sm text-soft">
+                        <li><a href="#fonctionnalites" class="footer-link">Fonctionnalités</a></li>
+                        <li><a href="#plateforme" class="footer-link">Centre de pilotage</a></li>
+                        <li><a href="#securite" class="footer-link">À propos</a></li>
+                        <li><a href="#tarifs" class="footer-link">Tarifs</a></li>
+                    </ul>
+                </nav>
+                <nav aria-label="Ressources">
+                    <p class="font-bold text-sm">Ressources</p>
+                    <ul class="mt-4 space-y-2.5 text-sm text-soft">
+                        <li><a href="#faq" class="footer-link">FAQ</a></li>
+                        <li><a href="/app?view=login" class="footer-link">Espace client</a></li>
+                        <li><a href="#" class="footer-link">Centre d'aide</a></li>
+                        <li><a href="#" class="footer-link">Nous contacter</a></li>
+                    </ul>
+                </nav>
+                <nav aria-label="Légal">
+                    <p class="font-bold text-sm">Légal</p>
+                    <ul class="mt-4 space-y-2.5 text-sm text-soft">
+                        <li><a href="#" class="footer-link">Mentions légales</a></li>
+                        <li><a href="#" class="footer-link">Politique de confidentialité</a></li>
+                        <li><a href="#" class="footer-link">Conditions générales</a></li>
+                    </ul>
+                </nav>
+            </div>
+            <div class="mt-12 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-3" style="border-color: var(--border);">
+                <p class="text-xs text-muted">© <span id="year">2026</span> Asadiya Flotte PRO. Tous droits réservés.</p>
+                <p class="text-xs text-muted"><i class="fa-solid fa-shield-halved mr-1"></i> Vos données sont protégées.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
+
