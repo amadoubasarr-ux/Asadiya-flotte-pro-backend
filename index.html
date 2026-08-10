@@ -2386,71 +2386,105 @@
                     </p>
 
                     <!-- Grille des Cartes Ventes -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" x-effect="prefetchSaleCardPhotos()">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" x-effect="prefetchSaleCardPhotos()">
                         <template x-for="s in filteredSales" :key="s.id">
-                            <div class="card card-hover card-pad space-y-4 transition flex flex-col justify-between">
-                                <div class="space-y-3">
-                                    <!-- Photo principale de la vente (ou placeholder) -->
-                                    <div class="relative h-40 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
-                                        <img x-show="saleCardPhotoSrc(s)" :src="saleCardPhotoSrc(s)" :alt="s.title || s.vehicle" class="w-full h-full object-cover">
-                                        <template x-if="!saleCardPhotoSrc(s) && saleVehicle(s) && saleVehicle(s).photo">
-                                            <img :src="saleVehicle(s).photo" :alt="s.title || s.vehicle" class="w-full h-full object-cover">
-                                        </template>
-                                        <template x-if="!saleCardPhotoSrc(s) && !(saleVehicle(s) && saleVehicle(s).photo)">
-                                            <i class="fa-solid fa-car text-slate-300 text-4xl"></i>
-                                        </template>
-                                        <span x-show="s.photoCount > 1" class="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                            <i class="fa-solid fa-images mr-1"></i> +<span x-text="s.photoCount - 1"></span>
-                                        </span>
+                            <div class="card card-hover overflow-hidden flex flex-col">
+                                <!-- Photo principale de la vente (ou placeholder) -->
+                                <div class="relative h-44 bg-slate-100 border-b border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                    <img x-show="saleCardPhotoSrc(s)" :src="saleCardPhotoSrc(s)" :alt="saleTitle(s)" class="w-full h-full object-cover">
+                                    <template x-if="!saleCardPhotoSrc(s) && saleVehicle(s) && saleVehicle(s).photo">
+                                        <img :src="saleVehicle(s).photo" :alt="saleTitle(s)" class="w-full h-full object-cover">
+                                    </template>
+                                    <template x-if="!saleCardPhotoSrc(s) && !(saleVehicle(s) && saleVehicle(s).photo)">
+                                        <i class="fa-solid fa-car text-slate-300 text-4xl"></i>
+                                    </template>
+                                    <!-- Badge statut commercial sur la photo -->
+                                    <span class="absolute top-2 left-2">
+                                        <span :class="commercialStatusBadge(saleCommercialStatus(s)).cls" class="badge shadow-sm" x-text="commercialStatusBadge(saleCommercialStatus(s)).label"></span>
+                                    </span>
+                                    <span x-show="s.photoCount > 1" class="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                        <i class="fa-solid fa-images mr-1"></i> <span x-text="s.photoCount"></span>
+                                    </span>
+                                </div>
+
+                                <div class="p-4 space-y-3 flex flex-col flex-1">
+                                    <div class="min-w-0">
+                                        <h3 class="font-bold text-base text-slate-900 truncate" x-text="saleTitle(s)"></h3>
+                                        <p class="text-[11px] text-slate-400 truncate" x-text="s.saleNumber ? 'Vente n° ' + s.saleNumber : (s.vehicle || '')"></p>
                                     </div>
 
-                                    <div class="flex justify-between items-start gap-2">
-                                        <div class="min-w-0">
-                                            <h3 class="font-bold text-base text-slate-900 truncate" x-text="s.title || (saleVehicle(s) ? saleVehicle(s).brand + ' ' + saleVehicle(s).model : s.vehicle)"></h3>
-                                            <p class="text-[11px] text-slate-400 truncate" x-text="s.vehicle || (saleVehicle(s) ? saleVehicle(s).plate : '')"></p>
+                                    <div class="grid grid-cols-3 gap-2 text-[11px] text-slate-500">
+                                        <div class="bg-slate-50 rounded-lg p-2 text-center border border-slate-100">
+                                            <p class="font-bold text-slate-800 text-xs" x-text="s.year || '—'"></p>
+                                            <p class="text-[9px] uppercase tracking-wide text-slate-400">Année</p>
                                         </div>
-                                        <span :class="saleStatusBadge(s.status).cls" class="badge" x-text="saleStatusBadge(s.status).label"></span>
+                                        <div class="bg-slate-50 rounded-lg p-2 text-center border border-slate-100">
+                                            <p class="font-bold text-slate-800 text-xs" x-text="s.mileage != null ? fmtNum(s.mileage) + ' km' : '—'"></p>
+                                            <p class="text-[9px] uppercase tracking-wide text-slate-400">Km</p>
+                                        </div>
+                                        <div class="bg-slate-50 rounded-lg p-2 text-center border border-slate-100">
+                                            <p class="font-bold text-slate-800 text-xs truncate" x-text="(saleVehicle(s) && saleVehicle(s).fuel) || '—'"></p>
+                                            <p class="text-[9px] uppercase tracking-wide text-slate-400">Carburant</p>
+                                        </div>
                                     </div>
 
-                                    <div class="grid grid-cols-2 gap-2 text-xs text-slate-500 pt-2 border-t border-slate-100">
-                                        <div>Prix : <span class="text-slate-800 font-mono font-bold" x-text="fmtNum(s.price) + ' ' + s.currency"></span></div>
-                                        <div>Kilométrage : <span class="text-slate-800 font-mono" x-text="fmtNum(s.mileage) + ' km'"></span></div>
-                                        <div>Année : <span class="text-slate-800" x-text="s.year"></span></div>
-                                        <div>Date : <span class="text-slate-800" x-text="fmtDate(s.saleDate)"></span></div>
-                                        <div>Paiement : <span :class="paymentStatusBadge(s.paymentStatus).cls" class="badge !text-[10px]" x-text="paymentStatusBadge(s.paymentStatus).label"></span></div>
-                                        <div>Livraison : <span :class="deliveryStatusBadge(s.deliveryStatus).cls" class="badge !text-[10px]" x-text="deliveryStatusBadge(s.deliveryStatus).label"></span></div>
+                                    <!-- Prix très visible -->
+                                    <div class="flex items-center justify-between gap-2 rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2.5">
+                                        <span class="text-[10px] font-semibold text-indigo-600 uppercase tracking-wide">Prix</span>
+                                        <span class="font-mono font-extrabold text-indigo-700 text-sm" x-text="fmtPrice(s.price, s.currency)"></span>
                                     </div>
-                                </div>
 
-                                <!-- Cycle de vie commercial du véhicule (Phase 7.7 — Commit 5) -->
-                                <div class="flex flex-wrap items-center gap-1 pt-2 border-t border-slate-100">
-                                    <span :class="commercialStatusBadge(saleCommercialStatus(s)).cls" class="badge !text-[10px]" x-text="commercialStatusBadge(saleCommercialStatus(s)).label"></span>
-                                    <template x-if="canManageFleet && saleCommercialStatus(s) === 'AVAILABLE'">
-                                        <button @click="setVehicleCommercialStatus(s, 'FOR_SALE')" class="btn btn-ghost btn-xs !text-indigo-600 font-bold">
-                                            <i class="fa-solid fa-tag mr-1"></i> Mettre en vente
-                                        </button>
-                                    </template>
-                                    <template x-if="canManageFleet && saleCommercialStatus(s) === 'FOR_SALE'">
-                                        <button @click="setVehicleCommercialStatus(s, 'AVAILABLE')" class="btn btn-ghost btn-xs !text-slate-500 font-bold">
-                                            <i class="fa-solid fa-arrow-rotate-left mr-1"></i> Retirer
-                                        </button>
-                                        <button @click="setVehicleCommercialStatus(s, 'SOLD')" class="btn btn-ghost btn-xs !text-emerald-600 font-bold">
-                                            <i class="fa-solid fa-handshake mr-1"></i> Vendu
-                                        </button>
-                                    </template>
-                                </div>
+                                    <div class="flex flex-wrap items-center gap-1">
+                                        <span :class="saleStatusBadge(s.status).cls" class="badge !text-[10px]" x-text="saleStatusBadge(s.status).label"></span>
+                                        <span :class="paymentStatusBadge(s.paymentStatus).cls" class="badge !text-[10px]" x-text="paymentStatusBadge(s.paymentStatus).label"></span>
+                                        <span :class="deliveryStatusBadge(s.deliveryStatus).cls" class="badge !text-[10px]" x-text="deliveryStatusBadge(s.deliveryStatus).label"></span>
+                                    </div>
 
-                                <div class="flex justify-between items-center pt-2 border-t border-slate-100">
-                                    <button @click="openSaleDetail(s)" class="btn btn-ghost btn-xs !text-indigo-600 font-bold">
-                                        <i class="fa-solid fa-eye mr-1"></i> Voir détails
-                                    </button>
-                                    <span class="text-[10px] font-mono text-slate-400" x-text="s.saleNumber || ''"></span>
+                                    <!-- Actions : voir + transition autorisée -->
+                                    <div class="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 mt-auto">
+                                        <button @click="openSaleDetail(s)" class="btn btn-secondary btn-sm flex-1 !text-indigo-600 font-bold">
+                                            <i class="fa-solid fa-eye mr-1"></i> Voir
+                                        </button>
+                                        <template x-if="canManageFleet && saleCommercialStatus(s) === 'AVAILABLE'">
+                                            <button @click="setVehicleCommercialStatus(s, 'FOR_SALE')" title="Mettre en vente" class="btn btn-primary btn-sm">
+                                                <i class="fa-solid fa-tag"></i>
+                                            </button>
+                                        </template>
+                                        <template x-if="canManageFleet && saleCommercialStatus(s) === 'FOR_SALE'">
+                                            <button @click="setVehicleCommercialStatus(s, 'AVAILABLE')" title="Retirer de la vente" class="btn btn-sm !bg-slate-100 hover:!bg-slate-200 !text-slate-600">
+                                                <i class="fa-solid fa-arrow-rotate-left"></i>
+                                            </button>
+                                            <button @click="openFinalizeSaleModal(s)" title="Finaliser la vente (VENDU)" class="btn btn-success btn-sm">
+                                                <i class="fa-solid fa-handshake"></i>
+                                            </button>
+                                        </template>
+                                        <template x-if="canManageFleet && saleCommercialStatus(s) === 'SOLD'">
+                                            <button @click="openSaleDetail(s)" class="btn btn-sm !bg-emerald-50 !text-emerald-700 border border-emerald-200">
+                                                <i class="fa-solid fa-circle-check mr-1"></i> Voir la vente
+                                            </button>
+                                        </template>
+                                    </div>
                                 </div>
                             </div>
                         </template>
                     </div>
 
-                    <p x-show="filteredSales.length === 0 && !salesLoading" class="text-sm text-slate-500 text-center py-10">Aucune vente de véhicule ne correspond à votre recherche.</p>
+                    <!-- État vide professionnel : aucun véhicule en vente -->
+                    <div x-show="!salesLoading && sales.length === 0" class="card border-2 border-dashed border-slate-200 bg-slate-50/60 rounded-2xl py-14 px-6 text-center">
+                        <div class="w-16 h-16 mx-auto rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-4">
+                            <i class="fa-solid fa-tags text-indigo-400 text-2xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-900">Aucun véhicule en vente</h3>
+                        <p class="text-xs text-slate-500 max-w-md mx-auto mt-2">
+                            Aucune annonce n'est actuellement proposée dans le catalogue de votre organisation.
+                            Publiez un véhicule disponible pour le présenter avec ses photos, son prix et sa description.
+                        </p>
+                        <button x-show="canManageFleet" @click="openSaleModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : ''" class="btn btn-primary mt-5">
+                            <i class="fa-solid fa-tag mr-1"></i> Mettre un véhicule en vente
+                        </button>
+                    </div>
+
+                    <p x-show="!salesLoading && sales.length > 0 && filteredSales.length === 0" class="text-sm text-slate-500 text-center py-10">Aucune vente de véhicule ne correspond à votre recherche.</p>
 
                 </div>
 
@@ -4963,214 +4997,427 @@
             </div>
         </div>
 
-        <!-- MODALE : DÉTAILS VENTE DE VÉHICULE -->
+        <!-- MODALE : DÉTAILS VENTE DE VÉHICULE (fiche automobile professionnelle) -->
         <div x-show="showSaleDetailModal" class="modal-backdrop" x-cloak>
-            <div class="modal-card p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div class="modal-card !max-w-4xl !max-h-[90vh] !overflow-hidden flex flex-col">
                 <template x-if="selectedSale">
+                    <div class="flex flex-col max-h-[90vh]">
+                        <!-- En-tête -->
+                        <div class="flex items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-slate-200 flex-shrink-0">
+                            <div class="min-w-0">
+                                <h3 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2 truncate">
+                                    <i class="fa-solid fa-handshake text-indigo-500 flex-shrink-0"></i>
+                                    <span class="truncate" x-text="selectedSale.saleNumber ? 'Vente n° ' + selectedSale.saleNumber : 'Vente de véhicule'"></span>
+                                </h3>
+                                <p class="text-[11px] text-slate-400 mt-0.5" x-text="selectedSale.createdAt ? 'Créée le ' + fmtDate(selectedSale.createdAt) : ''"></p>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <span :class="commercialStatusBadge(saleCommercialStatus(selectedSale)).cls" class="badge" x-text="commercialStatusBadge(saleCommercialStatus(selectedSale)).label"></span>
+                                <button @click="closeSaleDetail()" class="text-slate-400 hover:text-slate-700 p-2 rounded-lg hover:bg-slate-100 transition">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Corps scrollable -->
+                        <div class="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
+
+                            <!-- Bandeau VENDU -->
+                            <div x-show="saleCommercialStatus(selectedSale) === 'SOLD'" class="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm font-bold flex items-center gap-2">
+                                <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                                VENDU — ce véhicule est sorti du parc à la vente.
+                            </div>
+
+                            <!-- HERO : galerie + identité/prix -->
+                            <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+                                <!-- Galerie photos -->
+                                <div class="lg:col-span-3 space-y-2 min-w-0">
+                                    <p class="font-semibold text-slate-600 text-[11px] mb-1 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-images text-indigo-500"></i> Galerie photos
+                                        <span class="text-slate-400 font-normal" x-text="'(' + salePhotos.length + ')'"></span>
+                                    </p>
+
+                                    <p x-show="salePhotosLoading" class="text-xs text-slate-500 flex items-center gap-2 py-8 justify-center rounded-2xl bg-slate-50 border border-slate-200">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> Chargement des photos...
+                                    </p>
+                                    <p x-show="salePhotosError && !salePhotosLoading" class="text-xs text-rose-500 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span x-text="salePhotosError"></span>
+                                    </p>
+
+                                    <!-- Photo principale affichée -->
+                                    <template x-if="salePhotos.length > 0">
+                                        <div class="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 flex items-center justify-center" style="aspect-ratio: 4 / 3;">
+                                            <img :src="salePhotos[saleGalleryIndex] ? salePhotos[saleGalleryIndex].src : ''" :alt="saleTitle(selectedSale)" class="w-full h-full object-contain">
+                                            <button x-show="salePhotos.length > 1" @click="saleGalleryPrev()" title="Photo précédente" class="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 text-slate-700 hover:bg-white shadow flex items-center justify-center transition">
+                                                <i class="fa-solid fa-chevron-left text-xs"></i>
+                                            </button>
+                                            <button x-show="salePhotos.length > 1" @click="saleGalleryNext()" title="Photo suivante" class="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 text-slate-700 hover:bg-white shadow flex items-center justify-center transition">
+                                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                                            </button>
+                                            <span x-show="salePhotos[saleGalleryIndex] && salePhotos[saleGalleryIndex].isPrimary" class="absolute top-2 left-2 bg-amber-400 text-amber-950 text-[10px] font-bold px-2 py-1 rounded-full shadow flex items-center gap-1">
+                                                <i class="fa-solid fa-star"></i> Photo principale
+                                            </span>
+                                            <button @click="saleGalleryOpen = true" title="Agrandir la photo" class="absolute top-2 right-2 w-9 h-9 rounded-lg bg-white/90 text-slate-700 hover:bg-white shadow flex items-center justify-center transition">
+                                                <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
+                                            </button>
+                                            <span x-show="salePhotos.length > 1" class="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                                <span x-text="(saleGalleryIndex + 1) + ' / ' + salePhotos.length"></span>
+                                            </span>
+                                            <div x-show="canManageFleet" class="absolute bottom-2 left-2 flex gap-1.5">
+                                                <button x-show="salePhotos[saleGalleryIndex] && !salePhotos[saleGalleryIndex].isPrimary"
+                                                        @click="setSalePhotoPrimary(salePhotos[saleGalleryIndex])"
+                                                        title="Définir comme photo principale"
+                                                        class="btn btn-xs !bg-white/95 !text-amber-600 hover:!bg-white shadow">
+                                                    <i class="fa-solid fa-star mr-1"></i> Principale
+                                                </button>
+                                                <button @click="deleteSalePhoto(salePhotos[saleGalleryIndex])"
+                                                        title="Supprimer cette photo"
+                                                        class="btn btn-xs !bg-white/95 !text-rose-600 hover:!bg-white shadow">
+                                                    <i class="fa-solid fa-trash-can mr-1"></i> Supprimer
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- État vide élégant -->
+                                    <div x-show="!salePhotosLoading && salePhotos.length === 0" class="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center py-10 px-6 text-center" style="min-height: 12rem;">
+                                        <i class="fa-solid fa-camera text-slate-300 text-3xl mb-3"></i>
+                                        <p class="text-sm font-semibold text-slate-600">Aucune photo</p>
+                                        <p class="text-xs text-slate-400 mt-1 max-w-xs" x-text="canManageFleet ? 'Ajoutez la première photo de l\'annonce ci-dessous pour présenter ce véhicule.' : 'Ce véhicule n\'a pas encore de photo.'"></p>
+                                    </div>
+
+                                    <!-- Miniatures + réordonnancement -->
+                                    <div x-show="salePhotos.length > 1" class="flex gap-2 overflow-x-auto py-1">
+                                        <template x-for="(p, idx) in salePhotos" :key="p.id">
+                                            <div class="flex-shrink-0">
+                                                <button @click="saleThumbClick(p, idx)"
+                                                        :class="idx === saleGalleryIndex ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-slate-200 hover:border-slate-300'"
+                                                        title="Afficher cette photo"
+                                                        class="relative block w-16 h-16 rounded-lg overflow-hidden border bg-slate-100 transition">
+                                                    <img :src="p.src" class="w-full h-full object-cover">
+                                                    <i x-show="p.isPrimary" title="Photo principale" class="fa-solid fa-star absolute top-0.5 right-0.5 text-amber-400 text-[9px] drop-shadow"></i>
+                                                </button>
+                                                <div x-show="canManageFleet" class="flex justify-center gap-1 mt-0.5">
+                                                    <button @click="moveSalePhoto(idx, -1)" :disabled="idx === 0" title="Déplacer à gauche" class="w-5 h-5 rounded-md bg-slate-100 border border-slate-200 text-slate-500 hover:bg-slate-200 disabled:opacity-30 flex items-center justify-center text-[9px] transition">
+                                                        <i class="fa-solid fa-arrow-left"></i>
+                                                    </button>
+                                                    <button @click="moveSalePhoto(idx, 1)" :disabled="idx === salePhotos.length - 1" title="Déplacer à droite" class="w-5 h-5 rounded-md bg-slate-100 border border-slate-200 text-slate-500 hover:bg-slate-200 disabled:opacity-30 flex items-center justify-center text-[9px] transition">
+                                                        <i class="fa-solid fa-arrow-right"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- Ajout de photos (ADMIN, MANAGER) -->
+                                    <div x-show="canManageFleet" class="bg-slate-50 rounded-xl border border-slate-200 p-3 space-y-2">
+                                        <p class="font-semibold text-slate-600 text-[11px]"><i class="fa-solid fa-cloud-arrow-up mr-1 text-indigo-500"></i> Ajouter une photo</p>
+                                        <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                                            <input type="file" accept="image/jpeg,image/png,image/webp" @click="$event.target.value = ''" @change="onSalePhotoSelect($event)" class="input !text-xs file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:text-xs file:font-semibold">
+                                            <button @click="uploadSalePhoto()" :disabled="!salePhotoSelected || salePhotoUploading" class="btn btn-primary !text-xs whitespace-nowrap">
+                                                <i class="fa-solid fa-circle-notch fa-spin mr-1" x-show="salePhotoUploading"></i>
+                                                <i class="fa-solid fa-upload mr-1" x-show="!salePhotoUploading"></i> Ajouter
+                                            </button>
+                                        </div>
+                                        <div x-show="salePhotoUploading" class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                                            <div class="h-full bg-indigo-600 transition-all" :style="'width: ' + salePhotoProgress + '%'"></div>
+                                        </div>
+                                        <p x-show="salePhotoUploadError" class="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-2 py-1.5">
+                                            <i class="fa-solid fa-circle-exclamation mr-1"></i> <span x-text="salePhotoUploadError"></span>
+                                        </p>
+                                        <p class="text-[10px] text-slate-400">Formats acceptés : JPG, PNG, WEBP (5 Mo max). Les photos restent hébergées de façon sécurisée.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Identité + prix -->
+                                <div class="lg:col-span-2 space-y-4 min-w-0">
+                                    <div class="rounded-2xl border border-slate-200 bg-white p-4 space-y-3">
+                                        <div>
+                                            <h2 class="text-xl font-extrabold text-slate-900 leading-tight" x-text="saleTitle(selectedSale)"></h2>
+                                            <p class="text-[11px] text-slate-400 font-mono mt-1" x-text="(saleVehicle(selectedSale) && saleVehicle(selectedSale).plate) || selectedSale.vehicle || 'Immatriculation —'"></p>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 gap-2 text-[11px]">
+                                            <div class="flex items-center gap-2 bg-slate-50 rounded-lg px-2.5 py-2 border border-slate-100">
+                                                <i class="fa-solid fa-calendar text-indigo-400"></i>
+                                                <div class="min-w-0"><p class="text-[9px] text-slate-400 uppercase">Année</p><p class="font-bold text-slate-800" x-text="selectedSale.year || '—'"></p></div>
+                                            </div>
+                                            <div class="flex items-center gap-2 bg-slate-50 rounded-lg px-2.5 py-2 border border-slate-100">
+                                                <i class="fa-solid fa-gauge-high text-indigo-400"></i>
+                                                <div class="min-w-0"><p class="text-[9px] text-slate-400 uppercase">Kilométrage</p><p class="font-bold text-slate-800" x-text="selectedSale.mileage != null ? fmtNum(selectedSale.mileage) + ' km' : '—'"></p></div>
+                                            </div>
+                                            <div class="flex items-center gap-2 bg-slate-50 rounded-lg px-2.5 py-2 border border-slate-100">
+                                                <i class="fa-solid fa-gas-pump text-indigo-400"></i>
+                                                <div class="min-w-0"><p class="text-[9px] text-slate-400 uppercase">Carburant</p><p class="font-bold text-slate-800" x-text="(saleVehicle(selectedSale) && saleVehicle(selectedSale).fuel) || '—'"></p></div>
+                                            </div>
+                                            <div class="flex items-center gap-2 bg-slate-50 rounded-lg px-2.5 py-2 border border-slate-100">
+                                                <i class="fa-solid fa-id-card text-indigo-400"></i>
+                                                <div class="min-w-0"><p class="text-[9px] text-slate-400 uppercase">Immat.</p><p class="font-bold text-slate-800" x-text="(saleVehicle(selectedSale) && saleVehicle(selectedSale).plate) || '—'"></p></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <template x-if="saleVehicle(selectedSale)">
+                                                <span :class="vehicleStateBadge(saleVehicle(selectedSale).status).cls" class="badge" x-text="vehicleStateBadge(saleVehicle(selectedSale).status).label"></span>
+                                            </template>
+                                            <span :class="commercialStatusBadge(saleCommercialStatus(selectedSale)).cls" class="badge" x-text="commercialStatusBadge(saleCommercialStatus(selectedSale)).label"></span>
+                                            <span :class="saleStatusBadge(selectedSale.status).cls" class="badge" x-text="saleStatusBadge(selectedSale.status).label"></span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Prix très visible (total officiel serveur) -->
+                                    <div class="rounded-2xl bg-indigo-600 text-white p-4 shadow-sm">
+                                        <p class="text-[10px] font-semibold uppercase tracking-widest text-indigo-200">Prix de vente</p>
+                                        <p class="text-2xl font-extrabold font-mono mt-1 leading-tight" x-text="fmtPrice(selectedSale.price, selectedSale.currency)"></p>
+                                        <div class="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-white/20 text-[11px]">
+                                            <span class="text-indigo-100">Taxes & frais</span>
+                                            <span class="font-mono font-semibold text-white" x-text="fmtPrice((Number(selectedSale.tax) || 0) + (Number(selectedSale.fees) || 0), selectedSale.currency)"></span>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-2 pt-1.5 text-xs">
+                                            <span class="text-indigo-100 font-semibold">Total de la vente</span>
+                                            <span class="font-mono font-extrabold text-white text-base" x-text="fmtPrice(selectedSale.totalPrice, selectedSale.currency)"></span>
+                                        </div>
+                                        <p class="text-[10px] text-indigo-200 mt-2" x-text="'Mis à jour le ' + fmtDate(selectedSale.updatedAt || selectedSale.saleDate)"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Description -->
+                            <div x-show="selectedSale.description" class="space-y-2">
+                                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-file-lines text-indigo-500"></i> Description</h4>
+                                <p class="text-xs text-slate-700 bg-slate-50 rounded-xl p-3 border border-slate-200 whitespace-pre-line" x-text="selectedSale.description"></p>
+                            </div>
+
+                            <!-- Caractéristiques -->
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-2 mb-2"><i class="fa-solid fa-sliders text-indigo-500"></i> Caractéristiques</h4>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                        <p class="text-slate-400 text-[10px] uppercase tracking-wide">Marque</p>
+                                        <p class="text-slate-800 font-semibold mt-0.5 truncate" x-text="(saleVehicle(selectedSale) && saleVehicle(selectedSale).brand) || '—'"></p>
+                                    </div>
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                        <p class="text-slate-400 text-[10px] uppercase tracking-wide">Modèle</p>
+                                        <p class="text-slate-800 font-semibold mt-0.5 truncate" x-text="(saleVehicle(selectedSale) && saleVehicle(selectedSale).model) || '—'"></p>
+                                    </div>
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                        <p class="text-slate-400 text-[10px] uppercase tracking-wide">Année</p>
+                                        <p class="text-slate-800 font-semibold mt-0.5" x-text="selectedSale.year || '—'"></p>
+                                    </div>
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                        <p class="text-slate-400 text-[10px] uppercase tracking-wide">Immatriculation</p>
+                                        <p class="text-slate-800 font-mono font-semibold mt-0.5" x-text="(saleVehicle(selectedSale) && saleVehicle(selectedSale).plate) || '—'"></p>
+                                    </div>
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                        <p class="text-slate-400 text-[10px] uppercase tracking-wide">Kilométrage</p>
+                                        <p class="text-slate-800 font-semibold mt-0.5" x-text="selectedSale.mileage != null ? fmtNum(selectedSale.mileage) + ' km' : '—'"></p>
+                                    </div>
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                        <p class="text-slate-400 text-[10px] uppercase tracking-wide">Carburant</p>
+                                        <p class="text-slate-800 font-semibold mt-0.5" x-text="(saleVehicle(selectedSale) && saleVehicle(selectedSale).fuel) || '—'"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Informations administratives -->
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-2 mb-2"><i class="fa-solid fa-folder-open text-indigo-500"></i> Informations administratives</h4>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                        <p class="text-slate-400 text-[10px] uppercase tracking-wide">N° de vente</p>
+                                        <p class="text-slate-800 font-mono font-semibold mt-0.5" x-text="selectedSale.saleNumber || '—'"></p>
+                                    </div>
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                        <p class="text-slate-400 text-[10px] uppercase tracking-wide">Date de mise en vente</p>
+                                        <p class="text-slate-800 font-semibold mt-0.5" x-text="fmtDate(selectedSale.saleDate)"></p>
+                                    </div>
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                        <p class="text-slate-400 text-[10px] uppercase tracking-wide">Livraison</p>
+                                        <p class="text-slate-800 font-semibold mt-0.5" x-text="fmtDate(selectedSale.deliveryDate)"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Informations commerciales -->
+                            <div>
+                                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-2 mb-2"><i class="fa-solid fa-coins text-indigo-500"></i> Informations commerciales</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs space-y-1.5">
+                                        <p class="font-semibold text-slate-600 text-[11px] mb-1"><i class="fa-solid fa-receipt mr-1 text-indigo-500"></i> Montants</p>
+                                        <div class="flex justify-between gap-3">
+                                            <span class="text-slate-500">Prix</span>
+                                            <span class="text-slate-800 font-mono" x-text="fmtPrice(selectedSale.price, selectedSale.currency)"></span>
+                                        </div>
+                                        <div class="flex justify-between gap-3">
+                                            <span class="text-slate-500">Taxes</span>
+                                            <span class="text-slate-800 font-mono" x-text="fmtPrice(selectedSale.tax, selectedSale.currency)"></span>
+                                        </div>
+                                        <div class="flex justify-between gap-3">
+                                            <span class="text-slate-500">Frais</span>
+                                            <span class="text-slate-800 font-mono" x-text="fmtPrice(selectedSale.fees, selectedSale.currency)"></span>
+                                        </div>
+                                        <div class="flex justify-between gap-3">
+                                            <span class="text-slate-500">Déjà payé</span>
+                                            <span class="text-emerald-600 font-mono" x-text="fmtPrice(selectedSale.paidAmount, selectedSale.currency)"></span>
+                                        </div>
+                                        <div class="flex justify-between gap-3 pt-2 border-t border-slate-200">
+                                            <span class="font-bold text-slate-700">Total</span>
+                                            <span class="font-mono font-extrabold text-indigo-600" x-text="fmtPrice(selectedSale.totalPrice, selectedSale.currency)"></span>
+                                        </div>
+                                        <div class="flex justify-between gap-3 pt-2 border-t border-slate-200">
+                                            <span class="text-slate-500">Paiement</span>
+                                            <span :class="paymentStatusBadge(selectedSale.paymentStatus).cls" class="badge !text-[10px]" x-text="paymentStatusBadge(selectedSale.paymentStatus).label"></span>
+                                        </div>
+                                        <div class="flex justify-between gap-3">
+                                            <span class="text-slate-500">Livraison</span>
+                                            <span :class="deliveryStatusBadge(selectedSale.deliveryStatus).cls" class="badge !text-[10px]" x-text="deliveryStatusBadge(selectedSale.deliveryStatus).label"></span>
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs">
+                                        <p class="font-semibold text-slate-600 text-[11px] mb-1"><i class="fa-solid fa-user mr-1 text-indigo-500"></i> Acheteur</p>
+                                        <div class="flex justify-between gap-3">
+                                            <span class="text-slate-500">Type</span>
+                                            <span class="text-slate-800" x-text="selectedSale.buyerType === 'INTERNAL' ? 'Interne' : 'Externe'"></span>
+                                        </div>
+                                        <div class="flex justify-between gap-3 mt-1.5">
+                                            <span class="text-slate-500">Nom</span>
+                                            <span class="text-slate-800 font-semibold text-right" x-text="selectedSale.buyerName || '—'"></span>
+                                        </div>
+                                        <div class="flex justify-between gap-3 mt-1.5" x-show="selectedSale.buyerPhone">
+                                            <span class="text-slate-500">Téléphone</span>
+                                            <span class="text-slate-800" x-text="selectedSale.buyerPhone"></span>
+                                        </div>
+                                        <div class="flex justify-between gap-3 mt-1.5" x-show="selectedSale.buyerEmail">
+                                            <span class="text-slate-500">E-mail</span>
+                                            <span class="text-slate-800" x-text="selectedSale.buyerEmail"></span>
+                                        </div>
+                                        <div class="flex justify-between gap-3 mt-1.5" x-show="selectedSale.buyerAddress">
+                                            <span class="text-slate-500">Adresse</span>
+                                            <span class="text-slate-800 text-right" x-text="selectedSale.buyerAddress"></span>
+                                        </div>
+                                        <template x-if="saleSellerName(selectedSale)">
+                                            <div class="pt-2 mt-2 border-t border-slate-200">
+                                                <p class="font-semibold text-slate-600 text-[11px] mb-1"><i class="fa-solid fa-user-tie mr-1 text-indigo-500"></i> Vendeur</p>
+                                                <div class="flex justify-between gap-3">
+                                                    <span class="text-slate-500">Vendu par</span>
+                                                    <span class="text-slate-800 font-semibold" x-text="saleSellerName(selectedSale)"></span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Notes internes -->
+                            <div x-show="selectedSale.notes" class="space-y-2">
+                                <h4 class="text-xs font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-note-sticky text-amber-500"></i> Notes internes</h4>
+                                <p class="text-[11px] text-slate-600 bg-amber-50 border border-amber-100 rounded-xl p-3 whitespace-pre-line" x-text="selectedSale.notes"></p>
+                            </div>
+                        </div>
+
+                        <!-- Pied : actions selon statut + permission -->
+                        <div class="px-5 sm:px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-shrink-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <template x-if="canManageFleet">
+                                    <template>
+                                        <button x-show="saleCommercialStatus(selectedSale) === 'AVAILABLE'"
+                                                @click="setVehicleCommercialStatus(selectedSale, 'FOR_SALE')"
+                                                class="btn btn-primary btn-sm">
+                                            <i class="fa-solid fa-tag mr-1"></i> Mettre en vente
+                                        </button>
+                                        <button x-show="saleCommercialStatus(selectedSale) === 'FOR_SALE'"
+                                                @click="openFinalizeSaleModal(selectedSale)"
+                                                class="btn btn-success btn-sm">
+                                            <i class="fa-solid fa-handshake mr-1"></i> Finaliser la vente
+                                        </button>
+                                        <button x-show="saleCommercialStatus(selectedSale) === 'FOR_SALE'"
+                                                @click="setVehicleCommercialStatus(selectedSale, 'AVAILABLE')"
+                                                class="btn btn-secondary btn-sm">
+                                            <i class="fa-solid fa-arrow-rotate-left mr-1"></i> Retirer de la vente
+                                        </button>
+                                        <button x-show="saleCommercialStatus(selectedSale) === 'FOR_SALE'"
+                                                @click="openSaleModal(selectedSale); closeSaleDetail()"
+                                                class="btn btn-secondary btn-sm">
+                                            <i class="fa-solid fa-pen mr-1"></i> Modifier l'annonce
+                                        </button>
+                                        <button x-show="selectedSale.status !== 'COMPLETED' && selectedSale.status !== 'CANCELLED'"
+                                                @click="deleteSale(selectedSale.id)"
+                                                :disabled="saleDeleting"
+                                                class="btn btn-danger btn-sm">
+                                            <i class="fa-solid fa-circle-notch fa-spin mr-1" x-show="saleDeleting"></i>
+                                            <i class="fa-solid fa-trash mr-1" x-show="!saleDeleting"></i> Supprimer
+                                        </button>
+                                    </template>
+                                </template>
+                                <button @click="closeSaleDetail()" class="btn btn-secondary btn-sm">Fermer</button>
+                            </div>
+                            <template x-if="saleCommercialStatus(selectedSale) === 'SOLD'">
+                                <span class="badge badge-green !text-[11px]"><i class="fa-solid fa-circle-check"></i> Vente finalisée — véhicule VENDU</span>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- MODALE : FINALISER LA VENTE (confirmation explicite, backend = source de vérité) -->
+        <div x-show="showFinalizeSaleModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4">
+                <template x-if="finalizeSale">
                     <div class="space-y-4">
                         <div class="flex items-center justify-between">
                             <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                                <i class="fa-solid fa-handshake text-indigo-500"></i>
-                                <span x-text="selectedSale.saleNumber || 'Vente de véhicule'"></span>
+                                <i class="fa-solid fa-handshake text-emerald-600"></i> Finaliser la vente
                             </h3>
-                            <button @click="closeSaleDetail()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                            <button @click="closeFinalizeSaleModal()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         </div>
 
-                        <div class="flex items-center gap-3">
-                            <div class="w-20 h-20 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                                <template x-if="saleVehicle(selectedSale) && saleVehicle(selectedSale).photo">
-                                    <img :src="saleVehicle(selectedSale).photo" class="w-full h-full object-cover">
-                                </template>
-                                <template x-if="!(saleVehicle(selectedSale) && saleVehicle(selectedSale).photo)">
-                                    <i class="fa-solid fa-car text-slate-400 text-2xl"></i>
-                                </template>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <h4 class="font-bold text-slate-900" x-text="selectedSale.title || selectedSale.vehicle"></h4>
-                                <p class="text-xs text-slate-500 truncate" x-text="selectedSale.vehicle"></p>
-                                <div class="flex items-center gap-2 mt-1 flex-wrap">
-                                    <span :class="commercialStatusBadge(saleCommercialStatus(selectedSale)).cls" class="badge" x-text="commercialStatusBadge(saleCommercialStatus(selectedSale)).label"></span>
-                                    <span :class="saleStatusBadge(selectedSale.status).cls" class="badge" x-text="saleStatusBadge(selectedSale.status).label"></span>
-                                    <span :class="paymentStatusBadge(selectedSale.paymentStatus).cls" class="badge" x-text="paymentStatusBadge(selectedSale.paymentStatus).label"></span>
-                                    <span :class="deliveryStatusBadge(selectedSale.deliveryStatus).cls" class="badge" x-text="deliveryStatusBadge(selectedSale.deliveryStatus).label"></span>
-                                </div>
-                            </div>
+                        <div class="rounded-xl border border-amber-200 bg-amber-50 text-amber-800 px-4 py-3 text-xs font-semibold flex items-start gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-500 mt-0.5"></i>
+                            <span>Cette action marque définitivement le véhicule comme VENDU et finalise la vente. Elle est irréversible et fait partie de l'historique comptable.</span>
                         </div>
 
-                        <!-- Bandeau VENDU (cycle de vie commercial, Phase 7.7 — Commit 5) -->
-                        <div x-show="saleCommercialStatus(selectedSale) === 'SOLD'" class="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm font-bold flex items-center gap-2">
-                            <i class="fa-solid fa-circle-check text-emerald-600"></i>
-                            VENDU — ce véhicule est sorti du parc à la vente.
+                        <div x-show="finalizeError" class="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-lg px-3 py-2">
+                            <i class="fa-solid fa-circle-exclamation mr-1"></i> <span x-text="finalizeError"></span>
                         </div>
 
-                        <!-- Photos de la vente (Phase 7.7 — Commit 4) -->
-                        <div>
-                            <p class="font-semibold text-slate-600 text-[11px] mb-2">
-                                <i class="fa-solid fa-images mr-1 text-indigo-500"></i> Photos
-                                <span x-show="salePhotos.length > 0" class="text-slate-400 font-normal" x-text="'(' + salePhotos.length + ')'"></span>
-                            </p>
-
-                            <p x-show="salePhotosLoading" class="text-xs text-slate-500 flex items-center gap-2">
-                                <i class="fa-solid fa-spinner fa-spin"></i> Chargement des photos...
-                            </p>
-                            <p x-show="salePhotosError && !salePhotosLoading" class="text-xs text-rose-500 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-                                <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span x-text="salePhotosError"></span>
-                            </p>
-
-                            <template x-if="salePhotos.length > 0">
-                                <div class="space-y-2">
-                                    <div class="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 flex items-center justify-center">
-                                        <img :src="salePhotos[saleGalleryIndex] ? salePhotos[saleGalleryIndex].src : ''" class="w-full h-56 object-cover">
-                                        <button @click="saleGalleryOpen = true" title="Agrandir la photo" class="absolute top-2 right-2 w-8 h-8 rounded-lg bg-slate-900/60 text-white hover:bg-slate-900/80 flex items-center justify-center transition">
-                                            <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
-                                        </button>
-                                        <div x-show="canManageFleet" class="absolute bottom-2 left-2 flex gap-1.5">
-                                            <button x-show="salePhotos[saleGalleryIndex] && !salePhotos[saleGalleryIndex].isPrimary"
-                                                    @click="setSalePhotoPrimary(salePhotos[saleGalleryIndex])"
-                                                    title="Définir comme photo principale"
-                                                    class="btn btn-xs !bg-white/90 !text-amber-600 hover:!bg-white">
-                                                <i class="fa-solid fa-star mr-1"></i> Principale
-                                            </button>
-                                            <button @click="deleteSalePhoto(salePhotos[saleGalleryIndex])"
-                                                    title="Supprimer cette photo"
-                                                    class="btn btn-xs !bg-white/90 !text-rose-600 hover:!bg-white">
-                                                <i class="fa-solid fa-trash-can mr-1"></i> Supprimer
-                                            </button>
-                                        </div>
-                                        <span x-show="salePhotos.length > 1" class="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                            <span x-text="(saleGalleryIndex + 1) + ' / ' + salePhotos.length"></span>
-                                        </span>
-                                    </div>
-                                    <div x-show="salePhotos.length > 1" class="flex gap-2 overflow-x-auto py-1">
-                                        <template x-for="(p, idx) in salePhotos" :key="p.id">
-                                            <button @click="saleGalleryIndex = idx"
-                                                    :class="idx === saleGalleryIndex ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-slate-200 hover:border-slate-300'"
-                                                    class="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border bg-slate-100 transition">
-                                                <img :src="p.src" class="w-full h-full object-cover">
-                                                <i x-show="p.isPrimary" title="Photo principale" class="fa-solid fa-star absolute top-0.5 right-0.5 text-amber-400 text-[9px] drop-shadow"></i>
-                                            </button>
-                                        </template>
-                                    </div>
-                                </div>
-                            </template>
-
-                            <div x-show="!salePhotosLoading && salePhotos.length === 0" class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-                                <i class="fa-solid fa-image text-slate-300 text-2xl mb-2"></i>
-                                <p class="text-xs text-slate-500" x-text="canManageFleet ? 'Aucune photo pour le moment. Ajoutez la première photo de l\'annonce ci-dessous.' : 'Aucune photo pour le moment.'"></p>
+                        <div class="bg-slate-50 rounded-xl border border-slate-200 p-4 text-xs space-y-2">
+                            <div class="flex justify-between gap-3">
+                                <span class="text-slate-500">Véhicule</span>
+                                <span class="text-slate-800 font-semibold text-right" x-text="saleTitle(finalizeSale)"></span>
                             </div>
-
-                            <div x-show="canManageFleet" class="mt-2 bg-slate-50 rounded-xl border border-slate-200 p-3 space-y-2">
-                                <p class="font-semibold text-slate-600 text-[11px]"><i class="fa-solid fa-cloud-arrow-up mr-1 text-indigo-500"></i> Ajouter une photo</p>
-                                <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-                                    <input type="file" accept="image/jpeg,image/png,image/webp" @click="$event.target.value = ''" @change="onSalePhotoSelect($event)" class="input !text-xs file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:text-xs file:font-semibold">
-                                    <button @click="uploadSalePhoto()" :disabled="!salePhotoSelected || salePhotoUploading" class="btn btn-primary !text-xs whitespace-nowrap">
-                                        <i class="fa-solid fa-circle-notch fa-spin mr-1" x-show="salePhotoUploading"></i>
-                                        <i class="fa-solid fa-upload mr-1" x-show="!salePhotoUploading"></i> Ajouter
-                                    </button>
-                                </div>
-                                <div x-show="salePhotoUploading" class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-                                    <div class="h-full bg-indigo-600 transition-all" :style="'width: ' + salePhotoProgress + '%'"></div>
-                                </div>
-                                <p x-show="salePhotoUploadError" class="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-2 py-1.5">
-                                    <i class="fa-solid fa-circle-exclamation mr-1"></i> <span x-text="salePhotoUploadError"></span>
-                                </p>
-                                <p class="text-[10px] text-slate-400">Formats acceptés : JPG, PNG, WEBP (5 Mo max). Les photos sont ajoutées après la création de la vente.</p>
+                            <div class="flex justify-between gap-3">
+                                <span class="text-slate-500">N° de vente</span>
+                                <span class="text-slate-800 font-mono font-semibold" x-text="finalizeSale.saleNumber || '—'"></span>
+                            </div>
+                            <div class="flex justify-between gap-3">
+                                <span class="text-slate-500">Date</span>
+                                <span class="text-slate-800" x-text="fmtDate(finalizeSale.saleDate)"></span>
+                            </div>
+                            <div class="flex justify-between gap-3">
+                                <span class="text-slate-500">Acheteur</span>
+                                <span class="text-slate-800 text-right" x-text="finalizeSale.buyerName || '—'"></span>
+                            </div>
+                            <div class="flex justify-between gap-3 pt-2 border-t border-slate-200">
+                                <span class="text-slate-500 font-semibold">Prix de vente</span>
+                                <span class="font-mono font-extrabold text-indigo-600 text-sm" x-text="fmtPrice(finalizeSale.price, finalizeSale.currency)"></span>
+                            </div>
+                            <div class="flex justify-between gap-3">
+                                <span class="text-slate-500">Total de la vente</span>
+                                <span class="font-mono font-bold text-slate-800" x-text="fmtPrice(finalizeSale.totalPrice, finalizeSale.currency)"></span>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3 text-xs bg-slate-50 rounded-xl p-3 border border-slate-200">
-                            <div>Véhicule : <span class="text-slate-800 font-semibold" x-text="selectedSale.vehicle"></span></div>
-                            <div>N° de vente : <span class="text-slate-800 font-mono" x-text="selectedSale.saleNumber"></span></div>
-                            <div>Kilométrage : <span class="text-slate-800 font-mono" x-text="fmtNum(selectedSale.mileage) + ' km'"></span></div>
-                            <div>Année : <span class="text-slate-800" x-text="selectedSale.year"></span></div>
-                            <div>Date de vente : <span class="text-slate-800" x-text="fmtDate(selectedSale.saleDate)"></span></div>
-                            <div>Date de livraison : <span class="text-slate-800" x-text="fmtDate(selectedSale.deliveryDate)"></span></div>
-                        </div>
-
-                        <div>
-                            <p class="font-semibold text-slate-600 text-[11px] mb-2"><i class="fa-solid fa-receipt mr-1 text-indigo-500"></i> Montants</p>
-                            <div class="grid grid-cols-2 gap-3 text-xs bg-slate-50 rounded-xl p-3 border border-slate-200">
-                                <div>Prix : <span class="text-slate-800 font-mono" x-text="fmtNum(selectedSale.price) + ' ' + selectedSale.currency"></span></div>
-                                <div>Taxes : <span class="text-slate-800 font-mono" x-text="fmtNum(selectedSale.tax) + ' ' + selectedSale.currency"></span></div>
-                                <div>Frais : <span class="text-slate-800 font-mono" x-text="fmtNum(selectedSale.fees) + ' ' + selectedSale.currency"></span></div>
-                                <div>Déjà payé : <span class="text-emerald-600 font-mono" x-text="fmtNum(selectedSale.paidAmount) + ' ' + selectedSale.currency"></span></div>
-                                <div class="col-span-2 pt-2 border-t border-slate-200 flex justify-between items-center">
-                                    <span class="font-bold text-slate-700">Total</span>
-                                    <span class="font-mono font-extrabold text-indigo-600" x-text="fmtNum(selectedSale.totalPrice) + ' ' + selectedSale.currency"></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <p class="font-semibold text-slate-600 text-[11px] mb-2"><i class="fa-solid fa-user mr-1 text-indigo-500"></i> Acheteur</p>
-                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs space-y-1.5">
-                                <div class="flex justify-between gap-3">
-                                    <span class="text-slate-500">Type</span>
-                                    <span class="text-slate-800" x-text="selectedSale.buyerType === 'INTERNAL' ? 'Interne' : 'Externe'"></span>
-                                </div>
-                                <div class="flex justify-between gap-3">
-                                    <span class="text-slate-500">Nom</span>
-                                    <span class="text-slate-800 font-semibold text-right" x-text="selectedSale.buyerName || '—'"></span>
-                                </div>
-                                <div class="flex justify-between gap-3" x-show="selectedSale.buyerPhone">
-                                    <span class="text-slate-500">Téléphone</span>
-                                    <span class="text-slate-800" x-text="selectedSale.buyerPhone"></span>
-                                </div>
-                                <div class="flex justify-between gap-3" x-show="selectedSale.buyerEmail">
-                                    <span class="text-slate-500">E-mail</span>
-                                    <span class="text-slate-800" x-text="selectedSale.buyerEmail"></span>
-                                </div>
-                                <div class="flex justify-between gap-3" x-show="selectedSale.buyerAddress">
-                                    <span class="text-slate-500">Adresse</span>
-                                    <span class="text-slate-800 text-right" x-text="selectedSale.buyerAddress"></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div x-show="saleSellerName(selectedSale)">
-                            <p class="font-semibold text-slate-600 text-[11px] mb-2"><i class="fa-solid fa-user-tie mr-1 text-indigo-500"></i> Vendeur</p>
-                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs flex justify-between gap-3">
-                                <span class="text-slate-500">Vendu par</span>
-                                <span class="text-slate-800 font-semibold" x-text="saleSellerName(selectedSale)"></span>
-                            </div>
-                        </div>
-
-                        <div x-show="selectedSale.description || selectedSale.notes">
-                            <p class="font-semibold text-slate-600 text-[11px] mb-2"><i class="fa-solid fa-file-lines mr-1 text-indigo-500"></i> Détails & Notes</p>
-                            <p class="text-xs text-slate-700 bg-slate-50 rounded-xl p-3 border border-slate-200 whitespace-pre-line" x-text="selectedSale.description || '—'"></p>
-                            <p x-show="selectedSale.notes" class="text-[11px] text-slate-500 mt-2" x-text="'Notes : ' + selectedSale.notes"></p>
-                        </div>
-
-                        <div class="flex justify-end pt-2 space-x-2">
-                            <template x-if="canManageFleet">
-                                <div class="flex items-center space-x-2">
-                                    <button x-show="saleCommercialStatus(selectedSale) === 'FOR_SALE'"
-                                            @click="setVehicleCommercialStatus(selectedSale, 'SOLD')"
-                                            class="btn btn-success">
-                                        <i class="fa-solid fa-handshake mr-1"></i> Marquer comme vendu
-                                    </button>
-                                    <button x-show="saleCommercialStatus(selectedSale) === 'FOR_SALE'"
-                                            @click="setVehicleCommercialStatus(selectedSale, 'AVAILABLE')"
-                                            class="btn btn-secondary">
-                                        <i class="fa-solid fa-arrow-rotate-left mr-1"></i> Retirer de la vente
-                                    </button>
-                                    <button x-show="selectedSale.status !== 'COMPLETED' && selectedSale.status !== 'CANCELLED'"
-                                            @click="openSaleModal(selectedSale); closeSaleDetail()"
-                                            class="btn btn-secondary">
-                                        <i class="fa-solid fa-pen mr-1"></i> Modifier
-                                    </button>
-                                    <button x-show="selectedSale.status !== 'COMPLETED'"
-                                            @click="deleteSale(selectedSale.id)"
-                                            :disabled="saleDeleting"
-                                            class="btn btn-danger">
-                                        <i class="fa-solid fa-circle-notch fa-spin mr-1" x-show="saleDeleting"></i>
-                                        <i class="fa-solid fa-trash mr-1" x-show="!saleDeleting"></i> Supprimer
-                                    </button>
-                                </div>
-                            </template>
-                            <button @click="closeSaleDetail()" class="btn btn-secondary">Fermer</button>
+                        <div class="flex justify-end space-x-2 pt-2">
+                            <button @click="closeFinalizeSaleModal()" class="btn btn-secondary">Annuler</button>
+                            <button @click="confirmFinalizeSale()" :disabled="finalizeSaving" class="btn btn-success">
+                                <i class="fa-solid fa-circle-notch fa-spin mr-1" x-show="finalizeSaving"></i>
+                                <i class="fa-solid fa-circle-check mr-1" x-show="!finalizeSaving"></i>
+                                <span x-text="finalizeSaving ? 'Finalisation...' : 'Confirmer la vente'"></span>
+                            </button>
                         </div>
                     </div>
                 </template>

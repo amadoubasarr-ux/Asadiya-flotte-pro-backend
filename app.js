@@ -125,8 +125,11 @@
                     this.publicView = 'signup';
                 },
 
-                fmtPrice(n) {
-                    return (Number(n) || 0).toLocaleString('fr-FR');
+                fmtPrice(n, currency) {
+                    const amount = (Number(n) || 0).toLocaleString('fr-FR');
+                    if (!currency) return amount;
+                    const code = { XOF: 'FCFA', EUR: 'EUR', USD: 'USD' }[currency] || currency;
+                    return amount + ' ' + code;
                 },
 
                 formatDateTime(value) {
@@ -998,6 +1001,13 @@
                 // sont donc téléchargées en blob avec jeton puis affichées.
                 salePrimaryPhotoSrc: {},
                 saleCardPrefetchBusy: false,
+
+                // Modale « Finaliser la vente » (Phase Vente — Commit 6) :
+                // confirmation explicite avant le passage SOLD côté serveur.
+                showFinalizeSaleModal: false,
+                finalizeSale: null,
+                finalizeSaving: false,
+                finalizeError: '',
 
                 // Filtres & Recherche
                 vehicleSearch: '',
@@ -3708,6 +3718,29 @@
                     return this.vehicles.find(v => v.id === s.vehicleId) || null;
                 },
 
+                // Libellé complet d'un véhicule lié à une vente : marque modèle
+                // (immatriculation), repli sur l'instantané serveur si le véhicule
+                // du parc n'est plus présent.
+                saleTitle(s) {
+                    if (!s) return '';
+                    const v = this.saleVehicle(s);
+                    if (v) return [v.brand, v.model].filter(Boolean).join(' ') + (v.plate ? ' (' + v.plate + ')' : '');
+                    if (s.title) return s.title;
+                    return s.vehicle || 'Véhicule';
+                },
+
+                // État opérationnel d'un véhicule du parc (miroir des valeurs
+                // backend) pour la fiche de vente.
+                vehicleStateBadge(status) {
+                    return {
+                        'AVAILABLE': { cls: 'badge-green', label: 'Disponible' },
+                        'RESERVED': { cls: 'badge-blue', label: 'Réservé' },
+                        'BOOKED': { cls: 'badge-blue', label: 'En mission' },
+                        'IN_MAINTENANCE': { cls: 'badge-amber', label: 'En maintenance' },
+                        'SOLD': { cls: 'badge-slate', label: 'Sorti du parc' }
+                    }[status] || { cls: 'badge-slate', label: status || '—' };
+                },
+
                 saleStatusBadge(status) {
                     return {
                         'DRAFT': { cls: 'badge-slate', label: 'Brouillon' },
@@ -3736,39 +3769,94 @@
                 },
 
                 // Change le statut commercial du véhicule (PATCH dédié, machine à
-                // états côté serveur). VENDU exige la vente sélectionnée : elle est
-                // finalisée côté serveur (COMPLETED). Aucune suppression : photos,
-                // documents et historique comptable sont conservés.
+                // états côté serveur). Le passage à VENDU passe par la modale de
+                // confirmation explicite « Finaliser la vente » (le backend reste
+                // la source de vérité) ; les transitions simples restent rapides.
                 async setVehicleCommercialStatus(sale, status) {
+                    if (status === 'SOLD') {
+                        this.openFinalizeSaleModal(sale);
+                        return;
+                    }
                     const actions = {
                         'FOR_SALE': { confirm: 'Mettre en vente', done: 'mis en vente' },
-                        'AVAILABLE': { confirm: 'Retirer de la vente', done: 'retiré de la vente' },
-                        'SOLD': { confirm: 'Marquer comme vendu', done: 'marqué comme vendu' }
+                        'AVAILABLE': { confirm: 'Retirer de la vente', done: 'retiré de la vente' }
                     };
                     const action = actions[status];
                     if (!action || !sale) return;
-                    const v = this.saleVehicle(sale);
-                    const label = [v && v.brand, v && v.model, v && v.plate].filter(Boolean).join(' ') || sale.title || sale.vehicle || 'véhicule';
-                    const message = status === 'SOLD'
-                        ? `Confirmer que "${label}" est VENDU ? La vente n°${sale.saleNumber || ''} sera finalisée.`
-                        : `Confirmer pour ${action.confirm.toLowerCase()} "${label}" ?`;
-                    if (!confirm(message)) return;
+                    const label = this.saleTitle(sale);
+                    if (!confirm(`Confirmer pour ${action.confirm.toLowerCase()} "${label}" ?`)) return;
 
                     this.salesFlash = '';
                     try {
-                        const payload = { status };
-                        if (status === 'SOLD') payload.saleId = sale.id;
                         await this.apiFetch('/api/vehicles/' + sale.vehicleId + '/commercial-status', {
                             method: 'PATCH',
-                            body: JSON.stringify(payload)
+                            body: JSON.stringify({ status })
                         });
+                        const v = this.saleVehicle(sale);
                         if (v) v.commercialStatus = status;
-                        if (status === 'SOLD') sale.status = 'COMPLETED';
                         await this.loadSales();
                         this.salesFlash = `Véhicule ${action.done} : opération enregistrée.`;
                     } catch (e) {
                         this.salesFlash = '';
                         alert('Erreur : ' + ((e && e.message) || 'opération impossible.'));
+                    }
+                },
+
+                // Ouvre la modale de confirmation « Finaliser la vente » (rôles
+                // de gestion uniquement). Le véhicule concerné, le prix, l'acheteur,
+                // la date et le numéro de vente y sont rappelés avant la validation.
+                openFinalizeSaleModal(sale) {
+                    if (!sale || !this.canManageFleet) return;
+                    this.finalizeSale = sale;
+                    this.finalizeSaving = false;
+                    this.finalizeError = '';
+                    this.showFinalizeSaleModal = true;
+                },
+
+                closeFinalizeSaleModal() {
+                    this.showFinalizeSaleModal = false;
+                    this.finalizeSale = null;
+                    this.finalizeSaving = false;
+                    this.finalizeError = '';
+                },
+
+                // Confirme la finalisation : le serveur marque définitivement le
+                // véhicule VENDU et la vente COMPLETED. En cas d'erreur, l'état
+                // local n'est jamais modifié artificiellement : on re-synchronise
+                // les données depuis l'API.
+                async confirmFinalizeSale() {
+                    if (!this.finalizeSale || !this.canManageFleet) return;
+                    this.finalizeSaving = true;
+                    this.finalizeError = '';
+                    try {
+                        const sale = this.finalizeSale;
+                        await this.apiFetch('/api/vehicles/' + sale.vehicleId + '/commercial-status', {
+                            method: 'PATCH',
+                            body: JSON.stringify({ status: 'SOLD', saleId: sale.id })
+                        });
+                        // Le backend reste la source de vérité : rechargement API.
+                        await this.loadSales();
+                        const refreshed = await this.apiFetch('/api/vehicles');
+                        if (Array.isArray(refreshed)) this.vehicles = refreshed;
+                        // Met à jour l'instantané affiché dans la fiche (si ouverte).
+                        const saleId = sale.id;
+                        this.closeFinalizeSaleModal();
+                        this.salesFlash = 'Vente finalisée : le véhicule est marqué VENDU.';
+                        if (this.showSaleDetailModal && this.selectedSale && this.selectedSale.id === saleId) {
+                            try {
+                                const fresh = await this.apiFetch('/api/vehicle-sales/' + saleId);
+                                this.selectedSale = fresh;
+                            } catch (err) { /* la fiche affiche l'instantané courant */ }
+                        }
+                    } catch (e) {
+                        this.finalizeError = (e && e.message) || 'Impossible de finaliser la vente.';
+                        try {
+                            await this.loadSales();
+                            const refreshed = await this.apiFetch('/api/vehicles');
+                            if (Array.isArray(refreshed)) this.vehicles = refreshed;
+                        } catch (err) { /* échec de resynchronisation : lecture seule */ }
+                    } finally {
+                        this.finalizeSaving = false;
                     }
                 },
 
@@ -3952,6 +4040,11 @@
                     this.saleDeleting = true;
                     try {
                         await this.apiFetch('/api/vehicle-sales/' + id, { method: 'DELETE' });
+                        // Libère l'URL objet mise en cache pour la carte de cette
+                        // vente (plus de carte à afficher : aucune fuite mémoire).
+                        const cached = this.salePrimaryPhotoSrc[id];
+                        if (cached && cached.startsWith('blob:')) URL.revokeObjectURL(cached);
+                        delete this.salePrimaryPhotoSrc[id];
                         this.sales = this.sales.filter(s => s.id !== id);
                         this.closeSaleDetail();
                         const refreshed = await this.apiFetch('/api/vehicles');
@@ -4150,16 +4243,56 @@
                     }
                 },
 
-                /** Définit la photo principale d'une vente (ADMIN, MANAGER). */
+                /** Clic sur une miniature : l'affiche en photo principale de la
+                 *  fiche ; pour ADMIN/MANAGER elle devient aussi la photo
+                 *  principale réelle (serveur = source de vérité). */
+                saleThumbClick(photo, idx) {
+                    this.saleGalleryIndex = idx;
+                    if (this.canManageFleet && photo && !photo.isPrimary) {
+                        this.setSalePhotoPrimary(photo);
+                    }
+                },
+
+                /** Définit la photo principale d'une vente (ADMIN, MANAGER). La
+                 *  mise à jour est locale et immédiate : le serveur reste la
+                 *  source de vérité, l'ancienne URL objet est conservée dans la
+                 *  galerie et révoquée à la fermeture (pas de fuite mémoire). */
                 async setSalePhotoPrimary(photo) {
                     if (!photo || !this.selectedSale || !this.selectedSale.id || !this.canManageFleet) return;
                     try {
                         await this.apiFetch('/api/vehicle-sales/' + this.selectedSale.id + '/photos/' + photo.id + '/primary', {
                             method: 'PUT',
                         });
-                        await this.loadSalePhotos(this.selectedSale);
+                        for (const p of this.salePhotos) p.isPrimary = p.id === photo.id;
+                        this.saleGalleryIndex = this.salePhotos.findIndex(p => p.id === photo.id);
+                        const primary = this.salePhotos.find(p => p.isPrimary);
+                        if (primary && primary.src) {
+                            this.salePrimaryPhotoSrc[this.selectedSale.id] = primary.src;
+                        }
                     } catch (e) {
                         alert('Erreur : ' + (e.message || 'impossible de définir la photo principale.'));
+                    }
+                },
+
+                /** Déplace une photo d'une position (réordonnancement, ADMIN,
+                 *  MANAGER). L'ordre est validé et persisté côté serveur. */
+                async moveSalePhoto(idx, dir) {
+                    if (!this.selectedSale || !this.selectedSale.id || !this.canManageFleet) return;
+                    const target = idx + dir;
+                    if (idx < 0 || target < 0 || target >= this.salePhotos.length) return;
+                    const moved = this.salePhotos.slice();
+                    const [photo] = moved.splice(idx, 1);
+                    moved.splice(target, 0, photo);
+                    const movedId = photo.id;
+                    try {
+                        await this.apiFetch('/api/vehicle-sales/' + this.selectedSale.id + '/photos', {
+                            method: 'PUT',
+                            body: JSON.stringify({ photoIds: moved.map(p => p.id) })
+                        });
+                        this.salePhotos = moved;
+                        this.saleGalleryIndex = this.salePhotos.findIndex(p => p.id === movedId);
+                    } catch (e) {
+                        alert('Erreur : ' + (e.message || 'impossible de réordonner les photos.'));
                     }
                 },
 
