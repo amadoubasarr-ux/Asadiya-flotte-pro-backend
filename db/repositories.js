@@ -554,8 +554,19 @@ const vehicleSales = {
         }
         if (dateFrom) conditions.push(`sale_date >= ${param(dateFrom)}`);
         if (dateTo) conditions.push(`sale_date <= ${param(dateTo)}`);
+        // Agrégats photos (Phase 7.7 — Commit 4) : nombre de photos et photo
+        // principale de chaque vente, pour l'affichage du catalogue sans
+        // requête supplémentaire par carte. Jamais la clé de stockage interne.
         const result = await query(
-            `SELECT * FROM vehicle_sales WHERE ${conditions.join(' AND ')} ORDER BY id`,
+            `SELECT vehicle_sales.*,
+                    (SELECT COUNT(*) FROM vehicle_sale_photos p
+                     WHERE p.vehicle_sale_id = vehicle_sales.id
+                       AND p.organization_id = vehicle_sales.organization_id) AS photo_count,
+                    (SELECT id FROM vehicle_sale_photos p
+                     WHERE p.vehicle_sale_id = vehicle_sales.id
+                       AND p.organization_id = vehicle_sales.organization_id
+                       AND p.is_primary = TRUE) AS primary_photo_id
+             FROM vehicle_sales WHERE ${conditions.join(' AND ')} ORDER BY id`,
             params
         );
         return mapRows(result.rows);
@@ -730,6 +741,182 @@ const vehicleSales = {
                 );
             }
             return (result.rowCount ?? 0) > 0;
+        });
+    },
+};
+
+// ============================================================
+// Photos des ventes de véhicules (Phase 7.7 — Commit 4)
+// ============================================================
+// CRUD cloisonné par organisation. Les métadonnées (storage_key, nom
+// original, type MIME, taille) sont écrites UNIQUEMENT par le serveur
+// (routes /api/vehicle-sales/:saleId/photos). La photo principale
+// (is_primary) est unique par vente et l'ordre d'affichage (sort_order)
+// est piloté côté serveur. La clé de stockage interne n'est jamais
+// retournée au client (stripStorageKey dans les routes).
+// ============================================================
+
+/** Colonnes publiques d'une photo (sans la clé de stockage interne). */
+const PHOTO_PUBLIC_COLUMNS =
+    'id, vehicle_sale_id, original_name, mime_type, size_bytes, is_primary, sort_order, created_at';
+
+const vehicleSalePhotos = {
+    /** Photos d'une vente, ordonnées pour l'affichage (sort_order, id). */
+    async listBySale(orgId, saleId) {
+        const result = await query(
+            `SELECT ${PHOTO_PUBLIC_COLUMNS} FROM vehicle_sale_photos
+             WHERE organization_id = $1 AND vehicle_sale_id = $2
+             ORDER BY sort_order, id`,
+            [orgId, saleId]
+        );
+        return mapRows(result.rows);
+    },
+
+    async findById(orgId, id) {
+        const result = await query(
+            `SELECT ${PHOTO_PUBLIC_COLUMNS} FROM vehicle_sale_photos
+             WHERE organization_id = $1 AND id = $2`,
+            [orgId, id]
+        );
+        return mapRow(result.rows[0] || null);
+    },
+
+    /** Clés de stockage internes des photos d'une vente (nettoyage disque). */
+    async listStorageKeysBySale(orgId, saleId) {
+        const result = await query(
+            'SELECT storage_key FROM vehicle_sale_photos WHERE organization_id = $1 AND vehicle_sale_id = $2',
+            [orgId, saleId]
+        );
+        return result.rows.map((r) => r.storage_key);
+    },
+
+    /** Clé de stockage et attribut « photo principale » d'une photo donnée. */
+    async findStorageKey(orgId, id) {
+        const result = await query(
+            'SELECT storage_key, is_primary, vehicle_sale_id FROM vehicle_sale_photos WHERE organization_id = $1 AND id = $2',
+            [orgId, id]
+        );
+        return mapRow(result.rows[0] || null);
+    },
+
+    /**
+     * Enregistre une photo fraîchement écrite sur disque. La première photo
+     * de la vente devient automatiquement la photo principale. Le sort_order
+     * suit l'ordre d'insertion (max + 1).
+     */
+    async create(orgId, saleId, meta) {
+        return withTransaction(async (client) => {
+            const sale = await client.query(
+                'SELECT 1 FROM vehicle_sales WHERE organization_id = $1 AND id = $2 FOR UPDATE',
+                [orgId, saleId]
+            );
+            if (sale.rowCount === 0) {
+                throw AppError.notFound('La vente liée n\'existe pas dans votre organisation.');
+            }
+            const existing = await client.query(
+                'SELECT COUNT(*) AS count, COALESCE(MAX(sort_order), 0) AS max_sort FROM vehicle_sale_photos WHERE organization_id = $1 AND vehicle_sale_id = $2',
+                [orgId, saleId]
+            );
+            const count = parseInt(existing.rows[0].count, 10) || 0;
+            const maxSort = parseInt(existing.rows[0].max_sort, 10) || 0;
+            const isPrimary = count === 0;
+            const result = await client.query(
+                `INSERT INTO vehicle_sale_photos
+                   (vehicle_sale_id, storage_key, original_name, mime_type, size_bytes, is_primary, sort_order, organization_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 RETURNING ${PHOTO_PUBLIC_COLUMNS}`,
+                [saleId, meta.storageKey, meta.originalName, meta.mimeType, meta.sizeBytes, isPrimary, maxSort + 1, orgId]
+            );
+            return mapRow(result.rows[0] || null);
+        });
+    },
+
+    /**
+     * Supprime une photo (ligne en base) et renvoie ce qu'il faut nettoyer
+     * sur disque. Si la photo supprimée était la principale, la photo
+     * restante la plus proche (sort_order le plus petit) devient principale.
+     */
+    async remove(orgId, id) {
+        return withTransaction(async (client) => {
+            const existing = await client.query(
+                'SELECT * FROM vehicle_sale_photos WHERE organization_id = $1 AND id = $2',
+                [orgId, id]
+            );
+            const photo = existing.rows[0];
+            if (!photo) return null;
+            await client.query(
+                'DELETE FROM vehicle_sale_photos WHERE organization_id = $1 AND id = $2',
+                [orgId, id]
+            );
+            if (photo.is_primary) {
+                await client.query(
+                    `UPDATE vehicle_sale_photos SET is_primary = TRUE
+                     WHERE id = (
+                         SELECT id FROM vehicle_sale_photos
+                         WHERE organization_id = $1 AND vehicle_sale_id = $2
+                         ORDER BY sort_order, id LIMIT 1
+                     )`,
+                    [orgId, photo.vehicle_sale_id]
+                );
+            }
+            return mapRow(photo);
+        });
+    },
+
+    /**
+     * Définit la photo principale d'une vente (unique par vente). La photo
+     * doit appartenir à la vente et à l'organisation.
+     */
+    async setPrimary(orgId, saleId, id) {
+        return withTransaction(async (client) => {
+            const target = await client.query(
+                'SELECT 1 FROM vehicle_sale_photos WHERE organization_id = $1 AND vehicle_sale_id = $2 AND id = $3',
+                [orgId, saleId, id]
+            );
+            if (target.rowCount === 0) {
+                throw AppError.notFound('Photo introuvable pour cette vente.');
+            }
+            await client.query(
+                'UPDATE vehicle_sale_photos SET is_primary = FALSE WHERE organization_id = $1 AND vehicle_sale_id = $2',
+                [orgId, saleId]
+            );
+            const result = await client.query(
+                `UPDATE vehicle_sale_photos SET is_primary = TRUE
+                 WHERE organization_id = $1 AND id = $2
+                 RETURNING ${PHOTO_PUBLIC_COLUMNS}`,
+                [orgId, id]
+            );
+            return mapRow(result.rows[0] || null);
+        });
+    },
+
+    /**
+     * Réordonne les photos d'une vente selon la liste d'identifiants fournie.
+     * Tous les identifiants doivent appartenir à la vente et à l'organisation.
+     */
+    async reorder(orgId, saleId, photoIds) {
+        return withTransaction(async (client) => {
+            const existing = await client.query(
+                'SELECT id FROM vehicle_sale_photos WHERE organization_id = $1 AND vehicle_sale_id = $2',
+                [orgId, saleId]
+            );
+            const owned = new Set(existing.rows.map((r) => r.id));
+            if (photoIds.length === 0 || photoIds.length !== owned.size || photoIds.some((id) => !owned.has(id))) {
+                throw AppError.badRequest('La liste d\'ordre des photos est invalide.');
+            }
+            for (let i = 0; i < photoIds.length; i++) {
+                await client.query(
+                    'UPDATE vehicle_sale_photos SET sort_order = $1 WHERE organization_id = $2 AND id = $3',
+                    [i + 1, orgId, photoIds[i]]
+                );
+            }
+            const result = await client.query(
+                `SELECT ${PHOTO_PUBLIC_COLUMNS} FROM vehicle_sale_photos
+                 WHERE organization_id = $1 AND vehicle_sale_id = $2
+                 ORDER BY sort_order, id`,
+                [orgId, saleId]
+            );
+            return mapRows(result.rows);
         });
     },
 };
@@ -1104,6 +1291,7 @@ module.exports = {
     fuelLogs,
     documents,
     vehicleSales,
+    vehicleSalePhotos,
     fuelBudgets,
     users,
     organizations,

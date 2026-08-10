@@ -192,13 +192,25 @@ app.use('/api', monitoringRouter);
 app.use('/api', notFoundHandler);
 
 // ===== SERT LE FRONTEND (fichiers statiques publics UNIQUEMENT) =====
-// Seuls index.html et app.js sont exposés. Tout le reste du projet
+// Seuls les fichiers listés ci-dessous sont exposés. Tout le reste du projet
 // (config.js, db/, routes/, data/db.json, node_modules/, .env, logs, tests...)
 // reste inaccessible depuis HTTP : évite la fuite du code source, des secrets
 // et des données clients.
-const PUBLIC_STATIC_FILES = new Set(['/index.html', '/app.js']);
+//
+// Phase Landing Page : la Landing Page publique vit dans landing.html /
+// landing.js et est servie à la racine (« / »), sans authentification.
+// L'application connectée (index.html + app.js) reste disponible à
+// « /app » (et « /app/ ») ainsi qu'à « /index.html » : aucun changement de
+// comportement pour les utilisateurs déjà connectés.
+const PUBLIC_STATIC_FILES = new Set(['/index.html', '/app.js', '/landing.html', '/landing.js']);
 
+// Landing Page publique (racine, accessible sans authentification).
 app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'landing.html'));
+});
+
+// Application connectée (dashboard) : conservée sur sa propre route.
+app.get(['/app', '/app/'], (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 

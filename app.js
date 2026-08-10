@@ -982,6 +982,22 @@
                     status: 'DRAFT', notes: ''
                 },
 
+                // Photos des ventes (Phase 7.7 — Commit 4 : photos sécurisées)
+                salePhotos: [],
+                salePhotosLoading: false,
+                salePhotosError: '',
+                salePhotoUploading: false,
+                salePhotoProgress: 0,
+                salePhotoUploadError: '',
+                salePhotoSelected: null,
+                saleGalleryIndex: 0,
+                saleGalleryOpen: false,
+                // Cache des photos principales par vente (cartes catalogue) :
+                // les <img> ne portent pas d'en-tête d'autorisation, les images
+                // sont donc téléchargées en blob avec jeton puis affichées.
+                salePrimaryPhotoSrc: {},
+                saleCardPrefetchBusy: false,
+
                 // Filtres & Recherche
                 vehicleSearch: '',
                 vehicleFilterStatus: 'ALL',
@@ -1673,6 +1689,21 @@
 
                     // Charge les offres publiques pour la page tarifs (page landing).
                     this.loadPublicPlans();
+
+                    // Landing Page publique -> accès direct aux vues existantes de
+                    // connexion / inscription : /app?view=login, /app?view=signup
+                    // (optionnel : &plan=CODE pré-sélectionne le plan du tunnel).
+                    // Aucune logique d'authentification n'est modifiée.
+                    try {
+                        const params = new URLSearchParams(window.location.search);
+                        const view = params.get('view');
+                        const plan = (params.get('plan') || '').trim().toUpperCase();
+                        if (view === 'signup') {
+                            this.startSignup(plan || 'STARTER');
+                        } else if (view === 'login') {
+                            this.showLogin();
+                        }
+                    } catch (e) { /* paramètre optionnel : on ignore toute erreur */ }
 
                     // Tente de restaurer une session existante (token JWT sauvegardé)
                     await this.restoreSession();
@@ -3703,6 +3734,8 @@
                 openSaleDetail(sale) {
                     this.selectedSale = sale;
                     this.showSaleDetailModal = true;
+                    // Charge la galerie de photos sécurisées de la vente.
+                    this.loadSalePhotos(sale);
                 },
 
                 // Vendeur renseigné sur la vente (instantané serveur) : seul le
@@ -3864,14 +3897,227 @@
                     try {
                         await this.apiFetch('/api/vehicle-sales/' + id, { method: 'DELETE' });
                         this.sales = this.sales.filter(s => s.id !== id);
-                        this.showSaleDetailModal = false;
-                        this.selectedSale = null;
+                        this.closeSaleDetail();
                         const refreshed = await this.apiFetch('/api/vehicles');
                         if (Array.isArray(refreshed)) this.vehicles = refreshed;
                     } catch (e) {
                         alert('Erreur : ' + (e.message || 'suppression impossible.'));
                     } finally {
                         this.saleDeleting = false;
+                    }
+                },
+
+                // ===== PHOTOS DES VENTES (Phase 7.7 — Commit 4) =====
+                // Les photos sont servies UNIQUEMENT par l'API authentifiée
+                // (/api/vehicle-sales/:saleId/photos/:photoId) : aucun accès
+                // statique. Les <img> ne peuvent pas porter l'en-tête
+                // Authorization, on télécharge donc chaque photo en blob avec
+                // le jeton, puis on affiche une URL objet éphémère.
+
+                /** Révoque les URL objet et ferme la modale de détail. */
+                closeSaleDetail() {
+                    // L'URL objet de la photo principale reste référencée par le
+                    // cache des cartes catalogue (salePrimaryPhotoSrc) : on la
+                    // conserve pour ne pas casser l'image de la carte.
+                    const cached = this.selectedSale && this.selectedSale.id ? this.salePrimaryPhotoSrc[this.selectedSale.id] : '';
+                    for (const p of this.salePhotos) {
+                        if (p.src && p.src.startsWith('blob:') && p.src !== cached) URL.revokeObjectURL(p.src);
+                    }
+                    this.salePhotos = [];
+                    this.salePhotosLoading = false;
+                    this.salePhotosError = '';
+                    this.salePhotoUploadError = '';
+                    this.salePhotoSelected = null;
+                    this.salePhotoProgress = 0;
+                    this.salePhotoUploading = false;
+                    this.saleGalleryIndex = 0;
+                    this.saleGalleryOpen = false;
+                    this.showSaleDetailModal = false;
+                    this.selectedSale = null;
+                },
+
+                /** Charge la liste des photos d'une vente (métadonnées + URL objet). */
+                async loadSalePhotos(sale) {
+                    if (!sale || !sale.id) return;
+                    this.salePhotosLoading = true;
+                    this.salePhotosError = '';
+                    this.saleGalleryIndex = 0;
+                    try {
+                        const data = await this.apiFetch('/api/vehicle-sales/' + sale.id + '/photos');
+                        const list = (data && data.items) || [];
+                        const withSrc = [];
+                        for (const p of list) {
+                            p.src = await this.fetchPhotoBlobUrl(sale.id, p.id);
+                            withSrc.push(p);
+                        }
+                        // Remplace la liste : révoque les URL objet précédentes
+                        // (rechargements successifs dans la même modale).
+                        for (const old of this.salePhotos) {
+                            if (old.src && old.src.startsWith('blob:')) URL.revokeObjectURL(old.src);
+                        }
+                        this.salePhotos = withSrc;
+                        if (this.salePhotos.length > 0) {
+                            const idx = this.salePhotos.findIndex(p => p.isPrimary);
+                            this.saleGalleryIndex = idx >= 0 ? idx : 0;
+                        }
+                        this.refreshSalePrimaryCache();
+                    } catch (e) {
+                        if (e && e.status === 403) { this.salePhotosError = ''; return; }
+                        this.salePhotosError = (e && e.message) || 'Impossible de charger les photos.';
+                    } finally {
+                        this.salePhotosLoading = false;
+                    }
+                },
+
+                /** Télécharge une photo en blob (jeton) et renvoie son URL objet. */
+                async fetchPhotoBlobUrl(saleId, photoId) {
+                    if (!this.authToken || !saleId || !photoId) return '';
+                    try {
+                        const res = await fetch(this.apiUrl('/api/vehicle-sales/' + saleId + '/photos/' + photoId), {
+                            headers: { 'Authorization': 'Bearer ' + this.authToken },
+                        });
+                        if (!res.ok) return '';
+                        const blob = await res.blob();
+                        return URL.createObjectURL(blob);
+                    } catch (e) {
+                        return '';
+                    }
+                },
+
+                /** Photo principale d'une vente pour la carte catalogue. */
+                saleCardPhotoSrc(s) {
+                    if (!s) return '';
+                    return this.salePrimaryPhotoSrc[s.id] || '';
+                },
+
+                /**
+                 * Pré-charge une à une (séquence, sans rafale) les photos
+                 * principales des ventes actuellement affichées dans le
+                 * catalogue. Déclenché par x-effect sur la grille des cartes.
+                 */
+                prefetchSaleCardPhotos() {
+                    if (this.saleCardPrefetchBusy) return;
+                    const pending = this.filteredSales.find(s =>
+                        s.photoCount > 0 && s.primaryPhotoId != null && !this.salePrimaryPhotoSrc[s.id]
+                    );
+                    if (!pending) return;
+                    this.saleCardPrefetchBusy = true;
+                    this.fetchPhotoBlobUrl(pending.id, pending.primaryPhotoId)
+                        .then(url => { if (url) this.salePrimaryPhotoSrc[pending.id] = url; })
+                        .catch(() => {})
+                        .finally(() => { this.saleCardPrefetchBusy = false; });
+                },
+
+                /** Synchronise le cache carte avec la photo principale chargée. */
+                refreshSalePrimaryCache() {
+                    if (!this.selectedSale || !this.selectedSale.id) return;
+                    const primary = this.salePhotos.find(p => p.isPrimary);
+                    const prev = this.salePrimaryPhotoSrc[this.selectedSale.id];
+                    if (primary && primary.src) {
+                        if (prev && prev !== primary.src && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                        this.salePrimaryPhotoSrc[this.selectedSale.id] = primary.src;
+                    } else if (prev) {
+                        if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                        delete this.salePrimaryPhotoSrc[this.selectedSale.id];
+                    }
+                },
+
+                saleGalleryPrev() {
+                    if (this.salePhotos.length < 2) return;
+                    this.saleGalleryIndex = (this.saleGalleryIndex - 1 + this.salePhotos.length) % this.salePhotos.length;
+                },
+
+                saleGalleryNext() {
+                    if (this.salePhotos.length < 2) return;
+                    this.saleGalleryIndex = (this.saleGalleryIndex + 1) % this.salePhotos.length;
+                },
+
+                onSalePhotoSelect(event) {
+                    this.salePhotoUploadError = '';
+                    this.salePhotoSelected = null;
+                    const input = event && event.target;
+                    const file = input && input.files && input.files[0];
+                    if (!file) return;
+                    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                    const allowedExt = /\.(jpe?g|png|webp)$/i.test(file.name);
+                    if (!allowedTypes.includes(file.type) || !allowedExt) {
+                        this.salePhotoUploadError = 'Format non autorisé. Formats acceptés : JPG, PNG, WEBP (5 Mo max).';
+                        if (input) input.value = '';
+                        return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                        this.salePhotoUploadError = 'Photo trop volumineuse (5 Mo max).';
+                        if (input) input.value = '';
+                        return;
+                    }
+                    this.salePhotoSelected = file;
+                },
+
+                /** Upload d'une photo (ADMIN, MANAGER) avec barre de progression. */
+                async uploadSalePhoto() {
+                    if (!this.salePhotoSelected || !this.selectedSale || !this.selectedSale.id) return;
+                    this.salePhotoUploading = true;
+                    this.salePhotoUploadError = '';
+                    this.salePhotoProgress = 0;
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', this.salePhotoSelected);
+                        await new Promise((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+                            xhr.open('POST', this.apiUrl('/api/vehicle-sales/' + this.selectedSale.id + '/photos'));
+                            xhr.setRequestHeader('Authorization', 'Bearer ' + this.authToken);
+                            xhr.upload.onprogress = (e) => {
+                                if (e.lengthComputable) this.salePhotoProgress = Math.round((e.loaded / e.total) * 100);
+                            };
+                            xhr.onload = () => {
+                                if (xhr.status >= 200 && xhr.status < 300) {
+                                    this.salePhotoProgress = 100;
+                                    resolve();
+                                    return;
+                                }
+                                let msg = 'Upload échoué (statut ' + xhr.status + ').';
+                                try {
+                                    const d = JSON.parse(xhr.responseText);
+                                    if (d && d.error) msg = d.error;
+                                } catch (err) { /* corps non JSON */ }
+                                reject(new Error(msg));
+                            };
+                            xhr.onerror = () => reject(new Error('Erreur réseau pendant l\'envoi de la photo.'));
+                            xhr.send(formData);
+                        });
+                        this.salePhotoSelected = null;
+                        await this.loadSalePhotos(this.selectedSale);
+                    } catch (e) {
+                        this.salePhotoUploadError = e.message || 'Upload impossible.';
+                    } finally {
+                        this.salePhotoUploading = false;
+                    }
+                },
+
+                /** Définit la photo principale d'une vente (ADMIN, MANAGER). */
+                async setSalePhotoPrimary(photo) {
+                    if (!photo || !this.selectedSale || !this.selectedSale.id || !this.canManageFleet) return;
+                    try {
+                        await this.apiFetch('/api/vehicle-sales/' + this.selectedSale.id + '/photos/' + photo.id + '/primary', {
+                            method: 'PUT',
+                        });
+                        await this.loadSalePhotos(this.selectedSale);
+                    } catch (e) {
+                        alert('Erreur : ' + (e.message || 'impossible de définir la photo principale.'));
+                    }
+                },
+
+                /** Supprime une photo (ADMIN, MANAGER) avec confirmation. */
+                async deleteSalePhoto(photo) {
+                    if (!photo || !this.selectedSale || !this.selectedSale.id || !this.canManageFleet) return;
+                    if (!confirm('Supprimer cette photo ? Cette action est irréversible.')) return;
+                    try {
+                        await this.apiFetch('/api/vehicle-sales/' + this.selectedSale.id + '/photos/' + photo.id, {
+                            method: 'DELETE',
+                        });
+                        await this.loadSalePhotos(this.selectedSale);
+                    } catch (e) {
+                        alert('Erreur : ' + (e.message || 'suppression impossible.'));
                     }
                 },
 

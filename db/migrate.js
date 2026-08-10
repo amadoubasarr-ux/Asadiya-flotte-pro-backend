@@ -408,6 +408,36 @@ CREATE INDEX IF NOT EXISTS idx_vehicle_sales_buyer        ON vehicle_sales(buyer
 CREATE INDEX IF NOT EXISTS idx_vehicle_sales_broker       ON vehicle_sales(broker_id);
 CREATE INDEX IF NOT EXISTS idx_vehicle_sales_sale_date    ON vehicle_sales(organization_id, sale_date);
 CREATE INDEX IF NOT EXISTS idx_vehicle_sales_org_status   ON vehicle_sales(organization_id, status);
+
+-- ============================================================
+-- Photos des ventes de véhicules (Phase 7.7 — Commit 4) — une
+-- ligne = une photo rattachée à une vente de l'organisation.
+-- ============================================================
+-- Plusieurs photos par annonce, avec une photo principale
+-- (is_primary) et un ordre d'affichage (sort_order) pilotés par le
+-- serveur. Le fichier physique n'est JAMAIS stocké en base : seule la
+-- clé de stockage interne (storage_key, chemin relatif sûr généré par
+-- le serveur, jamais exposé au client) et les métadonnées (nom
+-- original, type MIME, taille, date) sont conservées. Le répertoire
+-- « uploads » n'est jamais servi en statique : la lecture passe par
+-- l'API authentifiée /api/vehicle-sales/:saleId/photos/:photoId.
+CREATE TABLE IF NOT EXISTS vehicle_sale_photos (
+    id                SERIAL PRIMARY KEY,
+    vehicle_sale_id   INTEGER NOT NULL REFERENCES vehicle_sales(id) ON DELETE CASCADE,
+    storage_key       TEXT NOT NULL,
+    original_name     TEXT NOT NULL,
+    mime_type         TEXT NOT NULL,
+    size_bytes        INTEGER NOT NULL CHECK (size_bytes >= 0),
+    is_primary        BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order        INTEGER NOT NULL DEFAULT 0,
+    organization_id   INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT vehicle_sale_photos_storage_key_unique UNIQUE (organization_id, vehicle_sale_id, storage_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vehicle_sale_photos_org     ON vehicle_sale_photos(organization_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_sale_photos_sale    ON vehicle_sale_photos(vehicle_sale_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_sale_photos_primary ON vehicle_sale_photos(organization_id, vehicle_sale_id, is_primary);
 `;
 
 // ============================================================

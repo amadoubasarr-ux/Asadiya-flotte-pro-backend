@@ -2382,24 +2382,28 @@
                     </p>
 
                     <!-- Grille des Cartes Ventes -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" x-effect="prefetchSaleCardPhotos()">
                         <template x-for="s in filteredSales" :key="s.id">
                             <div class="card card-hover card-pad space-y-4 transition flex flex-col justify-between">
                                 <div class="space-y-3">
+                                    <!-- Photo principale de la vente (ou placeholder) -->
+                                    <div class="relative h-40 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
+                                        <img x-show="saleCardPhotoSrc(s)" :src="saleCardPhotoSrc(s)" :alt="s.title || s.vehicle" class="w-full h-full object-cover">
+                                        <template x-if="!saleCardPhotoSrc(s) && saleVehicle(s) && saleVehicle(s).photo">
+                                            <img :src="saleVehicle(s).photo" :alt="s.title || s.vehicle" class="w-full h-full object-cover">
+                                        </template>
+                                        <template x-if="!saleCardPhotoSrc(s) && !(saleVehicle(s) && saleVehicle(s).photo)">
+                                            <i class="fa-solid fa-car text-slate-300 text-4xl"></i>
+                                        </template>
+                                        <span x-show="s.photoCount > 1" class="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                            <i class="fa-solid fa-images mr-1"></i> +<span x-text="s.photoCount - 1"></span>
+                                        </span>
+                                    </div>
+
                                     <div class="flex justify-between items-start gap-2">
-                                        <div class="flex items-center gap-3 min-w-0">
-                                            <div class="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                                                <template x-if="saleVehicle(s) && saleVehicle(s).photo">
-                                                    <img :src="saleVehicle(s).photo" class="w-full h-full object-cover">
-                                                </template>
-                                                <template x-if="!(saleVehicle(s) && saleVehicle(s).photo)">
-                                                    <i class="fa-solid fa-car text-slate-400"></i>
-                                                </template>
-                                            </div>
-                                            <div class="min-w-0">
-                                                <h3 class="font-bold text-base text-slate-900 truncate" x-text="s.title || (saleVehicle(s) ? saleVehicle(s).brand + ' ' + saleVehicle(s).model : s.vehicle)"></h3>
-                                                <p class="text-[11px] text-slate-400 truncate" x-text="s.vehicle || (saleVehicle(s) ? saleVehicle(s).plate : '')"></p>
-                                            </div>
+                                        <div class="min-w-0">
+                                            <h3 class="font-bold text-base text-slate-900 truncate" x-text="s.title || (saleVehicle(s) ? saleVehicle(s).brand + ' ' + saleVehicle(s).model : s.vehicle)"></h3>
+                                            <p class="text-[11px] text-slate-400 truncate" x-text="s.vehicle || (saleVehicle(s) ? saleVehicle(s).plate : '')"></p>
                                         </div>
                                         <span :class="saleStatusBadge(s.status).cls" class="badge" x-text="saleStatusBadge(s.status).label"></span>
                                     </div>
@@ -4947,7 +4951,7 @@
                                 <i class="fa-solid fa-handshake text-indigo-500"></i>
                                 <span x-text="selectedSale.saleNumber || 'Vente de véhicule'"></span>
                             </h3>
-                            <button @click="showSaleDetailModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                            <button @click="closeSaleDetail()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
                                 <i class="fa-solid fa-xmark"></i>
                             </button>
                         </div>
@@ -4969,6 +4973,81 @@
                                     <span :class="paymentStatusBadge(selectedSale.paymentStatus).cls" class="badge" x-text="paymentStatusBadge(selectedSale.paymentStatus).label"></span>
                                     <span :class="deliveryStatusBadge(selectedSale.deliveryStatus).cls" class="badge" x-text="deliveryStatusBadge(selectedSale.deliveryStatus).label"></span>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Photos de la vente (Phase 7.7 — Commit 4) -->
+                        <div>
+                            <p class="font-semibold text-slate-600 text-[11px] mb-2">
+                                <i class="fa-solid fa-images mr-1 text-indigo-500"></i> Photos
+                                <span x-show="salePhotos.length > 0" class="text-slate-400 font-normal" x-text="'(' + salePhotos.length + ')'"></span>
+                            </p>
+
+                            <p x-show="salePhotosLoading" class="text-xs text-slate-500 flex items-center gap-2">
+                                <i class="fa-solid fa-spinner fa-spin"></i> Chargement des photos...
+                            </p>
+                            <p x-show="salePhotosError && !salePhotosLoading" class="text-xs text-rose-500 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                                <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span x-text="salePhotosError"></span>
+                            </p>
+
+                            <template x-if="salePhotos.length > 0">
+                                <div class="space-y-2">
+                                    <div class="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-900 flex items-center justify-center">
+                                        <img :src="salePhotos[saleGalleryIndex] ? salePhotos[saleGalleryIndex].src : ''" class="w-full h-56 object-cover">
+                                        <button @click="saleGalleryOpen = true" title="Agrandir la photo" class="absolute top-2 right-2 w-8 h-8 rounded-lg bg-slate-900/60 text-white hover:bg-slate-900/80 flex items-center justify-center transition">
+                                            <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
+                                        </button>
+                                        <div x-show="canManageFleet" class="absolute bottom-2 left-2 flex gap-1.5">
+                                            <button x-show="salePhotos[saleGalleryIndex] && !salePhotos[saleGalleryIndex].isPrimary"
+                                                    @click="setSalePhotoPrimary(salePhotos[saleGalleryIndex])"
+                                                    title="Définir comme photo principale"
+                                                    class="btn btn-xs !bg-white/90 !text-amber-600 hover:!bg-white">
+                                                <i class="fa-solid fa-star mr-1"></i> Principale
+                                            </button>
+                                            <button @click="deleteSalePhoto(salePhotos[saleGalleryIndex])"
+                                                    title="Supprimer cette photo"
+                                                    class="btn btn-xs !bg-white/90 !text-rose-600 hover:!bg-white">
+                                                <i class="fa-solid fa-trash-can mr-1"></i> Supprimer
+                                            </button>
+                                        </div>
+                                        <span x-show="salePhotos.length > 1" class="absolute bottom-2 right-2 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                            <span x-text="(saleGalleryIndex + 1) + ' / ' + salePhotos.length"></span>
+                                        </span>
+                                    </div>
+                                    <div x-show="salePhotos.length > 1" class="flex gap-2 overflow-x-auto py-1">
+                                        <template x-for="(p, idx) in salePhotos" :key="p.id">
+                                            <button @click="saleGalleryIndex = idx"
+                                                    :class="idx === saleGalleryIndex ? 'ring-2 ring-indigo-500 border-indigo-500' : 'border-slate-200 hover:border-slate-300'"
+                                                    class="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border bg-slate-100 transition">
+                                                <img :src="p.src" class="w-full h-full object-cover">
+                                                <i x-show="p.isPrimary" title="Photo principale" class="fa-solid fa-star absolute top-0.5 right-0.5 text-amber-400 text-[9px] drop-shadow"></i>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <div x-show="!salePhotosLoading && salePhotos.length === 0" class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                                <i class="fa-solid fa-image text-slate-300 text-2xl mb-2"></i>
+                                <p class="text-xs text-slate-500" x-text="canManageFleet ? 'Aucune photo pour le moment. Ajoutez la première photo de l\'annonce ci-dessous.' : 'Aucune photo pour le moment.'"></p>
+                            </div>
+
+                            <div x-show="canManageFleet" class="mt-2 bg-slate-50 rounded-xl border border-slate-200 p-3 space-y-2">
+                                <p class="font-semibold text-slate-600 text-[11px]"><i class="fa-solid fa-cloud-arrow-up mr-1 text-indigo-500"></i> Ajouter une photo</p>
+                                <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                                    <input type="file" accept="image/jpeg,image/png,image/webp" @click="$event.target.value = ''" @change="onSalePhotoSelect($event)" class="input !text-xs file:mr-2 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:text-xs file:font-semibold">
+                                    <button @click="uploadSalePhoto()" :disabled="!salePhotoSelected || salePhotoUploading" class="btn btn-primary !text-xs whitespace-nowrap">
+                                        <i class="fa-solid fa-circle-notch fa-spin mr-1" x-show="salePhotoUploading"></i>
+                                        <i class="fa-solid fa-upload mr-1" x-show="!salePhotoUploading"></i> Ajouter
+                                    </button>
+                                </div>
+                                <div x-show="salePhotoUploading" class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-indigo-600 transition-all" :style="'width: ' + salePhotoProgress + '%'"></div>
+                                </div>
+                                <p x-show="salePhotoUploadError" class="text-[11px] text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-2 py-1.5">
+                                    <i class="fa-solid fa-circle-exclamation mr-1"></i> <span x-text="salePhotoUploadError"></span>
+                                </p>
+                                <p class="text-[10px] text-slate-400">Formats acceptés : JPG, PNG, WEBP (5 Mo max). Les photos sont ajoutées après la création de la vente.</p>
                             </div>
                         </div>
 
@@ -5039,7 +5118,7 @@
                             <template x-if="canManageFleet">
                                 <div class="flex items-center space-x-2">
                                     <button x-show="selectedSale.status !== 'COMPLETED' && selectedSale.status !== 'CANCELLED'"
-                                            @click="openSaleModal(selectedSale); showSaleDetailModal = false"
+                                            @click="openSaleModal(selectedSale); closeSaleDetail()"
                                             class="btn btn-secondary">
                                         <i class="fa-solid fa-pen mr-1"></i> Modifier
                                     </button>
@@ -5052,10 +5131,28 @@
                                     </button>
                                 </div>
                             </template>
-                            <button @click="showSaleDetailModal = false" class="btn btn-secondary">Fermer</button>
+                            <button @click="closeSaleDetail()" class="btn btn-secondary">Fermer</button>
                         </div>
                     </div>
                 </template>
+            </div>
+        </div>
+
+        <!-- MODALE : PLEIN ÉCRAN PHOTO DE VENTE -->
+        <div x-show="saleGalleryOpen" class="modal-backdrop !p-0 !bg-slate-900/95" x-cloak>
+            <div class="relative w-full h-full flex items-center justify-center p-4 sm:p-8">
+                <button @click="saleGalleryOpen = false" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition z-10">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <button x-show="salePhotos.length > 1" @click="saleGalleryPrev()" class="absolute left-2 sm:left-4 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition z-10">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <template x-if="salePhotos.length > 0">
+                    <img :src="salePhotos[saleGalleryIndex].src" class="max-h-full max-w-full object-contain rounded-lg shadow-2xl">
+                </template>
+                <button x-show="salePhotos.length > 1" @click="saleGalleryNext()" class="absolute right-2 sm:right-4 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center transition z-10">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
             </div>
         </div>
 
@@ -5241,6 +5338,10 @@
                         </div>
                     </div>
                 </div>
+
+                <p class="text-[10px] text-slate-400 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                    <i class="fa-solid fa-images mr-1 text-indigo-400"></i> Les photos de l'annonce seront ajoutées après la création de la vente, depuis sa fiche de détail.
+                </p>
 
                 <div class="flex justify-end space-x-2 pt-2">
                     <button @click="showSaleModal = false" class="btn btn-secondary">Annuler</button>

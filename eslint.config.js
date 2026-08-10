@@ -78,4 +78,15 @@ module.exports = [
             },
         },
     },
+    // Landing Page publique (landing.js) : fichier navigateur autonome, sans
+    // librairie externe. Le langage est le même (CommonJS/browser) ; seules
+    // les globals navigateur sont déclarées.
+    {
+        files: ['landing.js'],
+        languageOptions: {
+            globals: {
+                ...globals.browser,
+            },
+        },
+    },
 ];

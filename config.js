@@ -79,6 +79,8 @@ const config = {
     uploadsDir: process.env.UPLOADS_DIR || path.join(__dirname, 'uploads'),
     // Taille maximale d'une pièce jointe (octets). Défaut : 10 MB.
     documentMaxFileSize: parseIntEnv('DOCUMENT_MAX_FILE_SIZE', 10 * 1024 * 1024),
+    // Taille maximale d'une photo de vente de véhicule (octets). Défaut : 5 MB.
+    photoMaxFileSize: parseIntEnv('PHOTO_MAX_FILE_SIZE', 5 * 1024 * 1024),
 
     // Reverse proxy : nombre de sauts de proxy de confiance pour la lecture de
     // l'adresse IP réelle du client (requis derrière nginx/Caddy pour le rate limiting).
@@ -297,6 +299,11 @@ function assertProductionConfig() {
     // Taille maximale d'une pièce jointe document (octets, > 0).
     if (!Number.isInteger(config.documentMaxFileSize) || config.documentMaxFileSize < 1) {
         failures.push(`DOCUMENT_MAX_FILE_SIZE="${process.env.DOCUMENT_MAX_FILE_SIZE}" doit être un entier positif (octets).`);
+    }
+
+    // Taille maximale d'une photo de vente (octets, > 0).
+    if (!Number.isInteger(config.photoMaxFileSize) || config.photoMaxFileSize < 1) {
+        failures.push(`PHOTO_MAX_FILE_SIZE="${process.env.PHOTO_MAX_FILE_SIZE}" doit être un entier positif (octets).`);
     }
 
     // Durée de la période d'essai.

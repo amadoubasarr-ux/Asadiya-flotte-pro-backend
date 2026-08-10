@@ -192,7 +192,40 @@ async function removeFile(relativePath) {
     } catch (err) {
         if (err.code !== 'ENOENT') {
             logger.warn('documents.file_remove_failed', { path: relativePath, message: err.message });
+            return;
         }
+    }
+    // Prune les dossiers parents devenus vides (ex. dossier de vente) afin
+    // qu'aucun répertoire orphelin ne subsiste après la suppression.
+    await pruneEmptyParents(path.dirname(abs));
+}
+
+/**
+ * Supprime récursivement les dossiers vides jusqu'à la racine d'upload.
+ * S'arrête dès qu'un dossier contient un fichier (jamais de suppression
+ * d'un dossier non vide).
+ */
+async function pruneEmptyParents(dir) {
+    const root = path.normalize(config.uploadsDir);
+    let current = path.normalize(dir);
+    const stop = root;
+    while (current !== stop && (current + path.sep).startsWith(stop + path.sep)) {
+        let empty = false;
+        try {
+            const entries = await fs.promises.readdir(current);
+            empty = entries.length === 0;
+        } catch (err) {
+            return;
+        }
+        if (!empty) return;
+        try {
+            await fs.promises.rmdir(current);
+        } catch (err) {
+            return;
+        }
+        const parent = path.dirname(current);
+        if (parent === current) return;
+        current = parent;
     }
 }
 
