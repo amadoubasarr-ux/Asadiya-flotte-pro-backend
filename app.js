@@ -966,6 +966,7 @@
                 salesTotal: 0,
                 salesLoading: false,
                 salesError: '',
+                salesFlash: '',
                 showSaleDetailModal: false,
                 selectedSale: null,
                 showSaleModal: false,
@@ -3714,6 +3715,61 @@
                         'COMPLETED': { cls: 'badge-green', label: 'Vendu' },
                         'CANCELLED': { cls: 'badge-red', label: 'Annulé' }
                     }[status] || { cls: 'badge-slate', label: status || '—' };
+                },
+
+                // Cycle de vie commercial du véhicule (Phase 7.7 — Commit 5) :
+                // Disponible / En vente / Vendu. Distinct du statut opérationnel
+                // (status) piloté par la vente (RESERVED/SOLD) et de l'état de la
+                // vente elle-même (DRAFT/IN_PROGRESS/COMPLETED/CANCELLED).
+                commercialStatusBadge(status) {
+                    return {
+                        'AVAILABLE': { cls: 'badge-slate', label: 'Disponible' },
+                        'FOR_SALE': { cls: 'badge-blue', label: 'En vente' },
+                        'SOLD': { cls: 'badge-green', label: 'Vendu' }
+                    }[status] || { cls: 'badge-slate', label: status || '—' };
+                },
+
+                saleCommercialStatus(s) {
+                    if (!s) return null;
+                    const v = this.saleVehicle(s);
+                    return v ? v.commercialStatus : null;
+                },
+
+                // Change le statut commercial du véhicule (PATCH dédié, machine à
+                // états côté serveur). VENDU exige la vente sélectionnée : elle est
+                // finalisée côté serveur (COMPLETED). Aucune suppression : photos,
+                // documents et historique comptable sont conservés.
+                async setVehicleCommercialStatus(sale, status) {
+                    const actions = {
+                        'FOR_SALE': { confirm: 'Mettre en vente', done: 'mis en vente' },
+                        'AVAILABLE': { confirm: 'Retirer de la vente', done: 'retiré de la vente' },
+                        'SOLD': { confirm: 'Marquer comme vendu', done: 'marqué comme vendu' }
+                    };
+                    const action = actions[status];
+                    if (!action || !sale) return;
+                    const v = this.saleVehicle(sale);
+                    const label = [v && v.brand, v && v.model, v && v.plate].filter(Boolean).join(' ') || sale.title || sale.vehicle || 'véhicule';
+                    const message = status === 'SOLD'
+                        ? `Confirmer que "${label}" est VENDU ? La vente n°${sale.saleNumber || ''} sera finalisée.`
+                        : `Confirmer pour ${action.confirm.toLowerCase()} "${label}" ?`;
+                    if (!confirm(message)) return;
+
+                    this.salesFlash = '';
+                    try {
+                        const payload = { status };
+                        if (status === 'SOLD') payload.saleId = sale.id;
+                        await this.apiFetch('/api/vehicles/' + sale.vehicleId + '/commercial-status', {
+                            method: 'PATCH',
+                            body: JSON.stringify(payload)
+                        });
+                        if (v) v.commercialStatus = status;
+                        if (status === 'SOLD') sale.status = 'COMPLETED';
+                        await this.loadSales();
+                        this.salesFlash = `Véhicule ${action.done} : opération enregistrée.`;
+                    } catch (e) {
+                        this.salesFlash = '';
+                        alert('Erreur : ' + ((e && e.message) || 'opération impossible.'));
+                    }
                 },
 
                 paymentStatusBadge(status) {

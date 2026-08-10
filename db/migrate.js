@@ -35,13 +35,15 @@ CREATE TABLE IF NOT EXISTS vehicles (
     next_oil_change_km       INTEGER NOT NULL DEFAULT 0,
     fuel                     TEXT,
     status                   TEXT NOT NULL DEFAULT 'AVAILABLE',
+    commercial_status        TEXT NOT NULL DEFAULT 'AVAILABLE',
     driver                   TEXT,
     insurance_expiry         DATE,
     registration_expiry      DATE,
     technical_control_expiry DATE,
     photo                    TEXT,
     organization_id          INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-    created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT vehicles_commercial_status_check CHECK (commercial_status IN ('AVAILABLE', 'FOR_SALE', 'SOLD'))
 );
 
 CREATE TABLE IF NOT EXISTS drivers (
@@ -569,6 +571,28 @@ CREATE INDEX IF NOT EXISTS idx_vehicle_sales_org_status ON vehicle_sales(organiz
 `;
 
 // ============================================================
+// Cycle de vie commercial des véhicules (Phase Vente, Commit suivant)
+// ============================================================
+// Le CREATE TABLE IF NOT EXISTS du SCHEMA ne modifie pas une table existante :
+// on ajoute donc idempotemment la colonne commercial_status (statut du cycle
+// de vie commercial : AVAILABLE / FOR_SALE / SOLD) et sa contrainte nommée.
+// Les bases récentes (table créée avec la colonne et la contrainte au SCHEMA)
+// ne sont pas modifiées grâce au IF NOT EXISTS / DO $$.
+const UPGRADE_VEHICLE_COMMERCIAL_SQL = `
+ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS commercial_status TEXT NOT NULL DEFAULT 'AVAILABLE';
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'vehicles_commercial_status_check'
+    ) THEN
+        ALTER TABLE vehicles ADD CONSTRAINT vehicles_commercial_status_check
+            CHECK (commercial_status IN ('AVAILABLE', 'FOR_SALE', 'SOLD'));
+    END IF;
+END $$;
+`;
+
+// ============================================================
 // Plans par défaut (Seed)
 // ============================================================
 
@@ -683,6 +707,7 @@ async function migrate() {
     await pool.query(UPGRADE_FUEL_SQL);
     await pool.query(UPGRADE_DOCUMENTS_FILES_SQL);
     await pool.query(UPGRADE_VEHICLE_SALES_SQL);
+    await pool.query(UPGRADE_VEHICLE_COMMERCIAL_SQL);
     await upgradeExistingSubscriptions();
     await seedDefaultPlans();
 }

@@ -422,6 +422,22 @@ const VEHICLE_SOLD = 'SOLD';
 // Statuts de vente finaux : plus aucun changement de statut possible.
 const SALE_FINAL_STATUSES = ['COMPLETED', 'CANCELLED'];
 
+// Statuts du cycle de vie commercial du véhicule (Phase Vente, Commit 5).
+const COMMERCIAL_AVAILABLE = 'AVAILABLE';
+const COMMERCIAL_FOR_SALE = 'FOR_SALE';
+const COMMERCIAL_SOLD = 'SOLD';
+
+// Transitions autorisées de la machine à états commerciale :
+//   AVAILABLE -> FOR_SALE (mise en vente)
+//   FOR_SALE  -> AVAILABLE (retrait de la vente)
+//   FOR_SALE  -> SOLD      (vente conclue, exige la vente concernée)
+// Toute autre transition (ex. AVAILABLE -> SOLD) est refusée en 409.
+const COMMERCIAL_TRANSITIONS = {
+    [COMMERCIAL_AVAILABLE]: [COMMERCIAL_FOR_SALE],
+    [COMMERCIAL_FOR_SALE]: [COMMERCIAL_AVAILABLE, COMMERCIAL_SOLD],
+    [COMMERCIAL_SOLD]: [],
+};
+
 /** Charge le véhicule lié et vérifie son appartenance à l'organisation. */
 async function getOwnedVehicle(client, orgId, vehicleId) {
     const result = await client.query(
@@ -496,6 +512,76 @@ async function applyVehicleStatusFromSale(client, vehicle, saleStatus) {
     } else if (vehicle.status === VEHICLE_AVAILABLE) {
         await client.query('UPDATE vehicles SET status = $1 WHERE id = $2', [VEHICLE_RESERVED, vehicle.id]);
     }
+}
+
+/**
+ * Applique le cycle de vie commercial du véhicule (Phase Vente, Commit 5) :
+ * statut commercial AVAILABLE / FOR_SALE / SOLD, piloté par la route dédiée
+ * PATCH /api/vehicles/:id/commercial-status. Les transitions sont contrôlées
+ * par la machine à états COMMERCIAL_TRANSITIONS ; le passage à SOLD exige la
+ * vente concernée (saleId) : la vente est alors terminée (COMPLETED) et le
+ * statut opérationnel du véhicule est synchronisé (SOLD) via
+ * applyVehicleStatusFromSale. Retourne null si le véhicule n'appartient pas
+ * à l'organisation, sinon le véhicule mis à jour.
+ */
+vehicles.setCommercialStatus = async function setCommercialStatus(orgId, vehicleId, { status, saleId }) {
+    return withTransaction(async (client) => {
+        const lock = await client.query(
+            'SELECT * FROM vehicles WHERE organization_id = $1 AND id = $2 FOR UPDATE',
+            [orgId, vehicleId]
+        );
+        const vehicle = lock.rows[0];
+        if (!vehicle) return null;
+
+        const current = vehicle.commercial_status || COMMERCIAL_AVAILABLE;
+        if (status !== current && !COMMERCIAL_TRANSITIONS[current].includes(status)) {
+            throw AppError.conflict(
+                `Transition de statut commercial interdite : ${current} → ${status}.`
+            );
+        }
+
+        if (status === COMMERCIAL_SOLD) {
+            const sale = await requireOwnedSaleForVehicle(client, orgId, saleId, vehicleId);
+            if (sale.status === 'CANCELLED') {
+                throw AppError.conflict(
+                    'La vente sélectionnée est annulée : impossible de marquer le véhicule comme vendu.'
+                );
+            }
+            if (sale.status !== 'COMPLETED') {
+                await client.query(
+                    'UPDATE vehicle_sales SET status = $1 WHERE organization_id = $2 AND id = $3',
+                    ['COMPLETED', orgId, sale.id]
+                );
+            }
+            // Synchronise le statut opérationnel du véhicule (SOLD).
+            await applyVehicleStatusFromSale(client, vehicle, 'COMPLETED');
+        }
+
+        const updated = await client.query(
+            'UPDATE vehicles SET commercial_status = $1 WHERE organization_id = $2 AND id = $3 RETURNING *',
+            [status, orgId, vehicleId]
+        );
+        return mapRow(updated.rows[0] || null);
+    });
+};
+
+/**
+ * Vérifie que la vente fournie (saleId) appartient à l'organisation ET porte
+ * sur le véhicule donné. Sinon 404 (vente invisible / autre véhicule).
+ */
+async function requireOwnedSaleForVehicle(client, orgId, saleId, vehicleId) {
+    const result = await client.query(
+        'SELECT * FROM vehicle_sales WHERE organization_id = $1 AND id = $2',
+        [orgId, saleId]
+    );
+    const sale = result.rows[0];
+    if (!sale) {
+        throw AppError.notFound('La vente sélectionnée n\'existe pas dans votre organisation.');
+    }
+    if (Number(sale.vehicle_id) !== Number(vehicleId)) {
+        throw AppError.badRequest('La vente sélectionnée ne concerne pas ce véhicule.');
+    }
+    return sale;
 }
 
 /** Nom de l'acheteur interne (instantané dénormalisé depuis drivers). */

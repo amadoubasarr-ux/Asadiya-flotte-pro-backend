@@ -2381,6 +2381,10 @@
                         <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span x-text="salesError"></span>
                     </p>
 
+                    <p x-show="salesFlash" class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                        <i class="fa-solid fa-circle-check mr-1"></i> <span x-text="salesFlash"></span>
+                    </p>
+
                     <!-- Grille des Cartes Ventes -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" x-effect="prefetchSaleCardPhotos()">
                         <template x-for="s in filteredSales" :key="s.id">
@@ -2416,6 +2420,24 @@
                                         <div>Paiement : <span :class="paymentStatusBadge(s.paymentStatus).cls" class="badge !text-[10px]" x-text="paymentStatusBadge(s.paymentStatus).label"></span></div>
                                         <div>Livraison : <span :class="deliveryStatusBadge(s.deliveryStatus).cls" class="badge !text-[10px]" x-text="deliveryStatusBadge(s.deliveryStatus).label"></span></div>
                                     </div>
+                                </div>
+
+                                <!-- Cycle de vie commercial du véhicule (Phase 7.7 — Commit 5) -->
+                                <div class="flex flex-wrap items-center gap-1 pt-2 border-t border-slate-100">
+                                    <span :class="commercialStatusBadge(saleCommercialStatus(s)).cls" class="badge !text-[10px]" x-text="commercialStatusBadge(saleCommercialStatus(s)).label"></span>
+                                    <template x-if="canManageFleet && saleCommercialStatus(s) === 'AVAILABLE'">
+                                        <button @click="setVehicleCommercialStatus(s, 'FOR_SALE')" class="btn btn-ghost btn-xs !text-indigo-600 font-bold">
+                                            <i class="fa-solid fa-tag mr-1"></i> Mettre en vente
+                                        </button>
+                                    </template>
+                                    <template x-if="canManageFleet && saleCommercialStatus(s) === 'FOR_SALE'">
+                                        <button @click="setVehicleCommercialStatus(s, 'AVAILABLE')" class="btn btn-ghost btn-xs !text-slate-500 font-bold">
+                                            <i class="fa-solid fa-arrow-rotate-left mr-1"></i> Retirer
+                                        </button>
+                                        <button @click="setVehicleCommercialStatus(s, 'SOLD')" class="btn btn-ghost btn-xs !text-emerald-600 font-bold">
+                                            <i class="fa-solid fa-handshake mr-1"></i> Vendu
+                                        </button>
+                                    </template>
                                 </div>
 
                                 <div class="flex justify-between items-center pt-2 border-t border-slate-100">
@@ -4969,11 +4991,18 @@
                                 <h4 class="font-bold text-slate-900" x-text="selectedSale.title || selectedSale.vehicle"></h4>
                                 <p class="text-xs text-slate-500 truncate" x-text="selectedSale.vehicle"></p>
                                 <div class="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span :class="commercialStatusBadge(saleCommercialStatus(selectedSale)).cls" class="badge" x-text="commercialStatusBadge(saleCommercialStatus(selectedSale)).label"></span>
                                     <span :class="saleStatusBadge(selectedSale.status).cls" class="badge" x-text="saleStatusBadge(selectedSale.status).label"></span>
                                     <span :class="paymentStatusBadge(selectedSale.paymentStatus).cls" class="badge" x-text="paymentStatusBadge(selectedSale.paymentStatus).label"></span>
                                     <span :class="deliveryStatusBadge(selectedSale.deliveryStatus).cls" class="badge" x-text="deliveryStatusBadge(selectedSale.deliveryStatus).label"></span>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Bandeau VENDU (cycle de vie commercial, Phase 7.7 — Commit 5) -->
+                        <div x-show="saleCommercialStatus(selectedSale) === 'SOLD'" class="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 px-4 py-3 text-sm font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                            VENDU — ce véhicule est sorti du parc à la vente.
                         </div>
 
                         <!-- Photos de la vente (Phase 7.7 — Commit 4) -->
@@ -5117,6 +5146,16 @@
                         <div class="flex justify-end pt-2 space-x-2">
                             <template x-if="canManageFleet">
                                 <div class="flex items-center space-x-2">
+                                    <button x-show="saleCommercialStatus(selectedSale) === 'FOR_SALE'"
+                                            @click="setVehicleCommercialStatus(selectedSale, 'SOLD')"
+                                            class="btn btn-success">
+                                        <i class="fa-solid fa-handshake mr-1"></i> Marquer comme vendu
+                                    </button>
+                                    <button x-show="saleCommercialStatus(selectedSale) === 'FOR_SALE'"
+                                            @click="setVehicleCommercialStatus(selectedSale, 'AVAILABLE')"
+                                            class="btn btn-secondary">
+                                        <i class="fa-solid fa-arrow-rotate-left mr-1"></i> Retirer de la vente
+                                    </button>
                                     <button x-show="selectedSale.status !== 'COMPLETED' && selectedSale.status !== 'CANCELLED'"
                                             @click="openSaleModal(selectedSale); closeSaleDetail()"
                                             class="btn btn-secondary">
