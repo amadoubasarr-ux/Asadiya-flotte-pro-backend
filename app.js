@@ -961,9 +961,35 @@
                 accidents: [],
                 fuelLogs: [],
 
+                // Ventes de véhicules (Phase 7.7 — Commit 3 : frontend)
+                sales: [],
+                salesTotal: 0,
+                salesLoading: false,
+                salesError: '',
+                showSaleDetailModal: false,
+                selectedSale: null,
+                showSaleModal: false,
+                saleSaving: false,
+                saleDeleting: false,
+                saleFormError: '',
+                editingSaleId: null,
+                saleBeingEdited: null,
+                newSale: {
+                    vehicleId: '', title: '', description: '', mileage: '', year: '',
+                    buyerType: 'EXTERNAL', buyerId: '', buyerName: '', buyerPhone: '', buyerEmail: '', buyerAddress: '', buyerIdCard: '',
+                    saleDate: '', currency: 'XOF', price: '', tax: 0, fees: 0,
+                    paymentMethod: 'CASH', paymentStatus: 'PENDING', paidAmount: 0, deliveryStatus: 'PENDING', deliveryDate: '',
+                    status: 'DRAFT', notes: ''
+                },
+
                 // Filtres & Recherche
                 vehicleSearch: '',
                 vehicleFilterStatus: 'ALL',
+                saleSearch: '',
+                saleFilterStatus: 'ALL',
+                salePriceMin: '',
+                salePriceMax: '',
+                saleBrandModel: '',
 
                 // Modales
                 showVehicleModal: false,
@@ -1121,6 +1147,42 @@
                                               v.plate.toLowerCase().includes(this.vehicleSearch.toLowerCase());
                         const matchesFilter = this.vehicleFilterStatus === 'ALL' || v.status === this.vehicleFilterStatus;
                         return matchesSearch && matchesFilter;
+                    });
+                },
+
+                // Véhicules susceptibles d'être proposés à la vente (disponibles uniquement).
+                get availableForSaleVehicles() {
+                    return this.vehicles.filter(v => v.status === 'AVAILABLE');
+                },
+
+                // Véhicules proposables dans le formulaire vente : les disponibles,
+                // plus le véhicule déjà lié à la vente en cours de modification
+                // (RESERVED : il doit rester sélectionnable sans être libéré).
+                get saleFormVehicles() {
+                    const list = this.availableForSaleVehicles.slice();
+                    if (this.saleBeingEdited && this.saleBeingEdited.vehicleId != null) {
+                        const cur = this.vehicles.find(v => v.id === this.saleBeingEdited.vehicleId);
+                        if (cur && !list.some(v => v.id === cur.id)) list.push(cur);
+                    }
+                    return list;
+                },
+
+                // Filtres prix min/max et marque/modèle appliqués côté client sur le jeu
+                // chargé ; le statut et la recherche sont gérés côté serveur (loadSales).
+                get filteredSales() {
+                    const min = this.salePriceMin === '' ? null : parseFloat(this.salePriceMin);
+                    const max = this.salePriceMax === '' ? null : parseFloat(this.salePriceMax);
+                    return this.sales.filter(s => {
+                        const total = parseFloat(s.totalPrice) || 0;
+                        if (min != null && !isNaN(min) && total < min) return false;
+                        if (max != null && !isNaN(max) && total > max) return false;
+                        const q = this.saleBrandModel.trim().toLowerCase();
+                        if (q) {
+                            const v = this.saleVehicle(s);
+                            const label = (v ? v.brand + ' ' + v.model : '') + ' ' + (s.vehicle || '');
+                            if (!label.toLowerCase().includes(q)) return false;
+                        }
+                        return true;
                     });
                 },
 
@@ -2079,14 +2141,15 @@
                     this.isLoadingData = true;
                     this.apiConnectionError = '';
                     try {
-                        const [vehicles, drivers, reservations, maintenances, incidents, accidents, fuelLogs] = await Promise.all([
+                        const [vehicles, drivers, reservations, maintenances, incidents, accidents, fuelLogs, salesData] = await Promise.all([
                             this.apiFetch('/api/vehicles'),
                             this.apiFetch('/api/drivers'),
                             this.apiFetch('/api/reservations'),
                             this.apiFetch('/api/maintenances'),
                             this.apiFetch('/api/incidents'),
                             this.apiFetch('/api/accidents'),
-                            this.apiFetch('/api/fuel-logs')
+                            this.apiFetch('/api/fuel-logs'),
+                            this.apiFetch('/api/vehicle-sales?pageSize=200')
                         ]);
                         this.vehicles = vehicles || [];
                         this.drivers = drivers || [];
@@ -2095,6 +2158,8 @@
                         this.incidents = incidents || [];
                         this.accidents = accidents || [];
                         this.fuelLogs = fuelLogs || [];
+                        this.sales = (salesData && salesData.items) || [];
+                        this.salesTotal = (salesData && salesData.total) || 0;
                         // Les stats officielles sont chargées avant le rendu des graphiques.
                         await Promise.all([this.loadFuelStats(), this.loadDashboardFuelStats(), this.loadPilotFuelStats()]);
                         console.log('[CHART-DIAG] loadAllData (reponses API)', {
@@ -3581,6 +3646,232 @@
                         if (this.mainTab === 'dashboard') this.initCharts();
                     } catch (e) {
                         alert('Erreur : ' + (e.message || 'suppression impossible.'));
+                    }
+                },
+
+                // ===== VENTES DE VÉHICULES (Phase 7.7 — Commit 3 : frontend) =====
+                // Charge la liste des ventes. Le statut et la recherche sont filtrés
+                // côté serveur (/api/vehicle-sales) ; prix min/max et marque/modèle le
+                // sont côté client (filteredSales) sur le jeu chargé.
+                async loadSales() {
+                    this.salesLoading = true;
+                    this.salesError = '';
+                    try {
+                        const q = 'pageSize=200&sort=date' +
+                            (this.saleFilterStatus && this.saleFilterStatus !== 'ALL' ? '&status=' + encodeURIComponent(this.saleFilterStatus) : '') +
+                            (this.saleSearch.trim() ? '&search=' + encodeURIComponent(this.saleSearch.trim()) : '');
+                        const data = await this.apiFetch('/api/vehicle-sales?' + q);
+                        this.sales = (data && data.items) || [];
+                        this.salesTotal = (data && data.total) || 0;
+                    } catch (e) {
+                        if (e && e.status === 403) { this.salesError = ''; return; }
+                        this.salesError = (e && e.message) || 'Impossible de charger les ventes de véhicules.';
+                    } finally {
+                        this.salesLoading = false;
+                    }
+                },
+
+                // Véhicule du parc lié à une vente (pour la photo / marque-modèle).
+                saleVehicle(s) {
+                    return this.vehicles.find(v => v.id === s.vehicleId) || null;
+                },
+
+                saleStatusBadge(status) {
+                    return {
+                        'DRAFT': { cls: 'badge-slate', label: 'Brouillon' },
+                        'IN_PROGRESS': { cls: 'badge-amber', label: 'En cours' },
+                        'COMPLETED': { cls: 'badge-green', label: 'Vendu' },
+                        'CANCELLED': { cls: 'badge-red', label: 'Annulé' }
+                    }[status] || { cls: 'badge-slate', label: status || '—' };
+                },
+
+                paymentStatusBadge(status) {
+                    return {
+                        'PENDING': { cls: 'badge-amber', label: 'Paiement en attente' },
+                        'PARTIAL': { cls: 'badge-blue', label: 'Paiement partiel' },
+                        'PAID': { cls: 'badge-green', label: 'Payé' },
+                        'REFUNDED': { cls: 'badge-slate', label: 'Remboursé' }
+                    }[status] || { cls: 'badge-slate', label: status || '—' };
+                },
+
+                deliveryStatusBadge(status) {
+                    return status === 'DELIVERED'
+                        ? { cls: 'badge-green', label: 'Livré' }
+                        : { cls: 'badge-amber', label: 'Livraison en attente' };
+                },
+
+                openSaleDetail(sale) {
+                    this.selectedSale = sale;
+                    this.showSaleDetailModal = true;
+                },
+
+                // Vendeur renseigné sur la vente (instantané serveur) : seul le
+                // compte connecté est identifiable côté client (salespersonId).
+                saleSellerName(sale) {
+                    if (!sale) return '';
+                    if (sale.salespersonId != null && this.currentUser && String(sale.salespersonId) === String(this.currentUser.id)) {
+                        return this.currentUser.name;
+                    }
+                    return '';
+                },
+
+                // Création (sale = null) ou modification (sale = vente existante).
+                openSaleModal(sale = null) {
+                    this.saleFormError = '';
+                    this.editingSaleId = sale ? sale.id : null;
+                    this.saleBeingEdited = sale || null;
+                    if (sale) {
+                        this.newSale = {
+                            vehicleId: sale.vehicleId != null ? String(sale.vehicleId) : '',
+                            title: sale.title || '', description: sale.description || '',
+                            mileage: sale.mileage != null ? sale.mileage : '',
+                            year: sale.year != null ? sale.year : '',
+                            buyerType: sale.buyerType || 'EXTERNAL',
+                            buyerId: sale.buyerId != null ? String(sale.buyerId) : '',
+                            buyerName: sale.buyerName || '', buyerPhone: sale.buyerPhone || '', buyerEmail: sale.buyerEmail || '',
+                            buyerAddress: sale.buyerAddress || '', buyerIdCard: sale.buyerIdCard || '',
+                            saleDate: sale.saleDate || new Date().toISOString().slice(0, 10),
+                            currency: sale.currency || 'XOF',
+                            price: sale.price != null ? sale.price : '',
+                            tax: Number(sale.tax) || 0, fees: Number(sale.fees) || 0,
+                            paymentMethod: sale.paymentMethod || 'CASH',
+                            paymentStatus: sale.paymentStatus || 'PENDING',
+                            paidAmount: Number(sale.paidAmount) || 0,
+                            deliveryStatus: sale.deliveryStatus || 'PENDING',
+                            deliveryDate: sale.deliveryDate || '',
+                            status: sale.status || 'DRAFT',
+                            notes: sale.notes || ''
+                        };
+                    } else {
+                        this.newSale = {
+                            vehicleId: '', title: '', description: '', mileage: '', year: '',
+                            buyerType: 'EXTERNAL', buyerId: '', buyerName: '', buyerPhone: '', buyerEmail: '', buyerAddress: '', buyerIdCard: '',
+                            saleDate: new Date().toISOString().slice(0, 10), currency: 'XOF', price: '', tax: 0, fees: 0,
+                            paymentMethod: 'CASH', paymentStatus: 'PENDING', paidAmount: 0, deliveryStatus: 'PENDING', deliveryDate: '',
+                            status: 'DRAFT', notes: ''
+                        };
+                    }
+                    this.showSaleModal = true;
+                },
+
+                // Pré-remplit kilométrage / année / titre depuis le véhicule choisi.
+                onSaleVehicleChange() {
+                    const v = this.vehicles.find(x => String(x.id) === String(this.newSale.vehicleId));
+                    if (!v) return;
+                    this.newSale.mileage = v.mileage;
+                    this.newSale.year = v.year;
+                    if (!this.newSale.title) this.newSale.title = v.brand + ' ' + v.model + ' — ' + v.plate;
+                },
+
+                saleFormTotal() {
+                    return (Number(this.newSale.price) || 0) + (Number(this.newSale.tax) || 0) + (Number(this.newSale.fees) || 0);
+                },
+
+                resetSaleFilters() {
+                    this.saleSearch = '';
+                    this.saleFilterStatus = 'ALL';
+                    this.salePriceMin = '';
+                    this.salePriceMax = '';
+                    this.saleBrandModel = '';
+                    this.loadSales();
+                },
+
+                async addSaleSubmit() {
+                    this.saleFormError = '';
+                    if (!this.newSale.vehicleId) {
+                        this.saleFormError = 'Veuillez sélectionner un véhicule à mettre en vente.';
+                        return;
+                    }
+                    const price = Number(this.newSale.price);
+                    if (!price || price <= 0) {
+                        this.saleFormError = 'Le prix de vente doit être strictement positif.';
+                        return;
+                    }
+                    if (!this.newSale.saleDate) {
+                        this.saleFormError = 'La date de vente est obligatoire.';
+                        return;
+                    }
+                    if (this.newSale.buyerType === 'INTERNAL' && !this.newSale.buyerId) {
+                        this.saleFormError = 'Sélectionnez un acheteur interne (conducteur).';
+                        return;
+                    }
+                    if (this.newSale.buyerType === 'EXTERNAL' && !String(this.newSale.buyerName || '').trim()) {
+                        this.saleFormError = 'Renseignez le nom de l\'acheteur externe.';
+                        return;
+                    }
+                    const paid = Number(this.newSale.paidAmount) || 0;
+                    if (paid > this.saleFormTotal()) {
+                        this.saleFormError = 'Le montant déjà payé ne peut pas dépasser le prix total.';
+                        return;
+                    }
+                    this.saleSaving = true;
+                    try {
+                        const payload = {
+                            vehicleId: this.newSale.vehicleId,
+                            title: String(this.newSale.title || '').trim() || undefined,
+                            description: String(this.newSale.description || '').trim() || undefined,
+                            mileage: this.newSale.mileage === '' ? undefined : Number(this.newSale.mileage),
+                            year: this.newSale.year === '' ? undefined : Number(this.newSale.year),
+                            buyerType: this.newSale.buyerType,
+                            buyerName: this.newSale.buyerType === 'EXTERNAL' ? String(this.newSale.buyerName || '').trim() : undefined,
+                            buyerPhone: String(this.newSale.buyerPhone || '').trim() || undefined,
+                            buyerEmail: String(this.newSale.buyerEmail || '').trim() || undefined,
+                            buyerAddress: String(this.newSale.buyerAddress || '').trim() || undefined,
+                            buyerIdCard: String(this.newSale.buyerIdCard || '').trim() || undefined,
+                            saleDate: this.newSale.saleDate,
+                            currency: this.newSale.currency,
+                            price,
+                            tax: Number(this.newSale.tax) || 0,
+                            fees: Number(this.newSale.fees) || 0,
+                            paymentMethod: this.newSale.paymentMethod,
+                            paymentStatus: this.newSale.paymentStatus,
+                            paidAmount: paid,
+                            deliveryStatus: this.newSale.deliveryStatus,
+                            deliveryDate: this.newSale.deliveryDate || undefined,
+                            status: this.newSale.status,
+                            notes: String(this.newSale.notes || '').trim() || undefined
+                        };
+                        if (this.newSale.buyerType === 'INTERNAL') payload.buyerId = this.newSale.buyerId;
+                        if (this.editingSaleId) {
+                            const updated = await this.apiFetch('/api/vehicle-sales/' + this.editingSaleId, {
+                                method: 'PUT',
+                                body: JSON.stringify(payload)
+                            });
+                            const idx = this.sales.findIndex(s => s.id === this.editingSaleId);
+                            if (idx !== -1) this.sales[idx] = Object.assign({}, this.sales[idx], updated);
+                        } else {
+                            await this.apiFetch('/api/vehicle-sales', { method: 'POST', body: JSON.stringify(payload) });
+                        }
+                        this.showSaleModal = false;
+                        this.saleFormError = '';
+                        this.editingSaleId = null;
+                        this.saleBeingEdited = null;
+                        // Le véhicule passe RESERVED/SOLD côté serveur : on resynchronise
+                        // le parc et on rafraîchit la liste des ventes (filtres en vigueur).
+                        this.loadSales();
+                        const refreshed = await this.apiFetch('/api/vehicles');
+                        if (Array.isArray(refreshed)) this.vehicles = refreshed;
+                    } catch (e) {
+                        this.saleFormError = (e && e.message) || (this.editingSaleId ? 'Impossible de modifier la vente.' : 'Impossible de créer la vente.');
+                    } finally {
+                        this.saleSaving = false;
+                    }
+                },
+
+                async deleteSale(id) {
+                    if (!confirm('Voulez-vous vraiment supprimer cette vente ? Le véhicule lié sera remis en disponibilité.')) return;
+                    this.saleDeleting = true;
+                    try {
+                        await this.apiFetch('/api/vehicle-sales/' + id, { method: 'DELETE' });
+                        this.sales = this.sales.filter(s => s.id !== id);
+                        this.showSaleDetailModal = false;
+                        this.selectedSale = null;
+                        const refreshed = await this.apiFetch('/api/vehicles');
+                        if (Array.isArray(refreshed)) this.vehicles = refreshed;
+                    } catch (e) {
+                        alert('Erreur : ' + (e.message || 'suppression impossible.'));
+                    } finally {
+                        this.saleDeleting = false;
                     }
                 },
 

@@ -1428,6 +1428,13 @@
                     <span class="nav-ico"><i class="fa-solid fa-gas-pump"></i></span>
                     Carburant
                 </button>
+                <button @click="mainTab = 'sales'"
+                        :class="mainTab === 'sales' ? 'active' : ''"
+                        class="sidebar-item mb-0.5">
+                    <span x-show="mainTab === 'sales'" class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-indigo-600"></span>
+                    <span class="nav-ico"><i class="fa-solid fa-handshake"></i></span>
+                    Vente de Véhicules
+                </button>
 
                 <p class="sidebar-group-label">Documentation</p>
                 <button @click="mainTab = 'documents'"
@@ -1525,6 +1532,9 @@
                     <button @click="mainTab = 'fuel'; sidebarOpen = false" :class="mainTab === 'fuel' ? 'active' : ''" class="sidebar-item mb-0.5">
                         <span class="nav-ico"><i class="fa-solid fa-gas-pump"></i></span> Carburant
                     </button>
+                    <button @click="mainTab = 'sales'; sidebarOpen = false" :class="mainTab === 'sales' ? 'active' : ''" class="sidebar-item mb-0.5">
+                        <span class="nav-ico"><i class="fa-solid fa-handshake"></i></span> Vente de Véhicules
+                    </button>
                     <p class="sidebar-group-label">Documentation</p>
                     <button @click="mainTab = 'documents'; sidebarOpen = false" :class="mainTab === 'documents' ? 'active' : ''" class="sidebar-item mb-0.5">
                         <span class="nav-ico"><i class="fa-solid fa-folder-open"></i></span> Documents
@@ -1569,7 +1579,7 @@
                         </button>
                         <div class="min-w-0">
                             <h1 class="text-sm md:text-base font-bold text-slate-900 truncate"
-                                x-text="({ dashboard: 'Tableau de Bord', vehicles: 'Parc Automobile', drivers: 'Conducteurs', users: 'Utilisateurs', reservations: 'Planning des Missions', maintenance: 'Entretien & Vidanges', fuel: 'Carburant', incidents: 'Signalements', accidents: 'Sinistres & Accidents', documents: 'Documentation', video: 'Vidéo & Script', settings: 'Paramètres' })[mainTab] || 'Tableau de Bord'"></h1>
+                                x-text="({ dashboard: 'Tableau de Bord', vehicles: 'Parc Automobile', drivers: 'Conducteurs', users: 'Utilisateurs', reservations: 'Planning des Missions', maintenance: 'Entretien & Vidanges', fuel: 'Carburant', sales: 'Vente de Véhicules', incidents: 'Signalements', accidents: 'Sinistres & Accidents', documents: 'Documentation', video: 'Vidéo & Script', settings: 'Paramètres' })[mainTab] || 'Tableau de Bord'"></h1>
                             <p class="text-[11px] text-slate-400 font-medium truncate" x-text="currentUser.organizationName || 'Gestion Intelligente de Flotte Automobile'"></p>
                         </div>
                     </div>
@@ -2322,6 +2332,99 @@
                     </div>
 
                     <p x-show="filteredVehicles.length === 0" class="text-sm text-slate-500 text-center py-10">Aucun véhicule ne correspond à votre recherche.</p>
+
+                </div>
+
+                <!-- ========================================== -->
+                <!-- VUE : VENTE DE VÉHICULES (Phase 7.7)       -->
+                <!-- ========================================== -->
+                <div x-show="mainTab === 'sales'" class="space-y-6" x-cloak>
+
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-up">
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">Vente de Véhicules</h2>
+                            <p class="text-xs text-slate-500">Catalogue des véhicules proposés à la vente et suivi des transactions.</p>
+                        </div>
+                        <button x-show="canManageFleet" @click="openSaleModal()" :disabled="subscriptionInactive" :class="subscriptionInactive ? 'opacity-40 cursor-not-allowed' : ''" class="btn btn-primary">
+                            <i class="fa-solid fa-tags mr-1"></i> Mettre un véhicule en vente
+                        </button>
+                    </div>
+
+                    <!-- Barre de Recherche et Filtres -->
+                    <div class="flex flex-col lg:flex-row gap-3 items-start lg:items-center flex-wrap">
+                        <div class="relative flex-grow lg:flex-grow lg:min-w-[220px]">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" x-model="saleSearch" @keyup.enter="loadSales()" placeholder="Rechercher (n° de vente, acheteur, véhicule)..." class="input pl-9">
+                        </div>
+                        <select x-model="saleFilterStatus" @change="loadSales()" class="input sm:!w-48">
+                            <option value="ALL">Tous les statuts</option>
+                            <option value="DRAFT">Brouillon</option>
+                            <option value="IN_PROGRESS">En cours</option>
+                            <option value="COMPLETED">Vendu</option>
+                            <option value="CANCELLED">Annulé</option>
+                        </select>
+                        <div class="flex items-center gap-2">
+                            <input type="number" min="0" x-model="salePriceMin" placeholder="Prix min" class="input sm:!w-28">
+                            <span class="text-slate-400 text-xs">–</span>
+                            <input type="number" min="0" x-model="salePriceMax" placeholder="Prix max" class="input sm:!w-28">
+                        </div>
+                        <input type="text" x-model="saleBrandModel" placeholder="Marque / modèle" class="input sm:!w-44">
+                        <button @click="resetSaleFilters()" class="btn btn-ghost !text-indigo-600 font-bold text-xs">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Réinitialiser
+                        </button>
+                    </div>
+
+                    <p x-show="salesLoading" class="text-xs text-slate-500 flex items-center gap-2">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Chargement des ventes...
+                    </p>
+                    <p x-show="salesError && !salesLoading" class="text-xs text-rose-500 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span x-text="salesError"></span>
+                    </p>
+
+                    <!-- Grille des Cartes Ventes -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <template x-for="s in filteredSales" :key="s.id">
+                            <div class="card card-hover card-pad space-y-4 transition flex flex-col justify-between">
+                                <div class="space-y-3">
+                                    <div class="flex justify-between items-start gap-2">
+                                        <div class="flex items-center gap-3 min-w-0">
+                                            <div class="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                                <template x-if="saleVehicle(s) && saleVehicle(s).photo">
+                                                    <img :src="saleVehicle(s).photo" class="w-full h-full object-cover">
+                                                </template>
+                                                <template x-if="!(saleVehicle(s) && saleVehicle(s).photo)">
+                                                    <i class="fa-solid fa-car text-slate-400"></i>
+                                                </template>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <h3 class="font-bold text-base text-slate-900 truncate" x-text="s.title || (saleVehicle(s) ? saleVehicle(s).brand + ' ' + saleVehicle(s).model : s.vehicle)"></h3>
+                                                <p class="text-[11px] text-slate-400 truncate" x-text="s.vehicle || (saleVehicle(s) ? saleVehicle(s).plate : '')"></p>
+                                            </div>
+                                        </div>
+                                        <span :class="saleStatusBadge(s.status).cls" class="badge" x-text="saleStatusBadge(s.status).label"></span>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-2 text-xs text-slate-500 pt-2 border-t border-slate-100">
+                                        <div>Prix : <span class="text-slate-800 font-mono font-bold" x-text="fmtNum(s.price) + ' ' + s.currency"></span></div>
+                                        <div>Kilométrage : <span class="text-slate-800 font-mono" x-text="fmtNum(s.mileage) + ' km'"></span></div>
+                                        <div>Année : <span class="text-slate-800" x-text="s.year"></span></div>
+                                        <div>Date : <span class="text-slate-800" x-text="fmtDate(s.saleDate)"></span></div>
+                                        <div>Paiement : <span :class="paymentStatusBadge(s.paymentStatus).cls" class="badge !text-[10px]" x-text="paymentStatusBadge(s.paymentStatus).label"></span></div>
+                                        <div>Livraison : <span :class="deliveryStatusBadge(s.deliveryStatus).cls" class="badge !text-[10px]" x-text="deliveryStatusBadge(s.deliveryStatus).label"></span></div>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-between items-center pt-2 border-t border-slate-100">
+                                    <button @click="openSaleDetail(s)" class="btn btn-ghost btn-xs !text-indigo-600 font-bold">
+                                        <i class="fa-solid fa-eye mr-1"></i> Voir détails
+                                    </button>
+                                    <span class="text-[10px] font-mono text-slate-400" x-text="s.saleNumber || ''"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <p x-show="filteredSales.length === 0 && !salesLoading" class="text-sm text-slate-500 text-center py-10">Aucune vente de véhicule ne correspond à votre recherche.</p>
 
                 </div>
 
@@ -4831,6 +4934,321 @@
                         </div>
                     </div>
                 </template>
+            </div>
+        </div>
+
+        <!-- MODALE : DÉTAILS VENTE DE VÉHICULE -->
+        <div x-show="showSaleDetailModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+                <template x-if="selectedSale">
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-handshake text-indigo-500"></i>
+                                <span x-text="selectedSale.saleNumber || 'Vente de véhicule'"></span>
+                            </h3>
+                            <button @click="showSaleDetailModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <div class="w-20 h-20 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                <template x-if="saleVehicle(selectedSale) && saleVehicle(selectedSale).photo">
+                                    <img :src="saleVehicle(selectedSale).photo" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!(saleVehicle(selectedSale) && saleVehicle(selectedSale).photo)">
+                                    <i class="fa-solid fa-car text-slate-400 text-2xl"></i>
+                                </template>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h4 class="font-bold text-slate-900" x-text="selectedSale.title || selectedSale.vehicle"></h4>
+                                <p class="text-xs text-slate-500 truncate" x-text="selectedSale.vehicle"></p>
+                                <div class="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span :class="saleStatusBadge(selectedSale.status).cls" class="badge" x-text="saleStatusBadge(selectedSale.status).label"></span>
+                                    <span :class="paymentStatusBadge(selectedSale.paymentStatus).cls" class="badge" x-text="paymentStatusBadge(selectedSale.paymentStatus).label"></span>
+                                    <span :class="deliveryStatusBadge(selectedSale.deliveryStatus).cls" class="badge" x-text="deliveryStatusBadge(selectedSale.deliveryStatus).label"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 text-xs bg-slate-50 rounded-xl p-3 border border-slate-200">
+                            <div>Véhicule : <span class="text-slate-800 font-semibold" x-text="selectedSale.vehicle"></span></div>
+                            <div>N° de vente : <span class="text-slate-800 font-mono" x-text="selectedSale.saleNumber"></span></div>
+                            <div>Kilométrage : <span class="text-slate-800 font-mono" x-text="fmtNum(selectedSale.mileage) + ' km'"></span></div>
+                            <div>Année : <span class="text-slate-800" x-text="selectedSale.year"></span></div>
+                            <div>Date de vente : <span class="text-slate-800" x-text="fmtDate(selectedSale.saleDate)"></span></div>
+                            <div>Date de livraison : <span class="text-slate-800" x-text="fmtDate(selectedSale.deliveryDate)"></span></div>
+                        </div>
+
+                        <div>
+                            <p class="font-semibold text-slate-600 text-[11px] mb-2"><i class="fa-solid fa-receipt mr-1 text-indigo-500"></i> Montants</p>
+                            <div class="grid grid-cols-2 gap-3 text-xs bg-slate-50 rounded-xl p-3 border border-slate-200">
+                                <div>Prix : <span class="text-slate-800 font-mono" x-text="fmtNum(selectedSale.price) + ' ' + selectedSale.currency"></span></div>
+                                <div>Taxes : <span class="text-slate-800 font-mono" x-text="fmtNum(selectedSale.tax) + ' ' + selectedSale.currency"></span></div>
+                                <div>Frais : <span class="text-slate-800 font-mono" x-text="fmtNum(selectedSale.fees) + ' ' + selectedSale.currency"></span></div>
+                                <div>Déjà payé : <span class="text-emerald-600 font-mono" x-text="fmtNum(selectedSale.paidAmount) + ' ' + selectedSale.currency"></span></div>
+                                <div class="col-span-2 pt-2 border-t border-slate-200 flex justify-between items-center">
+                                    <span class="font-bold text-slate-700">Total</span>
+                                    <span class="font-mono font-extrabold text-indigo-600" x-text="fmtNum(selectedSale.totalPrice) + ' ' + selectedSale.currency"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="font-semibold text-slate-600 text-[11px] mb-2"><i class="fa-solid fa-user mr-1 text-indigo-500"></i> Acheteur</p>
+                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs space-y-1.5">
+                                <div class="flex justify-between gap-3">
+                                    <span class="text-slate-500">Type</span>
+                                    <span class="text-slate-800" x-text="selectedSale.buyerType === 'INTERNAL' ? 'Interne' : 'Externe'"></span>
+                                </div>
+                                <div class="flex justify-between gap-3">
+                                    <span class="text-slate-500">Nom</span>
+                                    <span class="text-slate-800 font-semibold text-right" x-text="selectedSale.buyerName || '—'"></span>
+                                </div>
+                                <div class="flex justify-between gap-3" x-show="selectedSale.buyerPhone">
+                                    <span class="text-slate-500">Téléphone</span>
+                                    <span class="text-slate-800" x-text="selectedSale.buyerPhone"></span>
+                                </div>
+                                <div class="flex justify-between gap-3" x-show="selectedSale.buyerEmail">
+                                    <span class="text-slate-500">E-mail</span>
+                                    <span class="text-slate-800" x-text="selectedSale.buyerEmail"></span>
+                                </div>
+                                <div class="flex justify-between gap-3" x-show="selectedSale.buyerAddress">
+                                    <span class="text-slate-500">Adresse</span>
+                                    <span class="text-slate-800 text-right" x-text="selectedSale.buyerAddress"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div x-show="saleSellerName(selectedSale)">
+                            <p class="font-semibold text-slate-600 text-[11px] mb-2"><i class="fa-solid fa-user-tie mr-1 text-indigo-500"></i> Vendeur</p>
+                            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs flex justify-between gap-3">
+                                <span class="text-slate-500">Vendu par</span>
+                                <span class="text-slate-800 font-semibold" x-text="saleSellerName(selectedSale)"></span>
+                            </div>
+                        </div>
+
+                        <div x-show="selectedSale.description || selectedSale.notes">
+                            <p class="font-semibold text-slate-600 text-[11px] mb-2"><i class="fa-solid fa-file-lines mr-1 text-indigo-500"></i> Détails & Notes</p>
+                            <p class="text-xs text-slate-700 bg-slate-50 rounded-xl p-3 border border-slate-200 whitespace-pre-line" x-text="selectedSale.description || '—'"></p>
+                            <p x-show="selectedSale.notes" class="text-[11px] text-slate-500 mt-2" x-text="'Notes : ' + selectedSale.notes"></p>
+                        </div>
+
+                        <div class="flex justify-end pt-2 space-x-2">
+                            <template x-if="canManageFleet">
+                                <div class="flex items-center space-x-2">
+                                    <button x-show="selectedSale.status !== 'COMPLETED' && selectedSale.status !== 'CANCELLED'"
+                                            @click="openSaleModal(selectedSale); showSaleDetailModal = false"
+                                            class="btn btn-secondary">
+                                        <i class="fa-solid fa-pen mr-1"></i> Modifier
+                                    </button>
+                                    <button x-show="selectedSale.status !== 'COMPLETED'"
+                                            @click="deleteSale(selectedSale.id)"
+                                            :disabled="saleDeleting"
+                                            class="btn btn-danger">
+                                        <i class="fa-solid fa-circle-notch fa-spin mr-1" x-show="saleDeleting"></i>
+                                        <i class="fa-solid fa-trash mr-1" x-show="!saleDeleting"></i> Supprimer
+                                    </button>
+                                </div>
+                            </template>
+                            <button @click="showSaleDetailModal = false" class="btn btn-secondary">Fermer</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- MODALE : METTRE UN VÉHICULE EN VENTE -->
+        <div x-show="showSaleModal" class="modal-backdrop" x-cloak>
+            <div class="modal-card p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-tags text-indigo-500"></i>
+                        <span x-text="editingSaleId ? 'Modifier la vente' : 'Mettre un véhicule en vente'"></span>
+                    </h3>
+                    <button @click="showSaleModal = false" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div x-show="saleFormError" class="bg-rose-50 border border-rose-200 text-rose-600 text-xs rounded-lg px-3 py-2">
+                    <i class="fa-solid fa-circle-exclamation mr-1"></i> <span x-text="saleFormError"></span>
+                </div>
+
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="label">Véhicule à vendre *</label>
+                        <select x-model="newSale.vehicleId" @change="onSaleVehicleChange()" class="input">
+                            <option value="">Sélectionner un véhicule disponible...</option>
+                            <template x-for="v in saleFormVehicles" :key="v.id">
+                                <option :value="v.id" x-text="v.brand + ' ' + v.model + ' (' + v.plate + ') — ' + fmtNum(v.mileage) + ' km'"></option>
+                            </template>
+                        </select>
+                        <p x-show="saleFormVehicles.length === 0" class="text-[10px] text-amber-600 mt-1">Aucun véhicule disponible à la vente pour le moment.</p>
+                    </div>
+                    <div>
+                        <label class="label">Titre de l'annonce</label>
+                        <input type="text" x-model="newSale.title" placeholder="ex: Toyota Corolla 2022 — très bon état" class="input">
+                    </div>
+                    <div>
+                        <label class="label">Description</label>
+                        <textarea x-model="newSale.description" rows="2" placeholder="État général, équipements, historique d'entretien..." class="input"></textarea>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="label">Kilométrage</label>
+                            <input type="number" min="0" x-model="newSale.mileage" class="input">
+                        </div>
+                        <div>
+                            <label class="label">Année</label>
+                            <input type="number" min="1900" :max="new Date().getFullYear() + 1" x-model="newSale.year" class="input">
+                        </div>
+                        <div>
+                            <label class="label">Devise</label>
+                            <select x-model="newSale.currency" class="input">
+                                <option value="XOF">XOF (FCFA)</option>
+                                <option value="EUR">EUR</option>
+                                <option value="USD">USD</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="label">Prix de vente *</label>
+                            <input type="number" min="0" x-model="newSale.price" placeholder="0" class="input">
+                        </div>
+                        <div>
+                            <label class="label">Taxes</label>
+                            <input type="number" min="0" x-model="newSale.tax" class="input">
+                        </div>
+                        <div>
+                            <label class="label">Frais</label>
+                            <input type="number" min="0" x-model="newSale.fees" class="input">
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 flex justify-between items-center bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
+                        <span>Total de la vente</span>
+                        <span class="font-mono font-extrabold text-indigo-600" x-text="fmtNum(saleFormTotal()) + ' ' + newSale.currency"></span>
+                    </p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="label">Date de vente *</label>
+                            <input type="date" x-model="newSale.saleDate" class="input">
+                        </div>
+                        <div>
+                            <label class="label">Date de livraison</label>
+                            <input type="date" x-model="newSale.deliveryDate" class="input">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="label">Statut de la vente</label>
+                        <select x-model="newSale.status" class="input">
+                            <option value="DRAFT">Brouillon</option>
+                            <option value="IN_PROGRESS">En cours</option>
+                        </select>
+                    </div>
+
+                    <div class="bg-slate-50 rounded-xl border border-slate-200 p-3 space-y-3">
+                        <p class="font-semibold text-slate-600 text-[11px]"><i class="fa-solid fa-user mr-1 text-indigo-500"></i> Acheteur</p>
+                        <div class="flex gap-3">
+                            <label class="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
+                                <input type="radio" value="EXTERNAL" x-model="newSale.buyerType" class="accent-indigo-600"> Externe
+                            </label>
+                            <label class="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
+                                <input type="radio" value="INTERNAL" x-model="newSale.buyerType" class="accent-indigo-600"> Interne
+                            </label>
+                        </div>
+                        <template x-if="newSale.buyerType === 'INTERNAL'">
+                            <div>
+                                <label class="label">Conducteur acheteur *</label>
+                                <select x-model="newSale.buyerId" class="input">
+                                    <option value="">Sélectionner un conducteur...</option>
+                                    <template x-for="d in drivers" :key="d.id">
+                                        <option :value="d.id" x-text="d.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </template>
+                        <template x-if="newSale.buyerType === 'EXTERNAL'">
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="label">Nom de l'acheteur *</label>
+                                    <input type="text" x-model="newSale.buyerName" placeholder="ex: M. Sarr" class="input">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="label">Téléphone</label>
+                                        <input type="text" x-model="newSale.buyerPhone" placeholder="+221 77 000 00 00" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">E-mail</label>
+                                        <input type="email" x-model="newSale.buyerEmail" placeholder="email@exemple.com" class="input">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label class="label">Adresse</label>
+                                        <input type="text" x-model="newSale.buyerAddress" class="input">
+                                    </div>
+                                    <div>
+                                        <label class="label">Pièce d'identité</label>
+                                        <input type="text" x-model="newSale.buyerIdCard" class="input">
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="bg-slate-50 rounded-xl border border-slate-200 p-3 space-y-3">
+                        <p class="font-semibold text-slate-600 text-[11px]"><i class="fa-solid fa-coins mr-1 text-indigo-500"></i> Paiement & Livraison</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="label">Mode de paiement</label>
+                                <select x-model="newSale.paymentMethod" class="input">
+                                    <option value="CASH">Espèces</option>
+                                    <option value="TRANSFER">Virement</option>
+                                    <option value="CHECK">Chèque</option>
+                                    <option value="MOBILE_MONEY">Mobile Money</option>
+                                    <option value="OTHER">Autre</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="label">Statut du paiement</label>
+                                <select x-model="newSale.paymentStatus" class="input">
+                                    <option value="PENDING">En attente</option>
+                                    <option value="PARTIAL">Partiel</option>
+                                    <option value="PAID">Payé</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="label">Montant déjà payé</label>
+                            <input type="number" min="0" x-model="newSale.paidAmount" class="input">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="label">Statut de livraison</label>
+                                <select x-model="newSale.deliveryStatus" class="input">
+                                    <option value="PENDING">En attente</option>
+                                    <option value="DELIVERED">Livré</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="label">Notes</label>
+                                <input type="text" x-model="newSale.notes" placeholder="Notes internes..." class="input">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button @click="showSaleModal = false" class="btn btn-secondary">Annuler</button>
+                    <button @click="addSaleSubmit()" :disabled="saleSaving" class="btn btn-primary">
+                        <i class="fa-solid fa-circle-notch fa-spin mr-1" x-show="saleSaving"></i>
+                        <span x-text="editingSaleId ? 'Enregistrer les modifications' : 'Publier la vente'"></span>
+                    </button>
+                </div>
             </div>
         </div>
 
