@@ -1061,15 +1061,16 @@ const CONFLICT_SQL = `
       AND ($3::timestamptz, $4::timestamptz) OVERLAPS (start, COALESCE("end", start))
 `;
 
-async function findConflict(orgId, vehicleId, start, end, excludeId = null) {
+async function findConflict(orgId, vehicleId, start, end, excludeId = null, client = null) {
     const effectiveEnd = end || start;
     const params = [orgId, vehicleId, start, effectiveEnd];
+    const exec = client || query;
     if (excludeId != null) {
         params.push(excludeId);
-        const result = await query(`${CONFLICT_SQL} AND id <> $5 LIMIT 1`, params);
+        const result = await exec(`${CONFLICT_SQL} AND id <> $5 FOR UPDATE LIMIT 1`, params);
         return mapRow(result.rows[0] || null);
     }
-    const result = await query(`${CONFLICT_SQL} LIMIT 1`, params);
+    const result = await exec(`${CONFLICT_SQL} FOR UPDATE LIMIT 1`, params);
     return mapRow(result.rows[0] || null);
 }
 
@@ -1108,7 +1109,7 @@ const reservations = {
                 await assertOwned(client, 'drivers', clean.driver_id, orgId);
             }
             const effectiveEnd = clean.end || clean.start;
-            const conflict = await findConflict(orgId, clean.vehicle_id, clean.start, effectiveEnd);
+            const conflict = await findConflict(orgId, clean.vehicle_id, clean.start, effectiveEnd, null, client);
             if (conflict) {
                 throw AppError.conflict(
                     'Conflit de planning : ce véhicule est déjà réservé sur ce créneau.',
@@ -1145,7 +1146,7 @@ const reservations = {
             const start = clean.start ?? current.start;
             const end = clean.end !== undefined ? clean.end : current.end;
             if (vehicleId != null && start != null) {
-                const conflict = await findConflict(orgId, vehicleId, start, end || start, id);
+                const conflict = await findConflict(orgId, vehicleId, start, end || start, id, client);
                 if (conflict) {
                     throw AppError.conflict(
                         'Conflit de planning : ce véhicule est déjà réservé sur ce créneau.',
@@ -1358,10 +1359,10 @@ const organizations = {
         return mapRows(result.rows);
     },
 
-    async resetPassword(userId, passwordHash) {
+    async resetPassword(orgId, userId, passwordHash) {
         const result = await query(
-            'UPDATE users SET password_hash = $1 WHERE id = $2 RETURNING id, username',
-            [passwordHash, userId]
+            'UPDATE users SET password_hash = $1 WHERE id = $2 AND organization_id = $3 RETURNING id, username',
+            [passwordHash, userId, orgId]
         );
         return mapRow(result.rows[0] || null);
     },

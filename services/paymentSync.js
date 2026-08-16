@@ -14,8 +14,23 @@
 // Aucun secret n'est journalisé ici.
 // ============================================================
 const invoices = require('../db/invoices');
+const { plans } = require('../db/subscriptions');
 const subscriptionService = require('./subscriptions');
 const logger = require('../utils/logger');
+
+/**
+ * Résout un plan par son ID ou code et retourne son prix mensuel.
+ * @returns {{ monthlyPrice: number, planCode: string } | null}
+ */
+async function resolvePlanAmount(orgId, planRef) {
+    try {
+        const plan = await plans.findByCodeOrId(planRef);
+        if (!plan) return null;
+        return { monthlyPrice: Number(plan.monthlyPrice) || 0, planCode: plan.code };
+    } catch {
+        return null;
+    }
+}
 
 /**
  * Applique les effets métier d'un paiement réussi.
@@ -31,10 +46,20 @@ async function settlePayment(txn) {
     // 1) Facture liée -> PAID (créée au besoin, idempotente).
     if (txn.invoiceId) {
         try {
+            const existingInvoice = await invoices.findByNumber(txn.invoiceId);
+            const invoiceAmount = existingInvoice ? Number(existingInvoice.amount) : txn.amount;
+            if (existingInvoice && Number(txn.amount) < invoiceAmount) {
+                logger.warn('payment.amount_mismatch', {
+                    transactionId: txn.id,
+                    transactionAmount: txn.amount,
+                    invoiceAmount,
+                    message: `Montant du paiement (${txn.amount}) inférieur au montant de la facture (${invoiceAmount}).`,
+                });
+            }
             settled.invoice = await invoices.markPaidByNumber(txn.invoiceId, {
                 organizationId: txn.organizationId,
                 subscriptionId: txn.subscriptionId || null,
-                amount: txn.amount,
+                amount: invoiceAmount,
                 currency: txn.currency,
                 provider: txn.provider,
                 paymentTransactionId: txn.id,
@@ -60,6 +85,17 @@ async function settlePayment(txn) {
     if (txn.subscriptionId || txn.organizationId) {
         try {
             const planRef = (txn.metadata && (txn.metadata.planId || txn.metadata.planCode)) || undefined;
+            const resolvedPlan = planRef ? await resolvePlanAmount(txn.organizationId, planRef) : null;
+            if (resolvedPlan && Number(txn.amount) < resolvedPlan.monthlyPrice) {
+                logger.warn('payment.amount_below_plan', {
+                    transactionId: txn.id,
+                    transactionAmount: txn.amount,
+                    planMonthlyPrice: resolvedPlan.monthlyPrice,
+                    planCode: resolvedPlan.planCode,
+                    message: `Montant du paiement (${txn.amount}) inférieur au prix du plan "${resolvedPlan.planCode}" (${resolvedPlan.monthlyPrice}). Renouvellement refusé.`,
+                });
+                return settled;
+            }
             settled.subscription = await subscriptionService.renew(txn.organizationId, {
                 planId: planRef,
                 changedBy: null,

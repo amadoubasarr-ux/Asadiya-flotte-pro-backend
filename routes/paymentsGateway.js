@@ -295,8 +295,15 @@ router.get('/:id/check', requireAuth, asyncHandler(async (req, res) => {
 // ============================================================
 router.post('/:id/cancel', requireAuth, asyncHandler(async (req, res) => {
     const txn = await loadOwned(req);
-    const gateway = getGateway(txn.provider);
 
+    if (!canTransition(txn.status, 'CANCELLED')) {
+        throw AppError.conflict(
+            `Transition de statut invalide : ${txn.status} → CANCELLED.`,
+            { from: txn.status, to: 'CANCELLED' }
+        );
+    }
+
+    const gateway = getGateway(txn.provider);
     await callProvider(gateway, 'cancelPayment', {
         transactionReference: txn.transactionReference,
         providerReference: txn.providerReference,
@@ -316,8 +323,15 @@ router.post('/:id/cancel', requireAuth, asyncHandler(async (req, res) => {
 // ============================================================
 router.post('/:id/refund', requireAuth, asyncHandler(async (req, res) => {
     const txn = await loadOwned(req);
-    const gateway = getGateway(txn.provider);
 
+    if (!canTransition(txn.status, 'REFUNDED')) {
+        throw AppError.conflict(
+            `Transition de statut invalide : ${txn.status} → REFUNDED.`,
+            { from: txn.status, to: 'REFUNDED' }
+        );
+    }
+
+    const gateway = getGateway(txn.provider);
     await callProvider(gateway, 'refundPayment', {
         transactionReference: txn.transactionReference,
         providerReference: txn.providerReference,
