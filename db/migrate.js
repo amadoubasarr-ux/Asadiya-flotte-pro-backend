@@ -454,6 +454,10 @@ const UPGRADE_INVOICES_SQL = `
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS
     payment_transaction_id INTEGER REFERENCES payment_transactions(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_invoices_transaction ON invoices(payment_transaction_id);
+ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_amount_positive;
+ALTER TABLE invoices ADD CONSTRAINT invoices_amount_positive CHECK (amount > 0);
+ALTER TABLE payment_transactions DROP CONSTRAINT IF EXISTS payment_transactions_amount_positive;
+ALTER TABLE payment_transactions ADD CONSTRAINT payment_transactions_amount_positive CHECK (amount > 0);
 `;
 
 // ============================================================
@@ -559,6 +563,10 @@ ALTER TABLE vehicle_sales DROP CONSTRAINT IF EXISTS vehicle_sales_price_check;
 ALTER TABLE vehicle_sales DROP CONSTRAINT IF EXISTS vehicle_sales_price_positive;
 ALTER TABLE vehicle_sales ADD CONSTRAINT vehicle_sales_price_positive CHECK (price > 0);
 
+ALTER TABLE vehicle_sales DROP CONSTRAINT IF EXISTS vehicle_sales_paid_amount_positive;
+ALTER TABLE vehicle_sales ADD CONSTRAINT vehicle_sales_paid_amount_positive
+    CHECK (paid_amount IS NULL OR paid_amount >= 0);
+
 ALTER TABLE vehicle_sales DROP CONSTRAINT IF EXISTS vehicle_sales_currency_allowed;
 ALTER TABLE vehicle_sales ADD CONSTRAINT vehicle_sales_currency_allowed
     CHECK (currency IN ('XOF', 'EUR', 'USD'));
@@ -566,8 +574,6 @@ ALTER TABLE vehicle_sales ADD CONSTRAINT vehicle_sales_currency_allowed
 ALTER TABLE vehicle_sales DROP CONSTRAINT IF EXISTS vehicle_sales_buyer_type_allowed;
 ALTER TABLE vehicle_sales ADD CONSTRAINT vehicle_sales_buyer_type_allowed
     CHECK (buyer_type IS NULL OR buyer_type IN ('INTERNAL', 'EXTERNAL'));
-
-CREATE INDEX IF NOT EXISTS idx_vehicle_sales_org_status ON vehicle_sales(organization_id, status);
 `;
 
 // ============================================================

@@ -61,6 +61,14 @@ function parseIdFilter(value, name) {
     return n;
 }
 
+function requireValidId(value, name) {
+    const n = parseInt(value, 10);
+    if (!Number.isInteger(n) || n < 1) {
+        throw AppError.badRequest(`L'identifiant "${name}" doit être un nombre entier positif.`);
+    }
+    return n;
+}
+
 function parseDateFilter(value, name) {
     if (value === undefined || value === null || value === '') return undefined;
     const s = String(value).trim();
@@ -140,7 +148,8 @@ router.get('/', requireAuth, requireOrgUser, asyncHandler(async (req, res) => {
 }));
 
 router.get('/:id', requireAuth, requireOrgUser, asyncHandler(async (req, res) => {
-    const item = await vehicleSales.findById(req.user.organizationId, req.params.id);
+    const id = requireValidId(req.params.id, 'id');
+    const item = await vehicleSales.findById(req.user.organizationId, id);
     if (!item) throw AppError.notFound('Introuvable.');
     res.json(item);
 }));
@@ -154,17 +163,19 @@ router.post('/', requireAuth, requireOrgUser, requireRole('ADMIN', 'MANAGER'), a
 }));
 
 router.put('/:id', requireAuth, requireOrgUser, requireRole('ADMIN', 'MANAGER'), asyncHandler(async (req, res) => {
+    const id = requireValidId(req.params.id, 'id');
     const body = validateVehicleSale(req.body || {}, { partial: true });
-    const item = await vehicleSales.update(req.user.organizationId, req.params.id, body);
+    const item = await vehicleSales.update(req.user.organizationId, id, body);
     if (!item) throw AppError.notFound('Introuvable.');
     res.json(item);
 }));
 
 router.delete('/:id', requireAuth, requireOrgUser, requireRole('ADMIN', 'MANAGER'), asyncHandler(async (req, res) => {
+    const id = requireValidId(req.params.id, 'id');
     // Clés de stockage des photos AVANT suppression : le nettoyage physique
     // doit suivre la suppression en base (aucun fichier orphelin).
-    const photoKeys = await vehicleSalePhotos.listStorageKeysBySale(req.user.organizationId, req.params.id);
-    const ok = await vehicleSales.remove(req.user.organizationId, req.params.id);
+    const photoKeys = await vehicleSalePhotos.listStorageKeysBySale(req.user.organizationId, id);
+    const ok = await vehicleSales.remove(req.user.organizationId, id);
     if (!ok) throw AppError.notFound('Introuvable.');
     // La suppression en base (ON DELETE CASCADE) retire les lignes photos ;
     // on retire alors les fichiers physiques (meilleur effort).

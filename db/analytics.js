@@ -310,8 +310,8 @@ function computeFleetHealthScore({ vehicles, maintenances, incidents, accidents,
     const total = vehicles.length;
     if (!total) return { total: 0, grade: 'Aucun véhicule', components: [] };
 
-    const inMaintenance = vehicles.filter((v) => v.status === 'IN_MAINTENANCE').length;
-    const availabilityPct = (total - inMaintenance) / total;
+    const unavailable = vehicles.filter((v) => v.status === 'IN_MAINTENANCE' || v.status === 'SOLD').length;
+    const availabilityPct = (total - unavailable) / total;
 
     const overdue = vehicles.filter((v) => oilDelayKm(v) < 0).length;
     const maintenancePct = (total - overdue) / total;
@@ -327,7 +327,7 @@ function computeFleetHealthScore({ vehicles, maintenances, incidents, accidents,
     const costPerKm = km > 0 ? maintCost / km : null;
     const costScore = costPerKm == null ? 75 : clamp((REF_COST_PER_KM / costPerKm) * 100, 0, 100);
 
-    const immoScore = clamp(100 - (inMaintenance / total) * 500, 0, 100);
+    const immoScore = clamp(100 - (unavailable / total) * 500, 0, 100);
 
     const components = [
         { key: 'availability', label: 'Disponibilité', weight: 0.20, score: Math.round(availabilityPct * 100) },
@@ -429,7 +429,9 @@ function monthlySeries(rows, n = 12, mapper) {
 
 function computeForecast({ maintenances, fuelLogs, vehicles, incidents }) {
     const costs = costsByMonth(maintenances, fuelLogs);
-    const last3 = costs.maintenance.slice(-3).map((m, i) => m + costs.fuel[i]);
+    const last3Maint = costs.maintenance.slice(-3);
+    const last3Fuel = costs.fuel.slice(-3);
+    const last3 = last3Maint.map((m, i) => m + (last3Fuel[i] || 0));
     const withData = last3.filter((v) => v > 0);
     const base = withData.length ? withData.reduce((s, v) => s + v, 0) / withData.length : 0;
     const monthFactor = 30 / 30.44;

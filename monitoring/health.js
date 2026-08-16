@@ -63,7 +63,6 @@ function disk() {
         const usedPercent = total > 0 ? round2(((total - free) / total) * 100) : 0;
         return {
             available: true,
-            path: APP_ROOT,
             totalBytes: total,
             freeBytes: free,
             usedPercent,

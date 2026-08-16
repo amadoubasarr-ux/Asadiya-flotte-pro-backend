@@ -33,7 +33,7 @@ router.post('/login', asyncHandler(async (req, res) => {
         throw AppError.badRequest('Identifiant et mot de passe requis.');
     }
     const user = await users.findByUsername(username);
-    if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
         logger.warn('auth.login.failed', { reason: 'invalid_credentials', username, ip: req.ip });
         throw AppError.unauthorized('Identifiants incorrects.');
     }

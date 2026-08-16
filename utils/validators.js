@@ -90,6 +90,8 @@ function photoValue(value, name) {
 
 // ===== Ressources =====
 
+const VEHICLE_STATUSES = ['AVAILABLE', 'IN_MAINTENANCE', 'RESERVED', 'SOLD'];
+
 const VEHICLE_KEYS = [
     'plate', 'brand', 'model', 'year', 'mileage', 'lastOilChangeKm', 'nextOilChangeKm',
     'fuel', 'status', 'driver', 'insuranceExpiry', 'registrationExpiry', 'technicalControlExpiry', 'photo',
@@ -102,7 +104,12 @@ function validateVehicle(body, { partial = false } = {}) {
     if (data.brand !== undefined) data.brand = textValue(data.brand, 'brand', { max: 100 });
     if (data.model !== undefined) data.model = textValue(data.model, 'model', { max: 100 });
     if (data.fuel !== undefined) data.fuel = textValue(data.fuel, 'fuel', { max: 50 });
-    if (data.status !== undefined) data.status = textValue(data.status, 'status', { max: 50 });
+    if (data.status !== undefined) {
+        data.status = textValue(data.status, 'status', { max: 50 });
+        if (!VEHICLE_STATUSES.includes(data.status)) {
+            throw AppError.badRequest(`Statut de véhicule invalide (attendu : ${VEHICLE_STATUSES.join(', ')}).`);
+        }
+    }
     if (data.driver !== undefined) data.driver = textValue(data.driver, 'driver', { max: 200 });
     if (data.photo !== undefined) data.photo = photoValue(data.photo, 'photo');
     if (data.year !== undefined) data.year = intValue(data.year, 'year', { min: 1900 });
@@ -386,12 +393,10 @@ function validateVehicleSale(body, { partial = false } = {}) {
         }
     }
 
-    // Un versement ne peut pas dépasser le total (vérifié quand tous les
-    // montants sont présents dans la requête ; recalculé aussi côté serveur).
-    if (
-        data.paidAmount !== undefined &&
-        data.price !== undefined && data.tax !== undefined && data.fees !== undefined
-    ) {
+    // Un versement ne peut pas dépasser le total : on compare paidAmount
+    // au total calculé (price + tax + fees), en utilisant 0 pour les
+    // montants omis (cohérent avec le recalcul côté serveur).
+    if (data.paidAmount !== undefined && data.price !== undefined) {
         const total = (Number(data.price) || 0) + (Number(data.tax) || 0) + (Number(data.fees) || 0);
         if (Number(data.paidAmount) > total) {
             throw AppError.badRequest('Le montant déjà payé (paidAmount) ne peut pas dépasser le prix total.');

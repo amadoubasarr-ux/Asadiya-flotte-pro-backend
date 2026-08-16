@@ -439,11 +439,9 @@ const COMMERCIAL_TRANSITIONS = {
 };
 
 /** Charge le véhicule lié et vérifie son appartenance à l'organisation. */
-async function getOwnedVehicle(client, orgId, vehicleId) {
-    const result = await client.query(
-        'SELECT * FROM vehicles WHERE id = $1 AND organization_id = $2',
-        [vehicleId, orgId]
-    );
+async function getOwnedVehicle(client, orgId, vehicleId, { forUpdate = false } = {}) {
+    const sql = 'SELECT * FROM vehicles WHERE id = $1 AND organization_id = $2' + (forUpdate ? ' FOR UPDATE' : '');
+    const result = await client.query(sql, [vehicleId, orgId]);
     if (result.rowCount === 0) {
         throw AppError.notFound('Le véhicule lié n\'existe pas dans votre organisation.');
     }
@@ -548,6 +546,21 @@ vehicles.setCommercialStatus = async function setCommercialStatus(orgId, vehicle
                 );
             }
             if (sale.status !== 'COMPLETED') {
+                if (!sale.buyer_id && !sale.buyer_name) {
+                    throw AppError.badRequest(
+                        'La vente doit comporter un acheteur (buyerId ou buyerName) avant de marquer le véhicule comme vendu.'
+                    );
+                }
+                if (!sale.price || Number(sale.price) <= 0) {
+                    throw AppError.badRequest(
+                        'La vente doit comporter un prix strictement positif avant de marquer le véhicule comme vendu.'
+                    );
+                }
+                if (sale.paid_amount != null && Number(sale.paid_amount) > Number(sale.total_price || 0)) {
+                    throw AppError.badRequest(
+                        'Le versement ne peut pas dépasser le prix total de la vente.'
+                    );
+                }
                 await client.query(
                     'UPDATE vehicle_sales SET status = $1 WHERE organization_id = $2 AND id = $3',
                     ['COMPLETED', orgId, sale.id]
@@ -674,6 +687,9 @@ const vehicleSales = {
         const tax = Number(clean.tax) || 0;
         const fees = Number(clean.fees) || 0;
         clean.total_price = price + tax + fees;
+        if (clean.paid_amount != null && Number(clean.paid_amount) > clean.total_price) {
+            throw AppError.badRequest('Le montant déjà payé (paidAmount) ne peut pas dépasser le prix total.');
+        }
         if (clean.currency === undefined) clean.currency = 'XOF';
         if (clean.buyer_type === undefined) clean.buyer_type = clean.buyer_id != null ? 'INTERNAL' : 'EXTERNAL';
         const saleYear = String(clean.sale_date || '').slice(0, 4) || String(new Date().getFullYear());
@@ -683,7 +699,7 @@ const vehicleSales = {
         for (let attempt = 0; attempt < 3; attempt++) {
             try {
                 return await withTransaction(async (client) => {
-                    const vehicle = await getOwnedVehicle(client, orgId, clean.vehicle_id);
+                    const vehicle = await getOwnedVehicle(client, orgId, clean.vehicle_id, { forUpdate: true });
                     // Vérifications d'appartenance AVANT l'état de disponibilité :
                     // un acheteur / courtier / vendeur d'une autre organisation
                     // doit être refusé (404) même si le véhicule est réservé.
