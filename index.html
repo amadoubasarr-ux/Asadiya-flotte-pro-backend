@@ -1290,7 +1290,7 @@
                         </div>
                         <div>
                             <label class="label">Mot de passe</label>
-                            <input type="text" x-model="newOrg.adminPassword" placeholder="min. 6 caractères" class="input">
+                            <input type="password" x-model="newOrg.adminPassword" placeholder="min. 6 caractères" class="input">
                         </div>
                     </div>
                     <p x-show="orgError" x-text="orgError" class="text-rose-500 text-[11px] font-semibold"></p>
@@ -1333,7 +1333,7 @@
                             </div>
                             <div x-show="resetPasswordUserId === u.id" class="flex gap-2 items-start pt-1 border-t border-slate-200">
                                 <div class="flex-1">
-                                    <input type="text" x-model="resetPasswordValue" placeholder="Nouveau mot de passe (min. 6 caractères)" class="input !text-[11px]">
+                                    <input type="password" x-model="resetPasswordValue" placeholder="Nouveau mot de passe (min. 6 caractères)" class="input !text-[11px]">
                                     <p x-show="resetPasswordError" x-text="resetPasswordError" class="text-rose-500 text-[10px] font-semibold mt-1"></p>
                                 </div>
                                 <button @click="confirmResetPassword(u.id, u.username)" class="btn btn-primary btn-xs mt-0.5">Valider</button>
@@ -5955,7 +5955,7 @@
                         </div>
                         <div>
                             <label class="label" x-text="editingUserId ? 'Nouveau mot de passe (optionnel)' : 'Mot de passe'"></label>
-                            <input type="text" x-model="newUser.password" placeholder="min. 6 caractères" class="input">
+                            <input type="password" x-model="newUser.password" placeholder="min. 6 caractères" class="input">
                         </div>
                     </div>
                     <div>
