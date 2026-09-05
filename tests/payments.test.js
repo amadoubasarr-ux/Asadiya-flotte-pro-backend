@@ -366,6 +366,69 @@ test('Contrôle d\'accès : une autre organisation et un compte non authentifié
 });
 
 // ============================================================
+test('Permissions paiements : le DRIVER ne peut ni initier, ni annuler, ni rembourser (correctif N2)', async () => {
+    const username = uniqueName('pay_drv');
+    const u = await api('POST', '/api/users', {
+        token: adminToken,
+        body: { username, password: 'secret123', name: 'Chauffeur Paiements', role: 'DRIVER' },
+    });
+    assert.equal(u.status, 201, `Création utilisateur échouée : ${JSON.stringify(u.data)}`);
+    const driverToken = await login(username, 'secret123');
+
+    const create = await api('POST', '/api/payments/create', { token: driverToken, body: { amount: 1000 } });
+    assert.equal(create.status, 403, 'Le DRIVER ne doit pas initier de paiement');
+
+    const txn = await createPayment(adminToken, { amount: 1000 });
+    const cancel = await api('POST', `/api/payments/${txn.id}/cancel`, { token: driverToken });
+    assert.equal(cancel.status, 403, 'Le DRIVER ne doit pas annuler un paiement');
+
+    await webhook(txn.transactionReference, 'PROCESSING');
+    await webhook(txn.transactionReference, 'SUCCESS');
+    const refund = await api('POST', `/api/payments/${txn.id}/refund`, { token: driverToken });
+    assert.equal(refund.status, 403, 'Le DRIVER ne doit pas rembourser');
+});
+
+// ============================================================
+test('Synchronisation SaaS : sous-paiement sans effet, paiement complet renouvelle (correctif N5)', async () => {
+    const plansRes = await api('GET', '/api/plans/public', { token: adminToken });
+    assert.equal(plansRes.status, 200);
+    const starter = plansRes.data.find((p) => p.code === 'STARTER');
+    const price = starter.monthlyPrice;
+
+    const before = await api('GET', '/api/subscriptions/me', { token: adminToken });
+    assert.equal(before.status, 200);
+    const endBefore = before.data.subscription.endDate;
+
+    // Sous-paiement du prix du plan : le webhook SUCCESS passe la transaction
+    // en SUCCESS mais AUCUN effet métier (pas de renouvellement) ni facture PAID.
+    const under = await createPayment(adminToken, {
+        amount: price - 1,
+        metadata: { planCode: 'STARTER' },
+    });
+    await webhook(under.transactionReference, 'PROCESSING');
+    await webhook(under.transactionReference, 'SUCCESS');
+    const afterUnder = await api('GET', '/api/subscriptions/me', { token: adminToken });
+    assert.equal(
+        afterUnder.data.subscription.endDate,
+        endBefore,
+        `Sous-paiement : la date de fin ne doit pas changer (${endBefore} -> ${afterUnder.data.subscription.endDate})`
+    );
+
+    // Paiement complet du prix du plan : renouvellement (date de fin prolongée).
+    const full = await createPayment(adminToken, {
+        amount: price,
+        metadata: { planCode: 'STARTER' },
+    });
+    await webhook(full.transactionReference, 'PROCESSING');
+    await webhook(full.transactionReference, 'SUCCESS');
+    const after = await api('GET', '/api/subscriptions/me', { token: adminToken });
+    assert.ok(
+        after.data.subscription.endDate > endBefore,
+        `Paiement complet : la date de fin doit être prolongée (${endBefore} -> ${after.data.subscription.endDate})`
+    );
+});
+
+// ============================================================
 test('Webhook protégé par secret : x-webhook-secret obligatoire quand configuré', async () => {
     const secretPort = 4312;
     const secretChild = spawn(process.execPath, ['server.js'], {

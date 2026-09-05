@@ -292,6 +292,41 @@ async function renew(orgId, { planId, changedBy, reason }) {
     });
 }
 
+/**
+ * Renouvellement exécuté DANS une transaction existante (client fourni), pour
+ * la synchronisation atomique des paiements (facture PAID + renouvellement).
+ * Identique à renew() mais toutes les lectures/écritures portent sur le client
+ * de la transaction appelante.
+ */
+async function renewOnClient(client, orgId, { planId, changedBy, reason }) {
+    const sub = await subscriptions.getByOrgOnClient(client, orgId);
+    if (!sub) throw AppError.notFound('Aucun abonnement pour cette organisation.');
+
+    let plan = null;
+    if (planId != null) {
+        plan = await resolvePlanId(planId);
+        if (!plan) throw AppError.badRequest('Plan introuvable.');
+    } else {
+        plan = sub.planId != null ? await resolvePlanId(sub.planId) : null;
+        if (!plan) throw AppError.badRequest('Aucun plan à renouveler.');
+    }
+
+    const months = (plan.durationMonths != null && plan.durationMonths > 0) ? plan.durationMonths : 1;
+    const base = sub.endDate && daysBetween(todayISO(), sub.endDate) >= 0 ? sub.endDate : todayISO();
+    const end = addMonthsISO(base, months);
+
+    return subscriptions.updateCurrentOnClient(client, orgId, {
+        planId: plan.id,
+        status: 'ACTIVE',
+        startDate: sub.startDate || todayISO(),
+        endDate: end,
+        autoRenew: false,
+        changeType: 'RENEWED',
+        changedBy,
+        reason: reason || 'Renouvellement automatique après paiement réussi.',
+    });
+}
+
 /** Résilie un abonnement. */
 async function cancel(orgId, { changedBy, reason }) {
     const sub = await subscriptions.getByOrg(orgId);
@@ -357,6 +392,7 @@ module.exports = {
     enforceUserLimit,
     activate,
     renew,
+    renewOnClient,
     cancel,
     changePlan,
     startTrial,

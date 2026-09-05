@@ -378,3 +378,41 @@ test('Vérification finale : l\'organisation A n\'a rien modifié chez l\'organi
     assert.equal(sBCheck.data.status, 'DRAFT', 'la vente de B n\'a pas été finalisée');
     assert.ok(orgAId, 'organisation A référencée');
 });
+
+// ============================================================
+test('Le CRUD ne peut pas quitter RESERVED/SOLD manuellement (correctif N6)', async () => {
+    // v1 est opérationnellement RESERVED (réservation créée par le cycle de vente).
+    const v1Check = await api('GET', `/api/vehicles/${v1.id}`, { token: adminTokenA });
+    assert.equal(v1Check.data.status, 'RESERVED');
+
+    const leaveReserved = await api('PUT', `/api/vehicles/${v1.id}`, {
+        token: adminTokenA,
+        body: { status: 'AVAILABLE' },
+    });
+    assert.equal(
+        leaveReserved.status,
+        409,
+        `Sortie manuelle de RESERVED attendue 409 : ${JSON.stringify(leaveReserved.data)}`
+    );
+
+    // v2 est SOLD : impossible de le remettre en circulation via le CRUD.
+    const v2Check = await api('GET', `/api/vehicles/${v2.id}`, { token: adminTokenA });
+    assert.equal(v2Check.data.status, 'SOLD');
+    const leaveSold = await api('PUT', `/api/vehicles/${v2.id}`, {
+        token: adminTokenA,
+        body: { status: 'AVAILABLE' },
+    });
+    assert.equal(
+        leaveSold.status,
+        409,
+        `Sortie manuelle de SOLD attendue 409 : ${JSON.stringify(leaveSold.data)}`
+    );
+
+    // Contrôle : un véhicule disponible reste modifiable (statut non fourni).
+    const ok = await api('PUT', `/api/vehicles/${v4.id}`, {
+        token: adminTokenA,
+        body: { mileage: 46001 },
+    });
+    assert.equal(ok.status, 200, `Modification d'un véhicule disponible : ${JSON.stringify(ok.data)}`);
+    assert.equal(ok.data.mileage, 46001);
+});

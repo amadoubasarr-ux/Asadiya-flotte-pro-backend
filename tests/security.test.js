@@ -145,11 +145,20 @@ test('Configuration production : secret faible / CORS ouvert refusés au démarr
         DATABASE_URL: 'postgres://x',
     }), /THREW:/, 'CORS_ORIGIN=* doit être refusé en production.');
 
-    // 3. Configuration valide -> acceptée.
+    // 3. Configuration valide -> acceptée. En production, un fournisseur de
+    //    paiement RÉEL est obligatoire (le défaut "mock" est refusé) : on fournit
+    //    donc un Wave activé avec ses identifiants.
     assert.match(runConfigAssertion({
         JWT_SECRET: STRONG_SECRET,
         CORS_ORIGIN: PROD_ORIGIN,
         DATABASE_URL: 'postgres://x',
+        PAYMENT_PROVIDER: 'wave',
+        WAVE_ENABLED: 'true',
+        WAVE_API_URL: 'https://api.wave.com',
+        WAVE_API_KEY: 'wave_sn_AKS_demo',
+        WAVE_API_SECRET: 'wave-demo-secret',
+        WAVE_WEBHOOK_SECRET: 'wave-demo-webhook-123456',
+        PAYMENT_WEBHOOK_SECRET: 'webhook-demo-123456',
     }), /OK/, 'Une configuration valide doit être acceptée.');
 
     // 4. PORT invalide -> refusé (validation stricte des variables critiques).
@@ -167,6 +176,18 @@ test('Configuration production : secret faible / CORS ouvert refusés au démarr
         DATABASE_URL: 'postgres://x',
         JSON_LIMIT: 'huge',
     }), /THREW:/, 'JSON_LIMIT invalide doit être refusé en production.');
+
+    // 6. PAYMENT_PROVIDER=mock -> refusé (le simulateur permettrait des
+    //    renouvellements gratuits via ses webhooks). C'est le cas par DÉFAUT :
+    //    toute production sans fournisseur réel est bloquée au démarrage.
+    const mockBlocked = runConfigAssertion({
+        JWT_SECRET: STRONG_SECRET,
+        CORS_ORIGIN: PROD_ORIGIN,
+        DATABASE_URL: 'postgres://x',
+        PAYMENT_PROVIDER: 'mock',
+    });
+    assert.match(mockBlocked, /THREW:/, 'PAYMENT_PROVIDER=mock doit être refusé en production.');
+    assert.match(mockBlocked, /interdit en production/, 'Le message doit expliquer l\'interdiction du simulateur.');
 });
 
 // ============================================================
@@ -250,6 +271,15 @@ test('Journalisation production : sortie JSON structurée (démarrage + requête
             CORS_ORIGIN: PROD_ORIGIN,
             DATABASE_URL: process.env.DATABASE_URL || 'postgres://postgres:amadou@localhost:5432/asadiya_flotte',
             LOG_LEVEL: 'info',
+            // Un fournisseur de paiement RÉEL est obligatoire en production
+            // (le 'mock' est refusé depuis Phase 8.4 / N9).
+            PAYMENT_PROVIDER: 'wave',
+            WAVE_ENABLED: 'true',
+            WAVE_API_URL: 'https://api.wave.com',
+            WAVE_API_KEY: 'wave_sn_AKS_demo',
+            WAVE_API_SECRET: 'wave-demo-secret',
+            WAVE_WEBHOOK_SECRET: 'wave-demo-webhook-123456',
+            PAYMENT_WEBHOOK_SECRET: 'webhook-demo-123456',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -294,6 +324,15 @@ test('CORS restreint en production : origine non autorisée sans en-tête ACAO',
         JWT_SECRET: STRONG_SECRET,
         CORS_ORIGIN: PROD_ORIGIN,
         DATABASE_URL: process.env.DATABASE_URL || 'postgres://postgres:amadou@localhost:5432/asadiya_flotte',
+        // Un fournisseur de paiement RÉEL est obligatoire en production
+        // (le 'mock' est refusé depuis Phase 8.4 / N9).
+        PAYMENT_PROVIDER: 'wave',
+        WAVE_ENABLED: 'true',
+        WAVE_API_URL: 'https://api.wave.com',
+        WAVE_API_KEY: 'wave_sn_AKS_demo',
+        WAVE_API_SECRET: 'wave-demo-secret',
+        WAVE_WEBHOOK_SECRET: 'wave-demo-webhook-123456',
+        PAYMENT_WEBHOOK_SECRET: 'webhook-demo-123456',
     });
     try {
         await waitForServer(prodBase);

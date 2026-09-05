@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { history } = require('../db/subscriptions');
+const { history, subscriptions } = require('../db/subscriptions');
 const subscriptionService = require('../services/subscriptions');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
@@ -30,12 +30,22 @@ router.get('/me/history', requireAuth, requireOrg, asyncHandler(async (req, res)
 // l'abonnement est EXPIRED — c'est le point de sortie du blocage).
 // Réservé aux administrateurs : un simple conducteur ne doit pas pouvoir
 // prolonger l'abonnement de l'organisation (réservé aux futurs paiements).
+// Le planId éventuellement fourni par le client est IGNORÉ : le renouvellement
+// réapplique toujours le plan courant (le changement de plan est une opération
+// de plateforme, réservée au SUPERADMIN). Aucune extension d'un abonnement
+// encore actif sans paiement : le renouvellement n'est possible que lorsque
+// l'abonnement est effectivement expiré.
 router.post('/me/renew', requireAuth, requireOrg, requireRole('ADMIN'), asyncHandler(async (req, res) => {
     const body = req.body || {};
-    const planRef = body.planId !== undefined && body.planId !== null && body.planId !== ''
-        ? body.planId : undefined;
+    const current = await subscriptions.getByOrg(req.user.organizationId);
+    const effective = subscriptionService.computeEffectiveStatus(current);
+    if (effective !== 'EXPIRED') {
+        throw AppError.conflict(
+            `Renouvellement refusé : l'abonnement n'est pas expiré (statut effectif : ${effective}).`,
+            { status: effective }
+        );
+    }
     const sub = await subscriptionService.renew(req.user.organizationId, {
-        planId: planRef,
         changedBy: req.user.id,
         reason: body.reason || 'Renouvellement demandé par le client.',
     });

@@ -365,6 +365,15 @@ test('Journalisation production : requestId, correlationId, durée, IP, userAgen
             DATABASE_URL: PROD_DB,
             LOG_LEVEL: 'info',
             PERF_REPORT_INTERVAL_MS: '0',
+            // Un fournisseur de paiement RÉEL est obligatoire en production
+            // (le 'mock' est refusé depuis Phase 8.4 / N9).
+            PAYMENT_PROVIDER: 'wave',
+            WAVE_ENABLED: 'true',
+            WAVE_API_URL: 'https://api.wave.com',
+            WAVE_API_KEY: 'wave_sn_AKS_demo',
+            WAVE_API_SECRET: 'wave-demo-secret',
+            WAVE_WEBHOOK_SECRET: 'wave-demo-webhook-123456',
+            PAYMENT_WEBHOOK_SECRET: 'webhook-demo-123456',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });

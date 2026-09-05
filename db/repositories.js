@@ -276,6 +276,14 @@ const vehicleCrudUpdate = vehicles.update.bind(vehicles);
 
 function assertVehicleManualStatus(status, currentStatus) {
     if (status === undefined || status === null) return;
+    // Un véhicule actuellement RESERVED ou SOLD ne peut QUITTIR ces statuts que
+    // par le cycle de vente (vehicle_sales) : toute modification manuelle du
+    // statut via le CRUD est interdite (sinon double vente / remise en marché).
+    if (currentStatus === 'RESERVED' || currentStatus === 'SOLD') {
+        throw AppError.conflict(
+            'Le statut RESERVED/SOLD est géré par le cycle de vente des véhicules : modification manuelle interdite.'
+        );
+    }
     if ((status === 'RESERVED' || status === 'SOLD') && status !== currentStatus) {
         throw AppError.conflict(
             'Le statut RESERVED/SOLD est géré par le cycle de vente des véhicules : modification manuelle interdite.'
@@ -1140,7 +1148,9 @@ const CONFLICT_SQL = `
 async function findConflict(orgId, vehicleId, start, end, excludeId = null, client = null) {
     const effectiveEnd = end || start;
     const params = [orgId, vehicleId, start, effectiveEnd];
-    const exec = client || query;
+    // Un Client pg n'est pas directement appelable : on l'enveloppe dans une
+    // fonction (text, params) -> client.query(text, params), comme pool.query.
+    const exec = client ? (q, p) => client.query(q, p) : query;
     if (excludeId != null) {
         params.push(excludeId);
         const result = await exec(`${CONFLICT_SQL} AND id <> $5 FOR UPDATE LIMIT 1`, params);
@@ -1185,6 +1195,18 @@ const reservations = {
                 await assertOwned(client, 'drivers', clean.driver_id, orgId);
             }
             const effectiveEnd = clean.end || clean.start;
+            // Anti TOCTOU : sérialise toutes les opérations du même véhicule
+            // (verrou de TRANSACTION PostgreSQL, relâché au COMMIT/ROLLBACK).
+            // Sans lui, deux insertions concurrentes de créneaux qui se
+            // chevauchent ne verraient aucun conflit (le verrou FOR UPDATE ne
+            // bloque aucun enregistrement tant qu'il n'existe pas) et
+            // inséreraient toutes les deux (réservation fantôme).
+            if (clean.vehicle_id != null && clean.start != null) {
+                await client.query(
+                    'SELECT pg_advisory_xact_lock(hashtext($1))',
+                    [`${orgId}:${clean.vehicle_id}`]
+                );
+            }
             const conflict = await findConflict(orgId, clean.vehicle_id, clean.start, effectiveEnd, null, client);
             if (conflict) {
                 throw AppError.conflict(
@@ -1222,6 +1244,13 @@ const reservations = {
             const start = clean.start ?? current.start;
             const end = clean.end !== undefined ? clean.end : current.end;
             if (vehicleId != null && start != null) {
+                // Même verrou de transaction que la création : empêche les
+                // créations/modifications concurrentes d'aboutir toutes deux
+                // sur le même créneau (anti réservation fantôme).
+                await client.query(
+                    'SELECT pg_advisory_xact_lock(hashtext($1))',
+                    [`${orgId}:${vehicleId}`]
+                );
                 const conflict = await findConflict(orgId, vehicleId, start, end || start, id, client);
                 if (conflict) {
                     throw AppError.conflict(

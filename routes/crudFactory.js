@@ -11,6 +11,7 @@ const AppError = require('../utils/AppError');
  * @param {object} repo - repository (findAllByOrg, findById, create, update, remove)
  * @param {object} options
  *   - writeRoles: rôles autorisés à créer/modifier (défaut: tous les rôles connectés)
+ *   - updateRoles: rôles autorisés à modifier (défaut: identique à writeRoles)
  *   - deleteRoles: rôles autorisés à supprimer (défaut: identique à writeRoles)
  *   - validate(body, { partial }) -> valide et nettoie le corps (utils/validators)
  *   - beforeCreate(body, req) -> modifie le corps avant validation
@@ -21,6 +22,7 @@ const AppError = require('../utils/AppError');
 function makeCrudRouter(repo, options = {}) {
     const router = express.Router();
     const writeRoles = options.writeRoles || ['ADMIN', 'MANAGER', 'DRIVER'];
+    const updateRoles = options.updateRoles || writeRoles;
     const deleteRoles = options.deleteRoles || writeRoles;
     const validate = options.validate || ((body) => body);
 
@@ -55,7 +57,7 @@ function makeCrudRouter(repo, options = {}) {
         res.status(201).json(item);
     }));
 
-    router.put('/:id', requireAuth, requireOrg, requireRole(...writeRoles), asyncHandler(async (req, res) => {
+    router.put('/:id', requireAuth, requireOrg, requireRole(...updateRoles), asyncHandler(async (req, res) => {
         let body = req.body || {};
         if (options.beforeUpdate) body = options.beforeUpdate(req.params.id, body, req) || body;
         body = validate(body, { partial: true });

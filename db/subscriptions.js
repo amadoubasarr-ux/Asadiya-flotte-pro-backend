@@ -199,6 +199,84 @@ async function createOnClient(client, orgId, opts) {
     return mapRow(row);
 }
 
+/** Abonnement courant d'une organisation, lu SUR UN client de transaction. */
+async function getByOrgOnClient(client, orgId) {
+    const result = await client.query(
+        `SELECT ${SUB_COLUMNS}
+         FROM subscriptions s
+         LEFT JOIN plans p ON p.id = s.plan_id
+         WHERE s.organization_id = $1
+         ORDER BY s.id DESC
+         LIMIT 1`,
+        [orgId]
+    );
+    return mapRow(result.rows[0] || null);
+}
+
+/**
+ * Version de updateCurrent exécutable DANS une transaction existante (le
+ * client la reçoit, la transaction doit déjà être ouverte). Les lectures et
+ * écritures portent toutes sur le même client : atomicité garantie par
+ * l'appelant (withTransaction).
+ */
+async function updateCurrentOnClient(client, orgId, { planId, status, startDate, endDate, trialEndsAt, autoRenew, changeType, reason, changedBy }) {
+    const currentRes = await client.query(
+        `SELECT * FROM subscriptions
+         WHERE organization_id = $1
+         ORDER BY id DESC LIMIT 1
+         FOR UPDATE`,
+        [orgId]
+    );
+    const current = currentRes.rows[0];
+    if (!current) throw AppError.notFound('Aucun abonnement pour cette organisation.');
+
+    let plan = null;
+    if (planId != null) {
+        const planRes = await client.query(
+            'SELECT id, code, name, monthly_price FROM plans WHERE id = $1',
+            [planId]
+        );
+        plan = planRes.rows[0];
+        if (!plan) throw AppError.badRequest('Plan introuvable.');
+    } else {
+        plan = { id: current.plan_id, code: current.plan, name: current.plan };
+    }
+
+    const nextStatus = status !== undefined ? status : current.status;
+    const nextPlanId = planId != null ? planId : current.plan_id;
+    const nextPlanCode = plan.code;
+    const nextPrice = plan.monthly_price != null ? plan.monthly_price : current.monthly_price;
+
+    const res = await client.query(
+        `UPDATE subscriptions
+         SET plan_id = $2, plan = $3, monthly_price = $4, status = $5,
+             start_date = $6, end_date = $7, trial_ends_at = $8, auto_renew = $9,
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [current.id, nextPlanId, nextPlanCode, nextPrice, nextStatus,
+         startDate !== undefined ? startDate : current.start_date,
+         endDate !== undefined ? endDate : current.end_date,
+         trialEndsAt !== undefined ? trialEndsAt : current.trial_ends_at,
+         autoRenew !== undefined ? autoRenew : current.auto_renew]
+    );
+    const row = res.rows[0];
+
+    await insertHistory(client, {
+        organizationId: orgId,
+        subscriptionId: row.id,
+        plan,
+        monthlyPrice: nextPrice,
+        status: nextStatus,
+        changeType,
+        startDate: row.start_date,
+        endDate: row.end_date,
+        changedBy,
+        reason,
+    });
+    return mapRow(row);
+}
+
 const subscriptions = {
     /** Abonnement courant d'une organisation (avec le plan rattaché). */
     async getByOrg(orgId) {
@@ -212,6 +290,11 @@ const subscriptions = {
             [orgId]
         );
         return mapRow(result.rows[0] || null);
+    },
+
+    /** Abonnement courant, lu sur un client de transaction (récupérable par updateCurrentOnClient). */
+    async getByOrgOnClient(client, orgId) {
+        return getByOrgOnClient(client, orgId);
     },
 
     async getById(id) {
@@ -247,64 +330,16 @@ const subscriptions = {
      * changement. Atomique. Utilisé pour le changement de plan, l'activation,
      * la résiliation et le renouvellement.
      */
-    async updateCurrent(orgId, { planId, status, startDate, endDate, trialEndsAt, autoRenew, changeType, reason, changedBy }) {
-        return withTransaction(async (client) => {
-            const currentRes = await client.query(
-                `SELECT * FROM subscriptions
-                 WHERE organization_id = $1
-                 ORDER BY id DESC LIMIT 1
-                 FOR UPDATE`,
-                [orgId]
-            );
-            const current = currentRes.rows[0];
-            if (!current) throw AppError.notFound('Aucun abonnement pour cette organisation.');
+    async updateCurrent(orgId, opts) {
+        return withTransaction((client) => updateCurrentOnClient(client, orgId, opts));
+    },
 
-            let plan = null;
-            if (planId != null) {
-                const planRes = await client.query(
-                    'SELECT id, code, name, monthly_price FROM plans WHERE id = $1',
-                    [planId]
-                );
-                plan = planRes.rows[0];
-                if (!plan) throw AppError.badRequest('Plan introuvable.');
-            } else {
-                plan = { id: current.plan_id, code: current.plan, name: current.plan };
-            }
-
-            const nextStatus = status !== undefined ? status : current.status;
-            const nextPlanId = planId != null ? planId : current.plan_id;
-            const nextPlanCode = plan.code;
-            const nextPrice = plan.monthly_price != null ? plan.monthly_price : current.monthly_price;
-
-            const res = await client.query(
-                `UPDATE subscriptions
-                 SET plan_id = $2, plan = $3, monthly_price = $4, status = $5,
-                     start_date = $6, end_date = $7, trial_ends_at = $8, auto_renew = $9,
-                     updated_at = NOW()
-                 WHERE id = $1
-                 RETURNING *`,
-                [current.id, nextPlanId, nextPlanCode, nextPrice, nextStatus,
-                 startDate !== undefined ? startDate : current.start_date,
-                 endDate !== undefined ? endDate : current.end_date,
-                 trialEndsAt !== undefined ? trialEndsAt : current.trial_ends_at,
-                 autoRenew !== undefined ? autoRenew : current.auto_renew]
-            );
-            const row = res.rows[0];
-
-            await insertHistory(client, {
-                organizationId: orgId,
-                subscriptionId: row.id,
-                plan,
-                monthlyPrice: nextPrice,
-                status: nextStatus,
-                changeType,
-                startDate: row.start_date,
-                endDate: row.end_date,
-                changedBy,
-                reason,
-            });
-            return mapRow(row);
-        });
+    /**
+     * Version exécutable DANS une transaction existante (ex: synchronisation
+     * des paiements : facture PAID + renouvellement atomiques).
+     */
+    async updateCurrentOnClient(client, orgId, opts) {
+        return updateCurrentOnClient(client, orgId, opts);
     },
 
     /** Tous les abonnements courants (le plus récent par organisation). */

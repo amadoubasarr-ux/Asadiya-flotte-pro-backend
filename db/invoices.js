@@ -42,9 +42,14 @@ async function findByOrg(orgId, limit = 100) {
  * Marque une facture PAID (créée au besoin) après un paiement réussi.
  * Idempotent : si la facture est déjà PAID, l'opération est sans effet
  * (le paid_at d'origine et la transaction liée sont conservés).
+ * Peut être exécuté dans une transaction existante via le `client` fourni
+ * (third argument), pour garantir l'atomicité facture + renouvellement.
  */
-async function markPaidByNumber(invoiceNumber, { organizationId, subscriptionId, amount, currency, provider, paymentTransactionId }) {
-    const { rows } = await query(
+async function markPaidByNumber(invoiceNumber, { organizationId, subscriptionId, amount, currency, provider, paymentTransactionId }, client) {
+    // Un Client pg n'est pas directement appelable : on l'enveloppe dans une
+    // fonction (text, params) -> client.query(text, params), comme pool.query.
+    const exec = client ? (q, p) => client.query(q, p) : query;
+    const { rows } = await exec(
         `INSERT INTO invoices
             (invoice_number, organization_id, subscription_id, amount, currency,
              tax_amount, total_amount, status, provider, payment_transaction_id, paid_at)

@@ -259,6 +259,26 @@ test('Renouvellement autorisé même après expiration (point de sortie)', async
 });
 
 // ============================================================
+// Phase 8.4 (N1) : renouvellement réservé aux abonnements expirés,
+// extension d'un abonnement actif refusée.
+test('Renouvellement refusé tant que l\'abonnement est actif (correctif N1)', async () => {
+    assert.ok(adminToken, 'adminToken requis');
+    const me = await api('GET', '/api/subscriptions/me', { token: adminToken });
+    assert.equal(me.data.subscription.status, 'ACTIVE', 'L\'abonnement est actif après renouvellement');
+
+    // Tentative d'extension sans expiration : refus 409.
+    const renew = await api('POST', '/api/subscriptions/me/renew', {
+        token: adminToken,
+        body: { planId: 'ENTERPRISE', reason: 'Extension indue (test N1)' },
+    });
+    assert.equal(renew.status, 409, `Extension d'un abonnement actif attendue refusée : ${JSON.stringify(renew.data)}`);
+
+    // Le plan n'a pas changé malgré le planId fourni.
+    const after = await api('GET', '/api/subscriptions/me', { token: adminToken });
+    assert.equal(after.data.subscription.planCode, 'PRO', 'Le plan courant est conservé');
+});
+
+// ============================================================
 test('/api/auth/me renvoie le profil du SUPERADMIN (correctif M1)', async () => {
     assert.ok(superToken, 'superToken requis');
     const r = await api('GET', '/api/auth/me', { token: superToken });
@@ -280,4 +300,69 @@ test('Email conducteur invalide refusé, email valide accepté (correctif M4)', 
         body: { name: 'Conducteur M4 OK', email: 'chr@example.com' },
     });
     assert.equal(good.status, 201, `Email valide attendu 201 : ${JSON.stringify(good.data)}`);
+});
+
+// ============================================================
+test('Jeton d\'un utilisateur dont le rôle a changé : 401 (correctif N7)', async () => {
+    assert.ok(adminToken, 'adminToken requis');
+    const username = uniqueUsername('n7_driver');
+    const u = await api('POST', '/api/users', {
+        token: adminToken,
+        body: { username, password: 'secret123', name: 'Chauffeur N7', role: 'DRIVER' },
+    });
+    assert.equal(u.status, 201, `Création utilisateur échouée : ${JSON.stringify(u.data)}`);
+    const driverToken = await login(username, 'secret123');
+
+    // Le token du DRIVER fonctionne tant que son rôle n'a pas changé.
+    const before = await api('GET', '/api/subscriptions/me', { token: driverToken });
+    assert.equal(before.status, 200);
+
+    // L'ADMIN le promouvoit MANAGER : le rôle en base ne correspond plus au jeton.
+    const prom = await api('PUT', `/api/users/${u.data.id}`, {
+        token: adminToken,
+        body: { role: 'MANAGER' },
+    });
+    assert.equal(prom.status, 200, `Promotion échouée : ${JSON.stringify(prom.data)}`);
+
+    // L'ancien jeton (rôle DRIVER) est désormais refusé.
+    const expired = await api('GET', '/api/subscriptions/me', { token: driverToken });
+    assert.equal(expired.status, 401, `Jeton périmé attendu 401 : ${JSON.stringify(expired.data)}`);
+});
+
+// ============================================================
+test('Plaque dupliquée dans la même organisation : 409 (correctif N8)', async () => {
+    assert.ok(adminToken, 'adminToken requis');
+    const plate = `N8-${Date.now()}`;
+    const base = { plate, brand: 'Toyota', model: 'Corolla', mileage: 1000, fuel: 'ESSENCE', status: 'AVAILABLE' };
+
+    const first = await api('POST', '/api/vehicles', { token: adminToken, body: base });
+    assert.equal(first.status, 201, `Création du véhicule échouée : ${JSON.stringify(first.data)}`);
+
+    // Même plaque, même organisation -> conflit (index unique (organization_id, plate)).
+    const dup = await api('POST', '/api/vehicles', { token: adminToken, body: base });
+    assert.equal(dup.status, 409, `Plaque dupliquée attendue 409 : ${JSON.stringify(dup.data)}`);
+    assert.match(String(dup.data.error || ''), /déjà utilisée|déjà utilisés|conflit|utilisé/i, 'Message de conflit explicite');
+
+    // Une AUTRE organisation doit pouvoir créer la même plaque (multi-tenant).
+    const adminBUsername = uniqueUsername('n8badmin');
+    const orgB = await api('POST', '/api/organizations', {
+        token: superToken,
+        body: {
+            name: uniqueOrgName('n8b'),
+            adminName: 'Admin N8B',
+            adminUsername: adminBUsername,
+            adminPassword: 'secret123',
+            accountType: 'company',
+            contactEmail: uniqueOrgName('n8b') + '@example.com',
+        },
+    });
+    assert.equal(orgB.status, 201, `Création org B échouée : ${JSON.stringify(orgB.data)}`);
+    createdOrgIds.push(orgB.data.organization.id);
+    const tokenB = await login(adminBUsername, 'secret123');
+
+    const cross = await api('POST', '/api/vehicles', {
+        token: tokenB,
+        body: { ...base, plate },
+    });
+    assert.equal(cross.status, 201, `La même plaque dans une autre organisation doit être acceptée (multi-tenant) : ${JSON.stringify(cross.data)}`);
 });

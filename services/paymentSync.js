@@ -15,6 +15,7 @@
 // ============================================================
 const invoices = require('../db/invoices');
 const { plans } = require('../db/subscriptions');
+const { withTransaction } = require('../db/pool');
 const subscriptionService = require('./subscriptions');
 const logger = require('../utils/logger');
 
@@ -34,86 +35,103 @@ async function resolvePlanAmount(orgId, planRef) {
 
 /**
  * Applique les effets métier d'un paiement réussi.
- * Les erreurs d'un effet (ex: abonnement introuvable) sont journalisées mais
- * ne font pas échouer le traitement du paiement lui-même.
+ *
+ * Garanties :
+ *  - Aucun effet si le montant payé est inférieur au montant attendu (facture
+ *    existante ou prix du plan) : la transaction peut être SUCCESS mais la
+ *    facture reste PENDING et l'abonnement n'est PAS renouvelé.
+ *  - Les effets (facture PAID + renouvellement) sont ATOMIQUES : exécutés
+ *    dans une seule transaction PostgreSQL, ils réussissent ou échouent
+ *    ensemble (aucune facture PAID sans renouvellement, ni l'inverse).
+ *  - Idempotent du côté de la facture (ON CONFLICT) et du renouvellement
+ *    (un webhook SUCCESS dupliqué ne redéclenche pas settlePayment : la
+ *    machine à états ne passe à SUCCESS qu'une fois).
  *
  * @param {object} txn Transaction au statut SUCCESS (issue de db/payments).
  * @returns {Promise<{ invoice: object|null, subscription: object|null }>}
  */
 async function settlePayment(txn) {
     const settled = { invoice: null, subscription: null };
-
-    // 1) Facture liée -> PAID (créée au besoin, idempotente).
-    if (txn.invoiceId) {
-        try {
-            const existingInvoice = await invoices.findByNumber(txn.invoiceId);
-            const invoiceAmount = existingInvoice ? Number(existingInvoice.amount) : txn.amount;
-            if (existingInvoice && Number(txn.amount) < invoiceAmount) {
-                logger.warn('payment.amount_mismatch', {
-                    transactionId: txn.id,
-                    transactionAmount: txn.amount,
-                    invoiceAmount,
-                    message: `Montant du paiement (${txn.amount}) inférieur au montant de la facture (${invoiceAmount}).`,
-                });
-            }
-            settled.invoice = await invoices.markPaidByNumber(txn.invoiceId, {
-                organizationId: txn.organizationId,
-                subscriptionId: txn.subscriptionId || null,
-                amount: invoiceAmount,
-                currency: txn.currency,
-                provider: txn.provider,
-                paymentTransactionId: txn.id,
-            });
-            logger.info('payment.invoice_paid', {
-                transactionId: txn.id,
-                invoiceId: txn.invoiceId,
-                invoiceStatus: settled.invoice && settled.invoice.status,
-            });
-        } catch (err) {
-            logger.error('payment.invoice_paid_failed', {
-                transactionId: txn.id,
-                invoiceId: txn.invoiceId,
-                message: err.message,
-            });
-        }
+    if (!txn || (!txn.invoiceId && !txn.subscriptionId && !txn.organizationId)) {
+        return settled;
     }
 
-    // 2) Abonnement de l'organisation -> renouvellement automatique.
-    // Un paiement d'abonnement concerne toujours l'abonnement courant de
-    // l'organisation (renew le retrouve via organizationId), que la
-    // transaction référence explicitement un subscription_id ou non.
+    // 1) Montants attendus (lectures préalables, hors transaction).
+    let invoiceAmount = null;
+    if (txn.invoiceId) {
+        const existing = await invoices.findByNumber(txn.invoiceId);
+        invoiceAmount = existing ? Number(existing.amount) : (Number(txn.amount) || 0);
+    }
+    let resolvedPlan = null;
     if (txn.subscriptionId || txn.organizationId) {
-        try {
-            const planRef = (txn.metadata && (txn.metadata.planId || txn.metadata.planCode)) || undefined;
-            const resolvedPlan = planRef ? await resolvePlanAmount(txn.organizationId, planRef) : null;
-            if (resolvedPlan && Number(txn.amount) < resolvedPlan.monthlyPrice) {
-                logger.warn('payment.amount_below_plan', {
+        const planRef = (txn.metadata && (txn.metadata.planId || txn.metadata.planCode)) || undefined;
+        resolvedPlan = planRef ? await resolvePlanAmount(txn.organizationId, planRef) : null;
+    }
+
+    // 2) Gardes anti sous-paiement AVANT tout effet : un montant insuffisant
+    // ne crée NI facture PAID NI renouvellement (le tout est journalisé).
+    const paid = Number(txn.amount);
+    if (invoiceAmount != null && paid < invoiceAmount) {
+        logger.warn('payment.amount_mismatch', {
+            transactionId: txn.id,
+            transactionAmount: txn.amount,
+            invoiceAmount,
+            message: `Montant du paiement (${txn.amount}) inférieur au montant de la facture (${invoiceAmount}). Aucun effet appliqué.`,
+        });
+        return settled;
+    }
+    if (resolvedPlan && paid < resolvedPlan.monthlyPrice) {
+        logger.warn('payment.amount_below_plan', {
+            transactionId: txn.id,
+            transactionAmount: txn.amount,
+            planMonthlyPrice: resolvedPlan.monthlyPrice,
+            planCode: resolvedPlan.planCode,
+            message: `Montant du paiement (${txn.amount}) inférieur au prix du plan "${resolvedPlan.planCode}" (${resolvedPlan.monthlyPrice}). Aucun effet appliqué.`,
+        });
+        return settled;
+    }
+
+    // 3) Effets métier ATOMIQUES : facture PAID + renouvellement dans la même
+    // transaction. En cas d'échec d'un des effets, tout est annulé et
+    // journalisé ; le webhook fournisseur reste accusé d'ordre (200).
+    try {
+        await withTransaction(async (client) => {
+            if (txn.invoiceId) {
+                settled.invoice = await invoices.markPaidByNumber(txn.invoiceId, {
+                    organizationId: txn.organizationId,
+                    subscriptionId: txn.subscriptionId || null,
+                    amount: invoiceAmount != null ? invoiceAmount : paid,
+                    currency: txn.currency,
+                    provider: txn.provider,
+                    paymentTransactionId: txn.id,
+                }, client);
+                logger.info('payment.invoice_paid', {
                     transactionId: txn.id,
-                    transactionAmount: txn.amount,
-                    planMonthlyPrice: resolvedPlan.monthlyPrice,
-                    planCode: resolvedPlan.planCode,
-                    message: `Montant du paiement (${txn.amount}) inférieur au prix du plan "${resolvedPlan.planCode}" (${resolvedPlan.monthlyPrice}). Renouvellement refusé.`,
+                    invoiceId: txn.invoiceId,
+                    invoiceStatus: settled.invoice && settled.invoice.status,
                 });
-                return settled;
             }
-            settled.subscription = await subscriptionService.renew(txn.organizationId, {
-                planId: planRef,
-                changedBy: null,
-                reason: `Renouvellement automatique après paiement réussi (transaction ${txn.transactionReference}).`,
-            });
-            logger.info('payment.subscription_renewed', {
-                transactionId: txn.id,
-                organizationId: txn.organizationId,
-                subscriptionId: settled.subscription && settled.subscription.id,
-                endDate: settled.subscription && settled.subscription.endDate,
-            });
-        } catch (err) {
-            logger.error('payment.subscription_renew_failed', {
-                transactionId: txn.id,
-                organizationId: txn.organizationId,
-                message: err.message,
-            });
-        }
+            if (txn.subscriptionId || txn.organizationId) {
+                settled.subscription = await subscriptionService.renewOnClient(client, txn.organizationId, {
+                    planId: resolvedPlan ? resolvedPlan.planCode : undefined,
+                    changedBy: null,
+                    reason: `Renouvellement automatique après paiement réussi (transaction ${txn.transactionReference}).`,
+                });
+                logger.info('payment.subscription_renewed', {
+                    transactionId: txn.id,
+                    organizationId: txn.organizationId,
+                    subscriptionId: settled.subscription && settled.subscription.id,
+                    endDate: settled.subscription && settled.subscription.endDate,
+                });
+            }
+        });
+    } catch (err) {
+        logger.error('payment.settle_failed', {
+            transactionId: txn.id,
+            invoiceId: txn.invoiceId || null,
+            organizationId: txn.organizationId || null,
+            message: err.message,
+        });
     }
 
     return settled;

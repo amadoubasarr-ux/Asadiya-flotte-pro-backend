@@ -355,6 +355,13 @@ function assertProductionConfig() {
     if (process.env.PAYMENT_PROVIDER && !PAYMENT_PROVIDERS.includes(config.payment.provider)) {
         failures.push(`PAYMENT_PROVIDER="${process.env.PAYMENT_PROVIDER}" est inconnu (attendu : ${PAYMENT_PROVIDERS.join(', ')}).`);
     }
+    // Le simulateur 'mock' n'a AUCUNE place en production : ses webhooks
+    // permettent de renouveler des abonnements sans aucun paiement réel
+    // (facturation contournable). En production, un fournisseur réel est
+    // obligatoire (wave, orange_money ou stripe).
+    if (config.payment.provider === 'mock') {
+        failures.push('PAYMENT_PROVIDER="mock" est interdit en production : le simulateur permettrait des renouvellements gratuits. Utilisez un fournisseur réel (wave, orange_money, stripe).');
+    }
     if (process.env.PAYMENT_TIMEOUT !== undefined && !/^\d+$/.test(String(process.env.PAYMENT_TIMEOUT).trim())) {
         failures.push(`PAYMENT_TIMEOUT="${process.env.PAYMENT_TIMEOUT}" doit être un entier positif (ms).`);
     } else if (config.payment.timeoutMs < 1000) {

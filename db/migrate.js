@@ -46,6 +46,13 @@ CREATE TABLE IF NOT EXISTS vehicles (
     CONSTRAINT vehicles_commercial_status_check CHECK (commercial_status IN ('AVAILABLE', 'FOR_SALE', 'SOLD'))
 );
 
+-- Unicité de la plaque PAR organisation (multi-tenant : deux organisations
+-- distinctes peuvent légitimement avoir la même plaque ; au sein d'une même
+-- organisation une plaque ne doit exister qu'une fois). Violation -> 23505
+-- (mappé en 409 par errorHandler).
+CREATE UNIQUE INDEX IF NOT EXISTS vehicles_organization_plate_key
+    ON vehicles (organization_id, plate);
+
 CREATE TABLE IF NOT EXISTS drivers (
     id              SERIAL PRIMARY KEY,
     name            TEXT NOT NULL,
@@ -456,6 +463,10 @@ ALTER TABLE invoices ADD COLUMN IF NOT EXISTS
 CREATE INDEX IF NOT EXISTS idx_invoices_transaction ON invoices(payment_transaction_id);
 ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_amount_positive;
 ALTER TABLE invoices ADD CONSTRAINT invoices_amount_positive CHECK (amount > 0);
+-- Reste d'un schéma antérieur (jamais présent dans ce dépôt) : la contrainte
+-- n'autorisait que manual/wave/orange_money/stripe et interdisait 'mock',
+-- le fournisseur pris en charge pour le développement et les tests.
+ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_provider_check;
 ALTER TABLE payment_transactions DROP CONSTRAINT IF EXISTS payment_transactions_amount_positive;
 ALTER TABLE payment_transactions ADD CONSTRAINT payment_transactions_amount_positive CHECK (amount > 0);
 `;

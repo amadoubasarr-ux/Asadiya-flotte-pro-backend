@@ -16,7 +16,7 @@
 // ============================================================
 const express = require('express');
 const crypto = require('crypto');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const payments = require('../db/payments');
 const { subscriptions } = require('../db/subscriptions');
 const {
@@ -111,9 +111,11 @@ async function loadOwned(req) {
 }
 
 // ============================================================
-// Création d'un paiement (initiation auprès du fournisseur)
-// ============================================================
-router.post('/create', requireAuth, asyncHandler(async (req, res) => {
+// Création d'un paiement (initiation auprès du fournisseur).
+// Réservée aux rôles de gestion (+ SUPERADMIN pour la facturation plateforme) :
+// un conducteur ne doit pas pouvoir initier / annuler / rembourser des
+// transactions de l'organisation.
+router.post('/create', requireAuth, requireRole('ADMIN', 'MANAGER', 'SUPERADMIN'), asyncHandler(async (req, res) => {
     const body = req.body || {};
 
     const provider = String(body.provider || config.payment.provider || 'mock').toLowerCase();
@@ -293,7 +295,7 @@ router.get('/:id/check', requireAuth, asyncHandler(async (req, res) => {
 // ============================================================
 // Annulation d'un paiement non terminé
 // ============================================================
-router.post('/:id/cancel', requireAuth, asyncHandler(async (req, res) => {
+router.post('/:id/cancel', requireAuth, requireRole('ADMIN', 'MANAGER', 'SUPERADMIN'), asyncHandler(async (req, res) => {
     const txn = await loadOwned(req);
 
     if (!canTransition(txn.status, 'CANCELLED')) {
@@ -321,7 +323,7 @@ router.post('/:id/cancel', requireAuth, asyncHandler(async (req, res) => {
 // ============================================================
 // Remboursement d'un paiement réussi
 // ============================================================
-router.post('/:id/refund', requireAuth, asyncHandler(async (req, res) => {
+router.post('/:id/refund', requireAuth, requireRole('ADMIN', 'MANAGER', 'SUPERADMIN'), asyncHandler(async (req, res) => {
     const txn = await loadOwned(req);
 
     if (!canTransition(txn.status, 'REFUNDED')) {
