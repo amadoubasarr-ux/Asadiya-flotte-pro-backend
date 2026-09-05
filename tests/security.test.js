@@ -16,7 +16,7 @@ const assert = require('node:assert/strict');
 const { spawn, spawnSync } = require('node:child_process');
 const path = require('node:path');
 
-const PORT = 4320;
+const PORT = 4325;
 const BASE = `http://localhost:${PORT}`;
 const ROOT = path.join(__dirname, '..');
 
@@ -90,7 +90,7 @@ function runConfigAssertion(envOverrides) {
             assertProductionConfig();
             process.stdout.write('OK');
         } catch (e) {
-            process.stdout.write('THREW:' + e.message.split('\\n')[1] || '');
+            process.stdout.write('THREW:' + (e.message.split('\\n')[1] || ''));
         }
     `;
     const res = spawnSync(process.execPath, ['-e', code], {

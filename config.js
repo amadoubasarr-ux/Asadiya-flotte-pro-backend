@@ -285,10 +285,11 @@ function assertProductionConfig() {
         failures.push(`JWT_EXPIRES_IN="${process.env.JWT_EXPIRES_IN}" est invalide (ex: "7d", "24h", "3600").`);
     }
 
-    // Coût bcrypt.
+    // Coût bcrypt (plancher 10 en production : un coût inférieur affaiblirait
+    // significativement le hachage des mots de passe).
     const rounds = parseInt(config.bcryptRounds, 10);
-    if (Number.isNaN(rounds) || rounds < 4 || rounds > 20) {
-        failures.push(`BCRYPT_ROUNDS="${process.env.BCRYPT_ROUNDS}" doit être un entier entre 4 et 20.`);
+    if (Number.isNaN(rounds) || rounds < 10 || rounds > 20) {
+        failures.push(`BCRYPT_ROUNDS="${process.env.BCRYPT_ROUNDS}" doit être un entier entre 10 et 20.`);
     }
 
     // Taille maximale des corps JSON (body-parser).

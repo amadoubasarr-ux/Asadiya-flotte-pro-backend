@@ -1287,9 +1287,18 @@ const users = {
     },
 
     async findById(orgId, id) {
+        // Le SUPERADMIN (organisation NULL) se résout par identifiant seul :
+        // sans cela, /api/auth/me renvoie 404 pour la plateforme (le filtre
+        // organization_id = NULL ne matche jamais). Aucun compte client ne
+        // peut atteindre ce cas : les comptes rattachés à une organisation
+        // ont toujours un organization_id renseigné (requireOrg des routes).
+        const params = orgId == null ? [id] : [orgId, id];
+        const where = orgId == null
+            ? 'id = $1'
+            : 'organization_id = $1 AND id = $2';
         const result = await query(
-            `SELECT ${USER_SAFE_COLUMNS} FROM users WHERE organization_id = $1 AND id = $2`,
-            [orgId, id]
+            `SELECT ${USER_SAFE_COLUMNS} FROM users WHERE ${where}`,
+            params
         );
         return mapRow(result.rows[0] || null);
     },

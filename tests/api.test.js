@@ -257,3 +257,27 @@ test('Renouvellement autorisé même après expiration (point de sortie)', async
     });
     assert.equal(write.status, 201, `Écriture après renouvellement : ${JSON.stringify(write.data)}`);
 });
+
+// ============================================================
+test('/api/auth/me renvoie le profil du SUPERADMIN (correctif M1)', async () => {
+    assert.ok(superToken, 'superToken requis');
+    const r = await api('GET', '/api/auth/me', { token: superToken });
+    assert.equal(r.status, 200, `/me SUPERADMIN attendu 200 : ${JSON.stringify(r.data)}`);
+    assert.equal(r.data.user.username, 'superadmin');
+    assert.equal(r.data.user.role, 'SUPERADMIN');
+});
+
+// ============================================================
+test('Email conducteur invalide refusé, email valide accepté (correctif M4)', async () => {
+    assert.ok(adminToken, 'adminToken requis');
+    const bad = await api('POST', '/api/drivers', {
+        token: adminToken,
+        body: { name: 'Conducteur M4', email: 'pas-un-email' },
+    });
+    assert.equal(bad.status, 400, `Email invalide attendu 400 : ${JSON.stringify(bad.data)}`);
+    const good = await api('POST', '/api/drivers', {
+        token: adminToken,
+        body: { name: 'Conducteur M4 OK', email: 'chr@example.com' },
+    });
+    assert.equal(good.status, 201, `Email valide attendu 201 : ${JSON.stringify(good.data)}`);
+});

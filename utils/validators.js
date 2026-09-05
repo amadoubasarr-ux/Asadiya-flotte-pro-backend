@@ -134,7 +134,12 @@ function validateDriver(body, { partial = false } = {}) {
     const data = pick(body || {}, DRIVER_KEYS);
     if (!partial) requireFields(data, ['name'], 'un conducteur');
     if (data.name !== undefined) data.name = textValue(data.name, 'name', { max: 200 });
-    if (data.email !== undefined) data.email = textValue(data.email, 'email', { max: 255 });
+    if (data.email !== undefined) {
+        data.email = textValue(data.email, 'email', { max: 255 });
+        if (data.email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+            throw AppError.badRequest('Le champ "email" doit être une adresse e-mail valide.');
+        }
+    }
     if (data.phone !== undefined) data.phone = textValue(data.phone, 'phone', { max: 50 });
     if (data.license !== undefined) data.license = textValue(data.license, 'license', { max: 100 });
     if (data.status !== undefined) data.status = textValue(data.status, 'status', { max: 50 });

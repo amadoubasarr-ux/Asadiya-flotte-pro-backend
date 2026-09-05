@@ -38,7 +38,8 @@ complète passe **14/14** sans régression sur les tests métier existants.
 - **Données sensibles dans les réponses API** : `safeUser` exclut `password`/`passwordHash` ;
   `errorHandler` ne renvoie jamais les détails internes (stack, message SQL brut) en dehors
   du développement.
-- **Hachage des mots de passe** : bcrypt (12 rounds en production, via `BCRYPT_ROUNDS`).
+- **Hachage des mots de passe** : bcrypt (10 rounds par défaut, configurable via
+  `BCRYPT_ROUNDS` — valeur minimale **10** exigée en production).
 - **Identification des échecs de connexion** : message d'erreur générique (401) ne révélant
   pas si le nom d'utilisateur existe.
 - **Helmet** : déjà en place (CSP avec `frame-ancestors 'none'`, `nosniff`, HSTS,
@@ -57,7 +58,7 @@ fichier `.env` (si présent dans le dossier). Un attaquant pouvait télécharger
 complète et les données.
 
 **Correction.** `server.js` sert uniquement une whitelist :
-`PUBLIC_STATIC_FILES = ['/index.html', '/app.js']`. Tous les autres chemins (y compris les
+`PUBLIC_STATIC_FILES = ['/index.html', '/app.js', '/landing.html', '/landing.js']`. Tous les autres chemins (y compris les
 tentatives de *path traversal* `/%2e%2e/server.js`) retombent sur `notFoundHandler` → 404.
 
 **Vérifié par test** : `Fichiers sensibles du projet non exposés` (liste complète des
