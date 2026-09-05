@@ -265,6 +265,34 @@ function makeCrudRepo(table, fieldMap) {
 }
 
 const vehicles = makeCrudRepo('vehicles', FIELD_MAPS.vehicles);
+
+// Les statuts RESERVED et SOLD sont pilotés EXCLUSIVEMENT par le cycle de
+// vente (vehicle_sales, voir le bloc « Ventes de véhicules ») : ils ne
+// doivent pas être scriptables via le CRUD générique (le client ne peut ni
+// réserver, ni vendre, ni dévendre un véhicule à la main). Le CRUD conserve
+// AVAILABLE / IN_MAINTENANCE (maintenance, disponibilité).
+const vehicleCrudCreate = vehicles.create.bind(vehicles);
+const vehicleCrudUpdate = vehicles.update.bind(vehicles);
+
+function assertVehicleManualStatus(status, currentStatus) {
+    if (status === undefined || status === null) return;
+    if ((status === 'RESERVED' || status === 'SOLD') && status !== currentStatus) {
+        throw AppError.conflict(
+            'Le statut RESERVED/SOLD est géré par le cycle de vente des véhicules : modification manuelle interdite.'
+        );
+    }
+}
+
+vehicles.create = async function createVehicle(orgId, data) {
+    assertVehicleManualStatus(data.status, null);
+    return vehicleCrudCreate(orgId, data);
+};
+
+vehicles.update = async function updateVehicle(orgId, id, data) {
+    const current = await this.findById(orgId, id);
+    if (current) assertVehicleManualStatus(data.status, current.status);
+    return vehicleCrudUpdate(orgId, id, data);
+};
 const drivers = makeCrudRepo('drivers', FIELD_MAPS.drivers);
 const maintenances = makeCrudRepo('maintenances', FIELD_MAPS.maintenances);
 const incidents = makeCrudRepo('incidents', FIELD_MAPS.incidents);
@@ -729,8 +757,10 @@ const vehicleSales = {
         const clean = sanitizeSale(data);
         sanitizeSaleRefs(clean);
         return withTransaction(async (client) => {
+            // Verrouillage de la ligne vente (FOR UPDATE) : deux mises à jour
+            // concurrentes sont sérialisées, comme lors de la création.
             const existing = await client.query(
-                'SELECT * FROM vehicle_sales WHERE organization_id = $1 AND id = $2',
+                'SELECT * FROM vehicle_sales WHERE organization_id = $1 AND id = $2 FOR UPDATE',
                 [orgId, id]
             );
             const current = existing.rows[0];
@@ -739,6 +769,33 @@ const vehicleSales = {
             const currentStatus = current.status;
             const newStatus = clean.status !== undefined ? clean.status : currentStatus;
             assertSaleStatusTransition(currentStatus, newStatus);
+
+            // Une vente terminée fait partie de l'historique comptable : ses
+            // données structurantes (véhicule, acheteur, montants, date) sont
+            // figées. Seules les informations accessoires (notes, livraison…)
+            // restent modifiables pour le suivi opérationnel.
+            if (currentStatus === 'COMPLETED') {
+                const sameNumber = (a, b) => (a == null && b == null) || Number(a) === Number(b);
+                const IMMUTABLE = [
+                    ['vehicle_id', (a, b) => Number(a) === Number(b)],
+                    ['buyer_id', sameNumber],
+                    ['buyer_name', (a, b) => String(a || '') === String(b || '')],
+                    ['buyer_type', (a, b) => String(a || '') === String(b || '')],
+                    ['currency', (a, b) => String(a || '') === String(b || '')],
+                    ['price', sameNumber],
+                    ['tax', sameNumber],
+                    ['fees', sameNumber],
+                    ['paid_amount', sameNumber],
+                    ['sale_date', (a, b) => String(a || '') === String(b || '')],
+                ];
+                for (const [column, eq] of IMMUTABLE) {
+                    if (clean[column] !== undefined && !eq(clean[column], current[column])) {
+                        throw AppError.badRequest(
+                            'Une vente terminée (COMPLETED) ne peut pas être modifiée : données comptables figées.'
+                        );
+                    }
+                }
+            }
 
             // Changement de véhicule : libérer l'ancien, vérifier le nouveau.
             const currentVehicleId = current.vehicle_id;
@@ -749,7 +806,10 @@ const vehicleSales = {
                     [VEHICLE_AVAILABLE, currentVehicleId, VEHICLE_RESERVED]
                 );
             }
-            const vehicle = await getOwnedVehicle(client, orgId, newVehicleId);
+            // Véhicule verrouillé (FOR UPDATE) : état lu et appliqué de façon
+            // atomique (réservation / libération / SOLD) face aux mises à jour
+            // concurrentes et aux créations de vente.
+            const vehicle = await getOwnedVehicle(client, orgId, newVehicleId, { forUpdate: true });
             if (newVehicleId !== currentVehicleId) {
                 requireVehicleAvailable(vehicle);
             }

@@ -57,11 +57,17 @@ function dateValue(value, name, { required = false } = {}) {
     }
     const s = String(value).trim();
     if (s.length > 32) throw AppError.badRequest(`Le champ "${name}" est trop long.`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (!m) {
         throw AppError.badRequest(`Le champ "${name}" doit être une date au format AAAA-MM-JJ.`);
     }
-    const d = new Date(s + 'T00:00:00Z');
-    if (Number.isNaN(d.getTime())) {
+    const year = Number(m[1]);
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    // Vérification aller-retour stricte : rejette les dates calendaires
+    // impossibles (ex. 2025-02-31) que new Date() normaliserait silencieusement.
+    const d = new Date(Date.UTC(year, month - 1, day));
+    if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) {
         throw AppError.badRequest(`Le champ "${name}" contient une date invalide.`);
     }
     return s;

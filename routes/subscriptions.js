@@ -28,8 +28,9 @@ router.get('/me/history', requireAuth, requireOrg, asyncHandler(async (req, res)
 
 // Renouvellement demandé par le client lui-même (accessible même si
 // l'abonnement est EXPIRED — c'est le point de sortie du blocage).
-// Préparé pour être déclenché par les futurs paiements.
-router.post('/me/renew', requireAuth, requireOrg, asyncHandler(async (req, res) => {
+// Réservé aux administrateurs : un simple conducteur ne doit pas pouvoir
+// prolonger l'abonnement de l'organisation (réservé aux futurs paiements).
+router.post('/me/renew', requireAuth, requireOrg, requireRole('ADMIN'), asyncHandler(async (req, res) => {
     const body = req.body || {};
     const planRef = body.planId !== undefined && body.planId !== null && body.planId !== ''
         ? body.planId : undefined;

@@ -5,6 +5,7 @@ const { plans } = require('../db/subscriptions');
 const subscriptionService = require('../services/subscriptions');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { validateOrganization } = require('../utils/validators');
+const { config } = require('../config');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 
@@ -39,7 +40,7 @@ router.post('/', requireAuth, requireRole('SUPERADMIN'), asyncHandler(async (req
         name: data.name,
         adminName: data.adminName,
         adminUsername: data.adminUsername,
-        adminPasswordHash: bcrypt.hashSync(data.adminPassword, 10),
+        adminPasswordHash: bcrypt.hashSync(data.adminPassword, config.bcryptRounds),
         planId,
     });
     res.status(201).json(result);
@@ -75,7 +76,7 @@ router.patch('/:id/users/:userId/reset-password', requireAuth, requireRole('SUPE
     const user = await users.findById(orgId, userId);
     if (!user) throw AppError.notFound('Utilisateur introuvable pour ce client.');
 
-    await users.update(orgId, userId, { passwordHash: bcrypt.hashSync(String(newPassword), 10) });
+    await users.update(orgId, userId, { passwordHash: bcrypt.hashSync(String(newPassword), config.bcryptRounds) });
     res.json({ success: true, username: user.username });
 }));
 

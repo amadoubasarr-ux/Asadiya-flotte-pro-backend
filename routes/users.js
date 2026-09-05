@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { users } = require('../db/repositories');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { validateUser, VALID_ROLES } = require('../utils/validators');
+const { config } = require('../config');
 const { enforceUserLimit } = require('../services/subscriptions');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
@@ -42,7 +43,7 @@ router.post('/', requireAuth, requireOrg, requireRole('ADMIN'), asyncHandler(asy
     }
     const created = await users.create({
         username: data.username,
-        passwordHash: bcrypt.hashSync(data.password, 10),
+        passwordHash: bcrypt.hashSync(data.password, config.bcryptRounds),
         name: data.name,
         role: data.role,
         title: data.title || defaultTitle(data.role),
@@ -64,6 +65,16 @@ router.put('/:id', requireAuth, requireOrg, requireRole('ADMIN'), asyncHandler(a
         if (clash) throw AppError.conflict('Cet identifiant est déjà utilisé.');
     }
 
+    // Même garde que la suppression : l'organisation ne doit jamais perdre son
+    // dernier administrateur (une rétrogradation par PUT contournerait le
+    // contrôle appliqué sur DELETE).
+    if (data.role && data.role !== existing.role && existing.role === 'ADMIN') {
+        const adminCount = await users.countAdminsInOrg(req.user.organizationId);
+        if (adminCount <= 1) {
+            throw AppError.badRequest('Impossible de rétrograder le dernier administrateur de l\'organisation.');
+        }
+    }
+
     const changes = {
         username: data.username ?? existing.username,
         name: data.name ?? existing.name,
@@ -71,7 +82,7 @@ router.put('/:id', requireAuth, requireOrg, requireRole('ADMIN'), asyncHandler(a
         title: data.title ?? existing.title,
     };
     if (data.password) {
-        changes.passwordHash = bcrypt.hashSync(data.password, 10);
+        changes.passwordHash = bcrypt.hashSync(data.password, config.bcryptRounds);
     }
     const updated = await users.update(req.user.organizationId, req.params.id, changes);
     res.json(safeUser(updated));

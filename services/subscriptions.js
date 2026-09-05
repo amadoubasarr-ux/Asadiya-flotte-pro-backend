@@ -29,10 +29,16 @@ function addDaysISO(dateStr, days) {
 }
 
 function addMonthsISO(dateStr, months) {
-    const d = new Date(dateStr + 'T00:00:00');
-    if (Number.isNaN(d.getTime())) return null;
-    d.setMonth(d.getMonth() + months);
-    return d.toISOString().slice(0, 10);
+    if (typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+    const [y, mo, d] = dateStr.split('-').map(Number);
+    // Arithmétique calendaire stricte (pas de débordement JavaScript) : un
+    // 31 janvier + 1 mois donne le 28/29 février, jamais le 3 mars.
+    const total = (mo - 1) + months;
+    const year = y + Math.floor(total / 12);
+    const month = ((total % 12) + 12) % 12;
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const day = Math.min(d, lastDay);
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 function daysBetween(fromISO, toISO) {

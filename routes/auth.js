@@ -74,7 +74,7 @@ router.post('/signup', asyncHandler(async (req, res) => {
         name: data.name,
         adminName: data.adminName,
         adminUsername: data.adminUsername,
-        adminPasswordHash: bcrypt.hashSync(data.adminPassword, 10),
+        adminPasswordHash: bcrypt.hashSync(data.adminPassword, config.bcryptRounds),
         planId,
     });
 

@@ -244,7 +244,7 @@ function riskGrade(score) {
 function vehicleRiskScore(v, ctx) {
     let risk = 0;
     if (v.status === 'IN_MAINTENANCE') risk += 30;
-    else if (v.status === 'BOOKED') risk += 5;
+    else if (v.status === 'RESERVED') risk += 5;
 
     const delay = oilDelayKm(v);
     if (delay < 0) risk += 25;
@@ -690,7 +690,7 @@ async function getOverview(orgId, rawPeriod) {
     // ---- KPIs ----
     const total = vehicles.length;
     const availableCount = vehicles.filter((v) => v.status === 'AVAILABLE').length;
-    const bookedCount = vehicles.filter((v) => v.status === 'BOOKED').length;
+    const bookedCount = vehicles.filter((v) => v.status === 'RESERVED').length;
     const maintenanceCount = vehicles.filter((v) => v.status === 'IN_MAINTENANCE').length;
 
     const fuelCost = sum(periodFuelLogs, 'cost');

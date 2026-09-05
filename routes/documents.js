@@ -46,6 +46,16 @@ function requireOrgUser(req, res, next) {
     next();
 }
 
+// Le chemin de pièce jointe stocké en base doit rester confiné au dossier
+// « documents/<organizationId>/ » : un chemin injecté par le client ne doit
+// jamais permettre de lire (ou de supprimer) le fichier d'une autre
+// organisation (anti fuite / anti suppression inter-tenant).
+function filePathInOrg(filePath, orgId) {
+    if (typeof filePath !== 'string' || filePath === '') return false;
+    const segments = filePath.replace(/^[\\/]+/, '').split('/');
+    return segments.length >= 2 && segments[0] === 'documents' && segments[1] === String(orgId);
+}
+
 function attachStatus(doc) {
     if (!doc) return doc;
     const { status, daysLeft } = documentStatus(doc.expiryDate);
@@ -149,6 +159,11 @@ router.delete('/:id', requireAuth, requireOrgUser, requireRole('ADMIN', 'MANAGER
     const item = await documents.findById(req.user.organizationId, req.params.id);
     if (!item) throw AppError.notFound('Introuvable.');
     const filePath = item.filePath || null;
+    // Ne supprime un fichier que s'il est bien dans le dossier de MON
+    // organisation (jamais le fichier d'un autre tenant).
+    if (filePath && !filePathInOrg(filePath, req.user.organizationId)) {
+        throw AppError.notFound('Pièce jointe introuvable.');
+    }
     const ok = await documents.remove(req.user.organizationId, req.params.id);
     if (!ok) throw AppError.notFound('Introuvable.');
     // Nettoyage de la pièce jointe physique : meilleur effort, après la
@@ -168,6 +183,12 @@ router.delete('/:id', requireAuth, requireOrgUser, requireRole('ADMIN', 'MANAGER
 router.get('/:id/file', requireAuth, requireOrgUser, asyncHandler(async (req, res) => {
     const item = await documents.findById(req.user.organizationId, req.params.id);
     if (!item || !item.filePath) throw AppError.notFound('Pièce jointe introuvable.');
+    // Dossier de pièce jointe confiné à MON organisation : un filePath
+    // injecté par le client ne peut pas pointer vers le fichier d'un autre
+    // tenant (lecture) ni vers un fichier hors du dossier documents/.
+    if (!filePathInOrg(item.filePath, req.user.organizationId)) {
+        throw AppError.notFound('Pièce jointe introuvable.');
+    }
     const stream = documentFiles.createReadStream(item.filePath);
     if (!stream) {
         // Fichier physique absent : les métadonnées sont orphelines.
@@ -240,6 +261,9 @@ router.delete('/:id/file', requireAuth, requireOrgUser, requireRole('ADMIN', 'MA
     const item = await documents.findById(req.user.organizationId, req.params.id);
     if (!item) throw AppError.notFound('Document introuvable.');
     if (!item.filePath) throw AppError.notFound('Aucune pièce jointe à supprimer.');
+    if (!filePathInOrg(item.filePath, req.user.organizationId)) {
+        throw AppError.notFound('Pièce jointe introuvable.');
+    }
     const filePath = item.filePath;
     const updated = await documents.clearFileMetadata(req.user.organizationId, item.id);
     await documentFiles.removeFile(filePath);
